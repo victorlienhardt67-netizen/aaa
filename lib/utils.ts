@@ -57,37 +57,17 @@ export function initials(name: string): string {
     .join("");
 }
 
-export function estimateSceneCount(durationSeconds: number): number {
-  // Une scène dure en moyenne 4 à 6 secondes
-  return Math.max(4, Math.round(durationSeconds / 5));
-}
-
 /**
- * Détecte dans le script/brief combien de plans (frames de départ) sont
- * nécessaires pour que la vidéo reste dynamique, plutôt que de se baser
- * uniquement sur la durée cible.
- *
- * - Compte les "beats" narratifs (phrases/idées) présents dans le brief.
- * - Borne le résultat pour qu'aucun plan ne dépasse ~7s (sinon ça devient
- *   statique) ni ne descende sous ~3s (sinon le montage devient illisible).
+ * Cible de nombre de frames total pour la vidéo, interpolée linéairement
+ * entre les repères du cahier des charges : 18-22 frames pour 1 min,
+ * 28-35 frames pour 2 min. Sert de guide pour le mode simulé et l'indicateur
+ * affiché à l'utilisateur — Claude vise directement cette fourchette en mode API réel.
  */
-export function estimateSceneCountFromBrief(
-  brief: string,
-  targetDurationSeconds: number,
-  minSceneDuration = 3,
-  maxSceneDuration = 7
-): number {
-  const beats = brief
-    .split(/[.!?\n]+/)
-    .map((b) => b.trim())
-    .filter((b) => b.length > 8);
-  const beatsCount = beats.length;
-
-  const lowerBound = Math.max(4, Math.ceil(targetDurationSeconds / maxSceneDuration));
-  const upperBound = Math.max(lowerBound, Math.floor(targetDurationSeconds / minSceneDuration));
-
-  if (beatsCount >= lowerBound && beatsCount <= upperBound) return beatsCount;
-  return Math.min(Math.max(beatsCount, lowerBound), upperBound);
+export function estimateFrameCountForDuration(targetDurationSeconds: number): { min: number; max: number } {
+  const minutes = targetDurationSeconds / 60;
+  const min = Math.round(18 + (minutes - 1) * ((28 - 18) / (2 - 1)));
+  const max = Math.round(22 + (minutes - 1) * ((35 - 22) / (2 - 1)));
+  return { min: Math.max(4, min), max: Math.max(Math.max(4, min) + 1, max) };
 }
 
 let idCounter = 0;

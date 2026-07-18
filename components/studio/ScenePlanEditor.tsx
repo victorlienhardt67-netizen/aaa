@@ -1,12 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Clock, DollarSign, Film, Mic, Package, Sparkles, Users } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  DollarSign,
+  Film,
+  Mic,
+  Minus,
+  Package,
+  Plus,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
-import { CAMERA_MOVEMENT_LABELS, CameraMovement, IMAGE_ENGINE_LABELS, Lang, Scene, VIDEO_ENGINE_LABELS } from "@/types";
+import {
+  CAMERA_MOVEMENT_LABELS,
+  CameraMovement,
+  FRAMING_LABELS,
+  IMAGE_ENGINE_LABELS,
+  Lang,
+  Scene,
+  VIDEO_ENGINE_LABELS,
+} from "@/types";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Label, Textarea, Input } from "@/components/ui/Input";
@@ -16,7 +36,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { CameraPresetPicker } from "@/components/studio/CameraPresetPicker";
 import { AVAILABLE_VOICES } from "@/lib/higgsfield";
 import { estimateImageCost, estimateVideoCost } from "@/lib/mock";
-import { formatCost, formatDuration } from "@/lib/utils";
+import { estimateFrameCountForDuration, formatCost, formatDuration } from "@/lib/utils";
 
 const CAMERA_OPTIONS = (Object.keys(CAMERA_MOVEMENT_LABELS) as CameraMovement[]).map((v) => ({
   value: v,
@@ -42,6 +62,7 @@ function SceneEditor({ scene }: { scene: Scene }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Badge tone="neutral">{formatDuration(scene.durationSeconds)}</Badge>
+          {scene.framing && <Badge tone="neutral">{FRAMING_LABELS[scene.framing]}</Badge>}
           {scene.hasProduct && (
             <Badge tone="gold">
               <Package className="w-3 h-3" /> Produit
@@ -221,6 +242,8 @@ function SceneEditor({ scene }: { scene: Scene }) {
 export function ScenePlanEditor() {
   const currentProject = useProjectStore((s) => s.currentProject);
   const setStatus = useProjectStore((s) => s.setStatus);
+  const addSceneToBeat = useProjectStore((s) => s.addSceneToBeat);
+  const removeScene = useProjectStore((s) => s.removeScene);
   const motionIntensity = useSettingsStore((s) => s.generationDefaults.motionIntensity);
   const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
   const style = useStyleStore((s) => s.styles.find((st) => st.id === currentProject?.styleId));
@@ -235,14 +258,26 @@ export function ScenePlanEditor() {
   const estimatedImageCost = framedScenes.length * estimateImageCost(imageEngine);
   const estimatedVideoCost = plan.scenes.reduce((sum, s) => sum + estimateVideoCost(videoEngine, s.durationSeconds), 0);
   const estimatedTotalCost = estimatedImageCost + estimatedVideoCost;
+  const frameTarget = estimateFrameCountForDuration(currentProject.targetDuration);
+  const frameCountOk = plan.scenes.length >= frameTarget.min && plan.scenes.length <= frameTarget.max;
+
+  const beatGroups: { label: string; scenes: Scene[] }[] = [];
+  for (const scene of plan.scenes) {
+    const label = scene.beatLabel ?? "Frames";
+    const group = beatGroups.find((g) => g.label === label);
+    if (group) group.scenes.push(scene);
+    else beatGroups.push({ label, scenes: [scene] });
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-8 space-y-6">
       <div>
         <h1 className="font-display font-bold text-2xl text-ink mb-1">Plan de production</h1>
         <p className="text-sm text-ink-secondary">
-          {plan.scenes.length} scènes détectées · langue confirmée : {plan.detectedLang.toUpperCase()} · intensité
-          de mouvement : {motionIntensity}
+          <span className={frameCountOk ? "" : "text-amber-400"}>
+            {plan.scenes.length} frames détectées (cible {frameTarget.min}-{frameTarget.max})
+          </span>{" "}
+          · langue confirmée : {plan.detectedLang.toUpperCase()} · intensité de mouvement : {motionIntensity}
         </p>
       </div>
 
@@ -301,10 +336,38 @@ export function ScenePlanEditor() {
         </p>
       </Card>
 
-      <div className="space-y-3">
-        {plan.scenes.map((scene) => (
-          <SceneEditor key={scene.id} scene={scene} />
-        ))}
+      <div className="space-y-6">
+        {beatGroups.map(({ label, scenes }) => {
+          const beatDuration = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
+          return (
+            <div key={label} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-mono text-xs uppercase tracking-wide text-gold-light">{label}</h3>
+                <span className="text-xs text-ink-secondary">
+                  {scenes.length} frame{scenes.length > 1 ? "s" : ""} · {formatDuration(beatDuration)}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {scenes.map((scene) => (
+                  <SceneEditor key={scene.id} scene={scene} />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={() => addSceneToBeat(label)}>
+                  <Plus className="w-3.5 h-3.5" /> Ajouter une frame
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeScene(scenes[scenes.length - 1].id)}
+                  disabled={scenes.length <= 1}
+                >
+                  <Minus className="w-3.5 h-3.5" /> Retirer la dernière
+                </Button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex justify-end pt-4 border-t border-border">

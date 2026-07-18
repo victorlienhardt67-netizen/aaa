@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callClaudeTool } from "@/lib/anthropicServer";
 import { DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT } from "@/lib/prompts";
+import { estimateFrameCountForDuration } from "@/lib/utils";
 
 const CAMERA_MOVEMENTS = [
   "push_in",
@@ -52,7 +53,11 @@ const PRODUCTION_PLAN_TOOL = {
                 "État du personnage dans cette scène si plusieurs états existent (ex: 'avant', 'après', 'fatiguée', 'rayonnante'). Omettre si un seul état existe pour ce personnage.",
             },
             needsFrame: { type: "boolean", description: "Une frame de départ (image) est-elle nécessaire ?" },
-            imagePrompt: { type: "string", description: "Prompt détaillé pour générer l'image de départ (frame)." },
+            imagePrompt: {
+              type: "string",
+              description:
+                "Prompt détaillé pour générer l'image de départ (frame). Ne jamais y décrire l'apparence physique d'un personnage récurrent (hasCharacter=true) — seulement son action, sa pose et la composition.",
+            },
             videoPrompt: {
               type: "string",
               description:
@@ -64,6 +69,22 @@ const PRODUCTION_PLAN_TOOL = {
               enum: ["voiceover", "lipsync", "none"],
               description:
                 "Détecte automatiquement qui parle et comment : 'voiceover' si c'est une narration hors-champ (aucun personnage ne parle à l'écran), 'lipsync' si un personnage parle directement face caméra et doit synchroniser ses lèvres, 'none' s'il n'y a aucune voix dans ce plan.",
+            },
+            framing: {
+              type: "string",
+              enum: ["wide", "medium", "close_up"],
+              description:
+                "Cadrage de cette frame. Doit alterner d'une frame à l'autre — jamais deux fois de suite le même framing.",
+            },
+            beatLabel: {
+              type: "string",
+              description:
+                "Nom du bloc narratif auquel appartient cette frame (ex: 'Accroche', 'Présentation du problème', 'Transformation', 'Témoignage', 'Appel à l'action'). Identique pour toutes les frames du même bloc, dans l'ordre du script.",
+            },
+            durationJustification: {
+              type: "string",
+              description:
+                "Obligatoire uniquement si durationSeconds > 8 : explique pourquoi cette durée exceptionnelle est nécessaire (mouvement complexe, transformation, effet marquant...).",
             },
           },
           required: [
@@ -77,6 +98,8 @@ const PRODUCTION_PLAN_TOOL = {
             "videoPrompt",
             "dialogueLang",
             "voiceType",
+            "framing",
+            "beatLabel",
           ],
         },
       },
@@ -111,7 +134,9 @@ export async function POST(req: NextRequest) {
 - Intensité de mouvement souhaitée : ${motionIntensity ?? "equilibre"}
 ${learningContext ? `\nRetours qualité des générations précédentes à prendre en compte :\n${learningContext}` : ""}`;
 
-  const userMessage = `Brief à analyser :
+  const frameTarget = estimateFrameCountForDuration(Number(targetDuration) || 60);
+
+  const userMessage = `Script à analyser :
 """
 ${brief}
 """
@@ -122,8 +147,9 @@ Notes de génération permanentes de la marque : ${brandNotes ?? ""}
 Style visuel : ${styleName ?? ""} — ${stylePositivePrompt ?? ""}
 Langue cible du projet : ${lang}
 Durée cible totale : ${targetDuration} secondes
+Nombre total de frames visé : entre ${frameTarget.min} et ${frameTarget.max}
 
-Découpe ce brief en scènes cohérentes qui respectent la durée cible totale (somme des durationSeconds proche de ${targetDuration}s), en gardant chaque plan dynamique (idéalement entre 3 et 7 secondes).`;
+Découpe ce script en frames cohérentes qui respectent la durée cible totale (somme des durationSeconds proche de ${targetDuration}s) et le nombre total de frames visé ci-dessus, en respectant les règles de durée par frame, l'alternance de cadrage et le regroupement en blocs narratifs (beatLabel).`;
 
   try {
     const result = await callClaudeTool({ apiKey, system, userMessage, tool: PRODUCTION_PLAN_TOOL });

@@ -26,6 +26,10 @@ interface ProjectState {
   setStatus: (status: ProjectStatus) => void;
   updateScene: (sceneId: string, patch: Partial<Scene>) => void;
   reorderScenes: (orderedIds: string[]) => void;
+  /** Ajoute une frame à la fin d'un bloc narratif (beatLabel), clonée sur la dernière frame du bloc. Recalcule les index, aucun appel API. */
+  addSceneToBeat: (beatLabel: string) => void;
+  /** Retire une frame — refusé si c'est la dernière du bloc (minimum 1 frame par bloc). */
+  removeScene: (sceneId: string) => void;
   initCharacterReferences: (refs: CharacterReference[]) => void;
   /** `key` est la clé composite `characterReferenceKey(assetId, state)`, pas l'assetId seul. */
   updateCharacterReference: (key: string, patch: Partial<CharacterReference>) => void;
@@ -105,6 +109,56 @@ export const useProjectStore = create<ProjectState>()(
             currentProject: {
               ...s.currentProject,
               plan: { ...s.currentProject.plan, scenes },
+            },
+          };
+        }),
+
+      addSceneToBeat: (beatLabel) =>
+        set((s) => {
+          if (!s.currentProject?.plan) return s;
+          const scenes = s.currentProject.plan.scenes;
+          const beatScenes = scenes.filter((sc) => (sc.beatLabel ?? "Frames") === beatLabel);
+          const last = beatScenes[beatScenes.length - 1];
+          if (!last) return s;
+          const lastIdx = scenes.findIndex((sc) => sc.id === last.id);
+          const newScene: Scene = {
+            ...last,
+            id: generateId("scene"),
+            durationSeconds: 4,
+            frameUrl: undefined,
+            frameStatus: "frame_pending",
+            frameHistory: [],
+            videoUrl: undefined,
+            videoStatus: "video_pending",
+            videoCostEstimate: undefined,
+            imageCostEstimate: undefined,
+            feedback: undefined,
+          };
+          const updated = [...scenes.slice(0, lastIdx + 1), newScene, ...scenes.slice(lastIdx + 1)].map(
+            (sc, i) => ({ ...sc, index: i + 1 })
+          );
+          return {
+            currentProject: {
+              ...s.currentProject,
+              plan: { ...s.currentProject.plan, scenes: updated },
+            },
+          };
+        }),
+
+      removeScene: (sceneId) =>
+        set((s) => {
+          if (!s.currentProject?.plan) return s;
+          const scenes = s.currentProject.plan.scenes;
+          const target = scenes.find((sc) => sc.id === sceneId);
+          if (!target) return s;
+          const beatLabel = target.beatLabel ?? "Frames";
+          const beatCount = scenes.filter((sc) => (sc.beatLabel ?? "Frames") === beatLabel).length;
+          if (beatCount <= 1) return s;
+          const updated = scenes.filter((sc) => sc.id !== sceneId).map((sc, i) => ({ ...sc, index: i + 1 }));
+          return {
+            currentProject: {
+              ...s.currentProject,
+              plan: { ...s.currentProject.plan, scenes: updated },
             },
           };
         }),

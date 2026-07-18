@@ -117,6 +117,18 @@ export const CAMERA_MOVEMENT_VIDEO_PHRASES: Record<CameraMovement, string> = {
   rack_focus: "rack focus shifting sharpness between subject and background",
 };
 
+/**
+ * Cadrage d'une frame — l'alternance (jamais deux fois le même cadrage
+ * consécutivement) évite l'effet "montage plat" d'un plan de production.
+ */
+export type Framing = "wide" | "medium" | "close_up";
+
+export const FRAMING_LABELS: Record<Framing, string> = {
+  wide: "Plan large",
+  medium: "Plan moyen",
+  close_up: "Gros plan",
+};
+
 export type MotionIntensity = "doux" | "equilibre" | "dynamique" | "extreme";
 
 export const MOTION_INTENSITY_LABELS: Record<MotionIntensity, string> = {
@@ -170,6 +182,12 @@ export interface Scene {
   needsFrame: boolean;
   imagePrompt: string;
   videoPrompt: string;
+  /** Cadrage de cette frame — doit alterner d'une frame à l'autre, jamais deux fois de suite le même. */
+  framing?: Framing;
+  /** Regroupement narratif (ex: "Accroche", "Problème", "Transformation", "CTA") pour l'affichage du plan par blocs. */
+  beatLabel?: string;
+  /** Requis par Claude quand durationSeconds > 8s : justifie la durée exceptionnelle (mouvement complexe, transformation, etc.). */
+  durationJustification?: string;
   dialogueLang?: Lang;
   voiceOver?: VoiceOver;
   /**

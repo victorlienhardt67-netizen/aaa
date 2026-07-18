@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, RefreshCw, Sparkles, Users } from "lucide-react";
+import { AlertTriangle, Check, RefreshCw, Sparkles, Users, Wand2 } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
+import { refineCharacterPrompt } from "@/lib/claude";
 import { buildCharacterSheetPrompt } from "@/lib/prompts";
 import { characterReferenceKey } from "@/lib/utils";
 
@@ -22,6 +23,13 @@ const PROPOSAL_VARIANTS = [
   "Interprétation 3 : expression enjouée et posture dynamique.",
 ];
 
+interface ProposalSlot {
+  prompt: string;
+  url?: string;
+  loading: boolean;
+  error: boolean;
+}
+
 function CharacterCard({ refKey, reference }: { refKey: string; reference: CharacterReference }) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const updateCharacterReference = useProjectStore((s) => s.updateCharacterReference);
@@ -30,13 +38,21 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
   const [editing, setEditing] = useState(false);
   const [promptDraft, setPromptDraft] = useState(reference.prompt);
   const [proposalsOpen, setProposalsOpen] = useState(false);
-  const [proposals, setProposals] = useState<{ url: string; prompt: string }[]>([]);
-  const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [proposals, setProposals] = useState<ProposalSlot[]>([]);
+  const [basePrompt, setBasePrompt] = useState(reference.prompt);
+  const [modificationText, setModificationText] = useState("");
+  const [refining, setRefining] = useState(false);
 
   const originalPhoto = brand?.characterPhotos.find((p) => p.id === reference.assetId);
   const isGenerating = reference.status === "generating";
   const isValidated = reference.status === "validated";
   const displayName = reference.state ? `${reference.name} — ${reference.state}` : reference.name;
+
+  // Tant que la fenêtre de propositions est fermée, la base repart du prompt
+  // persisté — une modification non validée (pas de clic "Choisir") est donc abandonnée.
+  useEffect(() => {
+    if (!proposalsOpen) setBasePrompt(reference.prompt);
+  }, [reference.prompt, proposalsOpen]);
 
   async function runGeneration(prompt: string) {
     updateCharacterReference(refKey, { status: "generating" });
@@ -49,22 +65,45 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
     });
   }
 
-  async function runProposals() {
-    setProposalsOpen(true);
-    setProposalsLoading(true);
+  async function generateSlot(prompt: string, idx: number) {
+    setProposals((prev) => prev.map((p, i) => (i === idx ? { ...p, loading: true, error: false } : p)));
     const referenceUrls = originalPhoto ? [originalPhoto.url] : undefined;
-    const results = await Promise.all(
-      PROPOSAL_VARIANTS.map(async (variant) => {
-        const prompt = `${reference.prompt} ${variant}`;
-        const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey, referenceUrls);
-        return { url: result.url, prompt };
-      })
-    );
-    setProposals(results);
-    setProposalsLoading(false);
+    try {
+      const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey, referenceUrls);
+      setProposals((prev) => prev.map((p, i) => (i === idx ? { ...p, url: result.url, loading: false, error: false } : p)));
+    } catch {
+      setProposals((prev) => prev.map((p, i) => (i === idx ? { ...p, loading: false, error: true } : p)));
+    }
   }
 
-  function choseProposal(proposal: { url: string; prompt: string }) {
+  function runProposals(fromPrompt: string) {
+    setProposalsOpen(true);
+    const slots: ProposalSlot[] = PROPOSAL_VARIANTS.map((variant) => ({
+      prompt: `${fromPrompt} ${variant}`,
+      loading: true,
+      error: false,
+    }));
+    setProposals(slots);
+    slots.forEach((slot, i) => {
+      void generateSlot(slot.prompt, i);
+    });
+  }
+
+  async function handleModify() {
+    if (!modificationText.trim()) return;
+    setRefining(true);
+    try {
+      const refined = await refineCharacterPrompt(basePrompt, modificationText.trim(), apiKeys.claudeApiKey);
+      setBasePrompt(refined);
+      setModificationText("");
+      runProposals(refined);
+    } finally {
+      setRefining(false);
+    }
+  }
+
+  function choseProposal(proposal: ProposalSlot) {
+    if (!proposal.url) return;
     updateCharacterReference(refKey, {
       sheetUrl: proposal.url,
       status: "generated",
@@ -136,7 +175,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
             <Button size="sm" onClick={() => runGeneration(reference.prompt)} disabled={isGenerating}>
               <Sparkles className="w-3.5 h-3.5" /> Générer le character sheet
             </Button>
-            <Button size="sm" variant="secondary" onClick={runProposals} disabled={isGenerating}>
+            <Button size="sm" variant="secondary" onClick={() => runProposals(basePrompt)} disabled={isGenerating}>
               <Sparkles className="w-3.5 h-3.5" /> Proposer 3 apparences
             </Button>
           </>
@@ -155,7 +194,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
             <Button size="sm" variant="secondary" onClick={() => runGeneration(reference.prompt)}>
               <RefreshCw className="w-3.5 h-3.5" /> Régénérer
             </Button>
-            <Button size="sm" variant="secondary" onClick={runProposals}>
+            <Button size="sm" variant="secondary" onClick={() => runProposals(basePrompt)}>
               <Sparkles className="w-3.5 h-3.5" /> Proposer 3 apparences
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
@@ -171,26 +210,65 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
         title={`3 apparences pour ${displayName}`}
         size="xl"
       >
-        {proposalsLoading ? (
-          <div className="py-12 flex flex-col items-center gap-3 text-ink-secondary">
-            <RefreshCw className="w-6 h-6 animate-spin text-gold" />
-            Génération des 3 propositions...
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-4">
+          <div className="flex gap-4 overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible pb-2">
             {proposals.map((proposal, i) => (
-              <div key={i} className="space-y-2">
-                <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={proposal.url} alt={`Proposition ${i + 1}`} className="w-full h-full object-cover" />
+              <div key={i} className="space-y-2 w-[220px] sm:w-auto shrink-0 sm:shrink">
+                <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden flex items-center justify-center">
+                  {proposal.loading && (
+                    <div className="flex flex-col items-center gap-2 text-ink-secondary">
+                      <RefreshCw className="w-5 h-5 animate-spin text-gold" />
+                      <span className="text-[10px] font-mono">génération...</span>
+                    </div>
+                  )}
+                  {!proposal.loading && proposal.error && (
+                    <div className="flex flex-col items-center gap-2 text-red-400 px-3 text-center">
+                      <AlertTriangle className="w-5 h-5" />
+                      <span className="text-xs">Génération échouée</span>
+                    </div>
+                  )}
+                  {!proposal.loading && !proposal.error && proposal.url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proposal.url} alt={`Proposition ${i + 1}`} className="w-full h-full object-cover" />
+                  )}
                 </div>
-                <Button size="sm" className="w-full" onClick={() => choseProposal(proposal)}>
-                  Choisir celle-ci
-                </Button>
+                {proposal.error ? (
+                  <Button size="sm" variant="secondary" className="w-full" onClick={() => void generateSlot(proposal.prompt, i)}>
+                    <RefreshCw className="w-3.5 h-3.5" /> Réessayer
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    disabled={proposal.loading || !proposal.url}
+                    onClick={() => choseProposal(proposal)}
+                  >
+                    Choisir celle-ci
+                  </Button>
+                )}
               </div>
             ))}
           </div>
-        )}
+
+          <div className="border-t border-border pt-3 space-y-2">
+            <p className="text-xs text-ink-secondary">
+              Aucune ne convient ? Décris la modification (ex : option 2 mais cheveux blonds, option 1 mais plus
+              jeune)...
+            </p>
+            <div className="flex gap-2">
+              <Textarea
+                rows={2}
+                className="flex-1"
+                value={modificationText}
+                onChange={(e) => setModificationText(e.target.value)}
+                placeholder="Décris la modification..."
+              />
+              <Button onClick={handleModify} disabled={!modificationText.trim() || refining} className="self-end">
+                <Wand2 className="w-3.5 h-3.5" /> {refining ? "Modification..." : "Modifier"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </Card>
   );

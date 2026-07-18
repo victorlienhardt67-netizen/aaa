@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wand2, Sparkles, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles, Wand2 } from "lucide-react";
 import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -14,11 +14,11 @@ import { Select } from "@/components/ui/Select";
 import { Toggle } from "@/components/ui/Toggle";
 import { Slider } from "@/components/ui/Slider";
 import { Button } from "@/components/ui/Button";
-import { Dropzone } from "@/components/ui/Dropzone";
+import { Card } from "@/components/ui/Card";
 import { StyleCard } from "@/components/styles/StyleCard";
-import { generateHooks, analyzeBrief, extractStyleFromImages } from "@/lib/claude";
+import { generateHooks, analyzeBrief } from "@/lib/claude";
 import { buildLearningContext } from "@/lib/prompts";
-import { estimateSceneCountFromBrief, formatDuration } from "@/lib/utils";
+import { estimateFrameCountForDuration, formatDuration } from "@/lib/utils";
 import { autoRouteImageEngine, autoRouteVideoEngine } from "@/lib/fal";
 
 const IMAGE_ENGINE_OPTIONS = (Object.keys(IMAGE_ENGINE_LABELS) as ImageEngine[]).map((v) => ({
@@ -30,12 +30,16 @@ const VIDEO_ENGINE_OPTIONS = (Object.keys(VIDEO_ENGINE_LABELS) as VideoEngine[])
   label: VIDEO_ENGINE_LABELS[v],
 }));
 
+/**
+ * Le script est le SEUL input requis pour lancer l'analyse. Marque, style,
+ * durée et moteurs sont des réglages optionnels avec des valeurs par défaut
+ * automatiques — jamais bloquants avant l'étape d'analyse.
+ */
 export function BriefStep() {
   const brands = useBrandStore((s) => s.brands);
   const activeBrandId = useBrandStore((s) => s.activeBrandId);
   const touchLastUsed = useBrandStore((s) => s.touchLastUsed);
   const styles = useStyleStore((s) => s.styles);
-  const addCustomStyle = useStyleStore((s) => s.addCustomStyle);
   const settings = useSettingsStore((s) => s.generationDefaults);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
   const advancedPrompts = useSettingsStore((s) => s.advancedPrompts);
@@ -54,13 +58,10 @@ export function BriefStep() {
   const [videoEngine, setVideoEngine] = useState<VideoEngine>(settings.videoEngine);
 
   const [brief, setBrief] = useState(pendingTemplate?.structure ?? "");
-  const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [hooks, setHooks] = useState<string[]>([]);
   const [loadingHooks, setLoadingHooks] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [extractStyleMode, setExtractStyleMode] = useState(false);
-  const [clarificationError, setClarificationError] = useState<string | null>(null);
-  const [extractingStyle, setExtractingStyle] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (pendingTemplate) {
@@ -89,12 +90,7 @@ export function BriefStep() {
     const bMatch = b.bestFor.includes(lang) ? 0 : 1;
     return aMatch - bMatch;
   });
-  const sceneEstimate = estimateSceneCountFromBrief(
-    brief,
-    duration,
-    advancedPrompts.minSceneDurationSeconds,
-    advancedPrompts.maxSceneDurationSeconds
-  );
+  const frameTarget = estimateFrameCountForDuration(duration);
 
   async function handleGenerateHooks() {
     setLoadingHooks(true);
@@ -117,45 +113,9 @@ export function BriefStep() {
 
   async function handleAnalyze() {
     if (!brief.trim()) return;
-    setClarificationError(null);
-
-    // Questions de cadrage groupées : on bloque avant de générer quoi que ce
-    // soit si des infos essentielles manquent, plutôt que de deviner.
-    if (extractStyleMode) {
-      if (referenceImages.length === 0) {
-        setClarificationError(
-          "Extraction de style activée : ajoute au moins une image de référence (hook ou exemple de style) avant de continuer."
-        );
-        return;
-      }
-      if (!apiKeys.claudeApiKey) {
-        setClarificationError(
-          "L'extraction de style nécessite une clé API Claude — ajoute-la dans Paramètres avant de continuer."
-        );
-        return;
-      }
-    }
-
     setAnalyzing(true);
 
-    let style = styles.find((s) => s.id === styleId) ?? styles[0];
-    if (extractStyleMode) {
-      setExtractingStyle(true);
-      try {
-        const extracted = await extractStyleFromImages(referenceImages, lang, apiKeys.claudeApiKey);
-        style = addCustomStyle(extracted);
-      } catch (e) {
-        setClarificationError(
-          e instanceof Error ? `Échec de l'extraction du style : ${e.message}` : "Échec de l'extraction du style."
-        );
-        setAnalyzing(false);
-        setExtractingStyle(false);
-        return;
-      } finally {
-        setExtractingStyle(false);
-      }
-    }
-
+    const style = styles.find((s) => s.id === styleId) ?? styles[0];
     const resolvedImageEngine =
       imageEngine === "auto" ? style.recommendedImageEngine ?? autoRouteImageEngine() : imageEngine;
     const resolvedVideoEngine =
@@ -171,7 +131,7 @@ export function BriefStep() {
       videoEngine,
       templateSourceId: pendingTemplate?.id,
     });
-    updateCurrentProject({ brief, referenceImages });
+    updateCurrentProject({ brief, referenceImages: [] });
     setStatus("analyzing");
     if (brandId) touchLastUsed(brandId);
 
@@ -203,124 +163,18 @@ export function BriefStep() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8 space-y-8">
+    <div className="max-w-4xl mx-auto p-8 space-y-6">
       <div>
         <h1 className="font-display font-bold text-2xl text-ink mb-1">Nouveau projet</h1>
         <p className="text-sm text-ink-secondary">
-          Configurez le projet puis décrivez votre vidéo — Golddust Studio générera le plan de production.
+          Colle ton script — c&apos;est le seul input nécessaire. Golddust Studio l&apos;analyse automatiquement :
+          personnages, découpage en scènes, durées et cadrages sont détectés pour toi.
         </p>
       </div>
 
-      {/* Étape 1 — Configuration */}
-      <section className="space-y-5">
-        <h2 className="font-mono text-xs uppercase tracking-wide text-gold-light">Étape 1 · Configuration</h2>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Marque</Label>
-            <Select
-              value={brandId}
-              onChange={(e) => setBrandId(e.target.value)}
-              options={
-                brands.length
-                  ? brands.map((b) => ({ value: b.id, label: b.name }))
-                  : [{ value: "", label: "Aucune marque — créez-en une dans /brands" }]
-              }
-            />
-          </div>
-          <div>
-            <Label>Langue</Label>
-            <Toggle
-              value={lang}
-              onChange={setLang}
-              options={[
-                { value: "fr", label: "Français" },
-                { value: "en", label: "English" },
-              ]}
-            />
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <Label className="mb-0">Style visuel</Label>
-            <button
-              type="button"
-              onClick={() => setExtractStyleMode((v) => !v)}
-              className={`text-xs font-mono px-3 py-1.5 rounded border transition-colors flex items-center gap-1.5 ${
-                extractStyleMode
-                  ? "bg-gold/10 border-gold/50 text-gold-light"
-                  : "border-border text-ink-secondary hover:text-ink"
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Extraire le style depuis mes images de référence
-            </button>
-          </div>
-
-          {extractStyleMode ? (
-            <div className="bg-surface2 border border-dashed border-gold/40 rounded-lg p-4 text-sm text-ink-secondary">
-              Le style ne sera pas choisi dans la bibliothèque : il sera analysé automatiquement à partir des
-              images de référence que tu ajoutes ci-dessous (frame de départ souhaitée, exemples de
-              style/design). Ajoute au moins une image pour continuer.
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {filteredStyles.map((style) => (
-                <div
-                  key={style.id}
-                  onClick={() => setStyleId(style.id)}
-                  className={
-                    styleId === style.id ? "ring-2 ring-gold rounded-lg" : "rounded-lg"
-                  }
-                >
-                  <StyleCard style={style} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <Slider
-            label="Durée cible"
-            valueLabel={`${formatDuration(duration)} · ~${sceneEstimate} plans${
-              brief.trim().length > 0 ? " (détecté depuis le script)" : ""
-            }`}
-            min={40}
-            max={180}
-            step={5}
-            value={duration}
-            onChange={(e) => setDuration(Number(e.target.value))}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Moteur image (override)</Label>
-            <Select
-              value={imageEngine}
-              onChange={(e) => setImageEngine(e.target.value as ImageEngine)}
-              options={IMAGE_ENGINE_OPTIONS}
-            />
-          </div>
-          <div>
-            <Label>Moteur vidéo (override)</Label>
-            <Select
-              value={videoEngine}
-              onChange={(e) => setVideoEngine(e.target.value as VideoEngine)}
-              options={VIDEO_ENGINE_OPTIONS}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Étape 2 — Brief */}
-      <section className="space-y-4 pt-4 border-t border-border">
-        <h2 className="font-mono text-xs uppercase tracking-wide text-gold-light">Étape 2 · Brief</h2>
-
+      <Card className="p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="mb-0">Décris ta vidéo</Label>
+          <Label className="mb-0">Script</Label>
           <Button variant="secondary" size="sm" onClick={handleGenerateHooks} disabled={loadingHooks}>
             <Sparkles className="w-3.5 h-3.5" /> {loadingHooks ? "Génération..." : "Générer des hooks"}
           </Button>
@@ -342,56 +196,107 @@ export function BriefStep() {
         )}
 
         <Textarea
-          rows={8}
-          style={{ minHeight: 200 }}
+          rows={12}
+          style={{ minHeight: 260 }}
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
-          placeholder="Décris ta vidéo — histoire, ambiance, messages clés, personnages, scènes..."
+          placeholder="Colle ton script complet — histoire, personnages, scènes, dialogues..."
+          autoFocus
         />
 
-        <div>
-          <Label>
-            Images de référence {extractStyleMode ? "(requis pour l'extraction de style)" : "(optionnel)"}
-          </Label>
-          <Dropzone
-            onFiles={(files) => setReferenceImages((prev) => [...prev, ...files])}
-            hint={
-              extractStyleMode
-                ? "Frame de départ souhaitée et/ou exemples de style — le DNA visuel sera extrait de ces images"
-                : "En complément des photos produit de la marque"
-            }
-          />
-          {referenceImages.length > 0 && (
-            <div className="grid grid-cols-6 gap-2 mt-2">
-              {referenceImages.map((url, i) => (
-                <div key={i} className="relative aspect-[9/16] rounded overflow-hidden bg-surface2 border border-border group">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="ref" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => setReferenceImages((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="absolute top-1 right-1 bg-black/70 rounded p-0.5 opacity-0 group-hover:opacity-100"
-                  >
-                    <X className="w-3 h-3 text-red-400" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {clarificationError && (
-          <div className="bg-red-950/30 border border-red-900/50 rounded p-3 text-sm text-red-400">
-            {clarificationError}
-          </div>
-        )}
-
         <div className="flex justify-end">
-          <Button onClick={handleAnalyze} disabled={!brief.trim() || analyzing || !brandId}>
-            <Wand2 className="w-4 h-4" />{" "}
-            {extractingStyle ? "Extraction du style..." : analyzing ? "Analyse en cours..." : "Analyser le brief"}
+          <Button onClick={handleAnalyze} disabled={!brief.trim() || analyzing} size="lg">
+            <Wand2 className="w-4 h-4" /> {analyzing ? "Analyse en cours..." : "Analyser le script"}
           </Button>
         </div>
-      </section>
+      </Card>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen((v) => !v)}
+          className="w-full flex items-center justify-between text-xs font-mono uppercase tracking-wide text-ink-secondary hover:text-ink py-1"
+        >
+          <span>Réglages (optionnel — valeurs par défaut appliquées automatiquement)</span>
+          {settingsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+
+        {settingsOpen && (
+          <Card className="p-5 space-y-5 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Marque</Label>
+                <Select
+                  value={brandId}
+                  onChange={(e) => setBrandId(e.target.value)}
+                  options={
+                    brands.length
+                      ? brands.map((b) => ({ value: b.id, label: b.name }))
+                      : [{ value: "", label: "Aucune marque — optionnel, créez-en une dans /brands" }]
+                  }
+                />
+              </div>
+              <div>
+                <Label>Langue</Label>
+                <Toggle
+                  value={lang}
+                  onChange={setLang}
+                  options={[
+                    { value: "fr", label: "Français" },
+                    { value: "en", label: "English" },
+                  ]}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Style visuel</Label>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {filteredStyles.map((style) => (
+                  <div
+                    key={style.id}
+                    onClick={() => setStyleId(style.id)}
+                    className={styleId === style.id ? "ring-2 ring-gold rounded-lg" : "rounded-lg"}
+                  >
+                    <StyleCard style={style} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Slider
+                label="Durée cible"
+                valueLabel={`${formatDuration(duration)} · cible ${frameTarget.min}-${frameTarget.max} frames`}
+                min={40}
+                max={180}
+                step={5}
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Moteur image (override)</Label>
+                <Select
+                  value={imageEngine}
+                  onChange={(e) => setImageEngine(e.target.value as ImageEngine)}
+                  options={IMAGE_ENGINE_OPTIONS}
+                />
+              </div>
+              <div>
+                <Label>Moteur vidéo (override)</Label>
+                <Select
+                  value={videoEngine}
+                  onChange={(e) => setVideoEngine(e.target.value as VideoEngine)}
+                  options={VIDEO_ENGINE_OPTIONS}
+                />
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
