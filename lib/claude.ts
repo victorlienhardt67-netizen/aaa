@@ -61,7 +61,6 @@ interface ClaudeScene {
   hasProduct: boolean;
   hasCharacter: boolean;
   characterName?: string;
-  characterState?: string;
   needsFrame: boolean;
   imagePrompt: string;
   videoPrompt: string;
@@ -148,7 +147,6 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
         ? s.cameraMovement
         : CAMERA_CYCLE[i % CAMERA_CYCLE.length]) as CameraMovement,
       characters,
-      characterState: s.hasCharacter ? s.characterState : undefined,
       hasProduct: s.hasProduct,
       productAssetId: s.hasProduct ? productPhoto?.id : undefined,
       needsFrame: s.needsFrame,
@@ -184,7 +182,6 @@ interface BeatTemplate {
   weight: number; // poids relatif dans la répartition du nombre total de frames
   minDuration: number;
   maxDuration: number;
-  isTransformation?: boolean; // scinde le beat en état "avant" puis "après"
 }
 
 /** Blocs narratifs types utilisés par le mode simulé, alignés sur les règles du cahier des charges. */
@@ -193,14 +190,7 @@ const BEAT_TEMPLATES: BeatTemplate[] = [
   { labelFr: "Présentation du problème", labelEn: "Problem", weight: 3.5, minDuration: 4, maxDuration: 5 },
   { labelFr: "Introduction du produit", labelEn: "Product intro", weight: 2.5, minDuration: 5, maxDuration: 6 },
   { labelFr: "Démonstration des bénéfices", labelEn: "Benefits", weight: 2.5, minDuration: 5, maxDuration: 6 },
-  {
-    labelFr: "Transformation",
-    labelEn: "Transformation",
-    weight: 4.5,
-    minDuration: 5,
-    maxDuration: 8,
-    isTransformation: true,
-  },
+  { labelFr: "Transformation", labelEn: "Transformation", weight: 4.5, minDuration: 5, maxDuration: 8 },
   { labelFr: "Témoignage", labelEn: "Testimonial", weight: 2.5, minDuration: 5, maxDuration: 6 },
   { labelFr: "Récapitulatif des bénéfices", labelEn: "Recap", weight: 2.5, minDuration: 5, maxDuration: 6 },
   { labelFr: "Appel à l'action final", labelEn: "Final CTA", weight: 2, minDuration: 4, maxDuration: 5 },
@@ -254,19 +244,22 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
     const count = frameCounts[beatIdx];
     const beatLabel = lang === "fr" ? beatTemplate.labelFr : beatTemplate.labelEn;
 
+    const isTransformationBeat = beatTemplate.labelFr === "Transformation";
+
     for (let j = 0; j < count; j++) {
       const camera = CAMERA_CYCLE[globalIndex % CAMERA_CYCLE.length];
       const framing = FRAMING_CYCLE[globalIndex % FRAMING_CYCLE.length];
-      const hasProduct = beatTemplate.isTransformation ? false : globalIndex % 3 !== 1 && !!productPhoto;
-      const hasCharacter = beatTemplate.isTransformation || globalIndex % 2 === 0;
-      const characterState = beatTemplate.isTransformation
+      const hasProduct = isTransformationBeat ? false : globalIndex % 3 !== 1 && !!productPhoto;
+      const hasCharacter = isTransformationBeat || globalIndex % 2 === 0;
+      const emotionalStateFr = isTransformationBeat
         ? j < Math.ceil(count / 2)
-          ? lang === "fr"
-            ? "avant, fatiguée"
-            : "before, tired"
-          : lang === "fr"
-          ? "après, rayonnante"
-          : "after, radiant"
+          ? "fatiguée, cernes"
+          : "rayonnante, sourire confiant"
+        : undefined;
+      const emotionalStateEn = isTransformationBeat
+        ? j < Math.ceil(count / 2)
+          ? "tired, dark circles"
+          : "radiant, confident smile"
         : undefined;
       const duration = Math.min(
         Math.max(beatTemplate.minDuration + (j % (beatTemplate.maxDuration - beatTemplate.minDuration + 1)), minDur),
@@ -278,10 +271,10 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
 
       const imagePromptFr = `${beatLabel}, ${framing === "wide" ? "plan large" : framing === "medium" ? "plan moyen" : "gros plan"} — cadrage vertical 9:16, ${
         hasProduct ? "produit visible dans le cadre, " : ""
-      }${hasCharacter ? "personnage en action dans la scène, " : ""}ambiance ${style.name.toLowerCase()}.`;
+      }${hasCharacter ? `personnage en action dans la scène${emotionalStateFr ? `, expression ${emotionalStateFr}` : ""}, ` : ""}ambiance ${style.name.toLowerCase()}.`;
       const imagePromptEn = `${beatLabel}, ${framing.replace("_", " ")} — vertical 9:16 framing, ${
         hasProduct ? "product visible in frame, " : ""
-      }${hasCharacter ? "character in action within the scene, " : ""}${style.name.toLowerCase()} mood.`;
+      }${hasCharacter ? `character in action within the scene${emotionalStateEn ? `, ${emotionalStateEn} expression` : ""}, ` : ""}${style.name.toLowerCase()} mood.`;
 
       const videoPromptFr = `${descriptionFr} Mouvement de caméra en ${camera.replace(
         /_/g,
@@ -299,7 +292,6 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
         durationSeconds: duration,
         cameraMovement: camera,
         characters: hasCharacter ? [characterAssetId] : [],
-        characterState,
         hasProduct,
         productAssetId: hasProduct ? productPhoto?.id : undefined,
         needsFrame: true,

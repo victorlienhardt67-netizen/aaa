@@ -47,16 +47,11 @@ const PRODUCTION_PLAN_TOOL = {
               description:
                 "Nom du personnage récurrent si hasCharacter=true (ex: le prénom mentionné dans le brief, ou un descriptif court comme 'La cliente' si aucun nom n'est donné). Doit être identique pour toutes les scènes montrant le même personnage.",
             },
-            characterState: {
-              type: "string",
-              description:
-                "État du personnage dans cette scène si plusieurs états existent (ex: 'avant', 'après', 'fatiguée', 'rayonnante'). Omettre si un seul état existe pour ce personnage.",
-            },
             needsFrame: { type: "boolean", description: "Une frame de départ (image) est-elle nécessaire ?" },
             imagePrompt: {
               type: "string",
               description:
-                "Prompt détaillé pour générer l'image de départ (frame). Ne jamais y décrire l'apparence physique d'un personnage récurrent (hasCharacter=true) — seulement son action, sa pose et la composition.",
+                "Prompt détaillé pour générer l'image de départ (frame). Ne jamais y décrire l'apparence physique FIXE d'un personnage récurrent (hasCharacter=true) — visage, coiffure, morphologie, tenue de base restent définis une fois pour toutes par son image de référence validée. En revanche, décris librement son action, sa pose, son expression et son état émotionnel du moment (fatiguée, rayonnante, choquée...) : c'est ici, frame par frame, que les états visuels et émotionnels se gèrent, jamais via une entrée de personnage séparée.",
             },
             videoPrompt: {
               type: "string",

@@ -15,7 +15,6 @@ import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
 import { refineCharacterPrompt } from "@/lib/claude";
 import { buildCharacterSheetPrompt } from "@/lib/prompts";
-import { characterReferenceKey } from "@/lib/utils";
 
 const PROPOSAL_VARIANTS = [
   "Interprétation 1 : expression douce et posture détendue.",
@@ -46,7 +45,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
   const originalPhoto = brand?.characterPhotos.find((p) => p.id === reference.assetId);
   const isGenerating = reference.status === "generating";
   const isValidated = reference.status === "validated";
-  const displayName = reference.state ? `${reference.name} — ${reference.state}` : reference.name;
+  const displayName = reference.name;
 
   // Tant que la fenêtre de propositions est fermée, la base repart du prompt
   // persisté — une modification non validée (pas de clic "Choisir") est donc abandonnée.
@@ -134,7 +133,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
           </div>
         )}
         <div>
-          <p className="text-[10px] font-mono uppercase text-ink-secondary mb-1">Character sheet</p>
+          <p className="text-[10px] font-mono uppercase text-ink-secondary mb-1">Fiche casting</p>
           <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden flex items-center justify-center">
             {isGenerating && (
               <div className="flex flex-col items-center gap-2 text-ink-secondary">
@@ -147,7 +146,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
               <img src={reference.sheetUrl} alt={`${displayName} sheet`} className="w-full h-full object-cover" />
             )}
             {!isGenerating && !reference.sheetUrl && (
-              <span className="text-xs text-ink-secondary px-3 text-center">Aucun sheet généré</span>
+              <span className="text-xs text-ink-secondary px-3 text-center">Aucune fiche générée</span>
             )}
           </div>
         </div>
@@ -173,7 +172,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
         {!reference.sheetUrl && (
           <>
             <Button size="sm" onClick={() => runGeneration(reference.prompt)} disabled={isGenerating}>
-              <Sparkles className="w-3.5 h-3.5" /> Générer le character sheet
+              <Sparkles className="w-3.5 h-3.5" /> Générer la fiche casting
             </Button>
             <Button size="sm" variant="secondary" onClick={() => runProposals(basePrompt)} disabled={isGenerating}>
               <Sparkles className="w-3.5 h-3.5" /> Proposer 3 apparences
@@ -283,48 +282,38 @@ export function CharacterReferences() {
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
 
   const plan = currentProject?.plan;
-  // Chaque paire distincte (personnage, état) a son propre character sheet.
-  const distinctPairs = Array.from(
-    new Map(
-      (plan?.scenes ?? []).flatMap((s) =>
-        s.characters.map((assetId) => {
-          const key = characterReferenceKey(assetId, s.characterState);
-          return [key, { key, assetId, state: s.characterState }] as const;
-        })
-      )
-    ).values()
-  );
+  // Un personnage récurrent = une seule identité visuelle fixe, jamais une entrée par état émotionnel.
+  const distinctAssetIds = Array.from(new Set((plan?.scenes ?? []).flatMap((s) => s.characters)));
 
   useEffect(() => {
-    if (!currentProject || distinctPairs.length === 0) return;
-    const missing = distinctPairs.filter((p) => !currentProject.characterReferences?.[p.key]);
+    if (!currentProject || distinctAssetIds.length === 0) return;
+    const missing = distinctAssetIds.filter((assetId) => !currentProject.characterReferences?.[assetId]);
     if (missing.length === 0) return;
-    const refs = missing.map(({ assetId, state }) => {
+    const refs = missing.map((assetId) => {
       const photo = brand?.characterPhotos.find((p) => p.id === assetId);
       const name = photo?.name || plan?.characterNames?.[assetId] || "Personnage";
       return {
         assetId,
         name,
-        state,
-        prompt: buildCharacterSheetPrompt(name, style, state),
+        prompt: buildCharacterSheetPrompt(name, style),
         status: "pending" as const,
       };
     });
     initCharacterReferences(refs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProject?.id, distinctPairs.map((p) => p.key).join(",")]);
+  }, [currentProject?.id, distinctAssetIds.join(",")]);
 
   useEffect(() => {
-    if (currentProject && distinctPairs.length === 0) {
+    if (currentProject && distinctAssetIds.length === 0) {
       setStatus("frames");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProject?.id, distinctPairs.length]);
+  }, [currentProject?.id, distinctAssetIds.length]);
 
-  if (!currentProject || !plan || distinctPairs.length === 0) return null;
+  if (!currentProject || !plan || distinctAssetIds.length === 0) return null;
 
-  const references = distinctPairs
-    .map((p) => ({ key: p.key, ref: currentProject.characterReferences?.[p.key] }))
+  const references = distinctAssetIds
+    .map((assetId) => ({ key: assetId, ref: currentProject.characterReferences?.[assetId] }))
     .filter((r): r is { key: string; ref: CharacterReference } => !!r.ref);
   const allValidated = references.length > 0 && references.every((r) => r.ref.status === "validated");
 
@@ -333,8 +322,9 @@ export function CharacterReferences() {
       <div>
         <h1 className="font-display font-bold text-2xl text-ink mb-1">Références personnages</h1>
         <p className="text-sm text-ink-secondary">
-          Étape obligatoire avant les frames — chaque personnage récurrent (et chaque état distinct, ex.
-          avant/après) doit avoir un character sheet validé pour rester cohérent d&apos;un plan à l&apos;autre.
+          Étape obligatoire avant les frames — chaque personnage récurrent doit avoir une fiche casting validée
+          (une seule identité visuelle fixe) pour rester cohérent d&apos;un plan à l&apos;autre. Choisis parmi 3
+          propositions d&apos;apparence celle qui correspond le mieux au script.
         </p>
       </div>
 

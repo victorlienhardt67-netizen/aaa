@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CharacterReference, Project, ProjectStatus, Scene } from "@/types";
 import { STORAGE_KEYS } from "@/lib/storage";
-import { characterReferenceKey, generateId } from "@/lib/utils";
+import { generateId } from "@/lib/utils";
 
 interface InitProjectParams {
   name: string;
@@ -31,7 +31,7 @@ interface ProjectState {
   /** Retire une frame — refusé si c'est la dernière du bloc (minimum 1 frame par bloc). */
   removeScene: (sceneId: string) => void;
   initCharacterReferences: (refs: CharacterReference[]) => void;
-  /** `key` est la clé composite `characterReferenceKey(assetId, state)`, pas l'assetId seul. */
+  /** `key` est l'assetId du personnage — une seule fiche fixe par personnage récurrent. */
   updateCharacterReference: (key: string, patch: Partial<CharacterReference>) => void;
   recalcTotalCost: () => void;
   saveCurrentProject: () => void;
@@ -169,9 +169,8 @@ export const useProjectStore = create<ProjectState>()(
           const existing = s.currentProject.characterReferences ?? {};
           const characterReferences = { ...existing };
           for (const ref of refs) {
-            const key = characterReferenceKey(ref.assetId, ref.state);
-            if (!characterReferences[key]) {
-              characterReferences[key] = ref;
+            if (!characterReferences[ref.assetId]) {
+              characterReferences[ref.assetId] = ref;
             }
           }
           return { currentProject: { ...s.currentProject, characterReferences } };

@@ -83,8 +83,8 @@ RÈGLES OBLIGATOIRES DE PRODUCTION (toutes les frames) :
 - Jamais de vidéo statique
 - Si un personnage récurrent est mentionné ou implicite dans le script → indique hasCharacter=true, même si aucune photo de référence n'a été fournie (son apparence sera ensuite proposée par génération d'image, à valider avant les frames)
 - Donne un characterName cohérent et identique sur toutes les frames où ce personnage apparaît (son prénom s'il est donné, sinon un descriptif court comme "La cliente")
-- Si ce personnage a plusieurs états dans la vidéo (ex: avant/après, fatiguée/rayonnante) → indique characterState pour chaque frame concernée
-- IMPORTANT : si hasCharacter=true, ne redécris JAMAIS l'apparence physique du personnage (visage, cheveux, tenue, morphologie) dans imagePrompt — une image de référence validée sera injectée séparément pour garder son identité visuelle exacte. Décris uniquement son action, sa pose, son expression du moment et sa composition dans le cadre.
+- RÈGLE CRITIQUE : un personnage récurrent = UNE seule identité visuelle fixe pour tout le script, jamais plusieurs variantes. Ses états émotionnels ou physiques au fil de l'histoire (fatiguée, rayonnante, choquée, avant/après...) ne sont JAMAIS un axe de personnage séparé — ils se décrivent librement dans imagePrompt, frame par frame, sans jamais toucher à characterName ni créer une nouvelle identité.
+- IMPORTANT : si hasCharacter=true, ne redécris JAMAIS l'apparence physique FIXE du personnage (visage, coiffure, morphologie, tenue de base) dans imagePrompt — une image de référence validée unique sera injectée pour garder son identité visuelle exacte sur toutes les frames. Décris en revanche librement son action, sa pose, son expression et son état émotionnel du moment.
 - Si le produit est mentionné → indique hasProduct=true ; le produit n'apparaît QUE quand le script le justifie, jamais de placement systématique
 - Texte visible sur une frame : uniquement si essentiel (avis, CTA, label clé), toujours dans la langue détectée, jamais dans les deux langues, jamais décoratif
 - Détecte automatiquement pour chaque frame qui parle et comment : narration hors-champ (voiceover), personnage qui parle face caméra (lipsync), ou aucune voix (none)
@@ -141,14 +141,16 @@ export function buildScenePositivePrompt(
 }
 
 /**
- * Prompt pour générer le character sheet d'un personnage récurrent :
- * corps entier, fond blanc, multi-angles, aucun texte — sert ensuite de
- * référence visuelle (image_urls) pour garder le personnage cohérent
- * d'une frame à l'autre.
+ * Prompt pour générer la fiche casting d'un personnage récurrent : une seule
+ * identité visuelle fixe (visage, coiffure, morphologie, tenue), vue de face
+ * + trois-quarts + profil sur la même image, fond neutre, aucun texte — sert
+ * ensuite de référence visuelle (image_urls) pour garder le personnage
+ * cohérent d'une frame à l'autre. Les états émotionnels (fatiguée,
+ * rayonnante...) ne sont JAMAIS gérés ici : ils se décrivent frame par frame
+ * dans le prompt d'image de chaque scène, jamais via une fiche séparée.
  */
-export function buildCharacterSheetPrompt(characterName: string, style: StylePreset, state?: string): string {
-  const stateNote = state ? ` État : ${state}, l'expression et la posture doivent refléter cet état.` : "";
-  return `Character sheet complet de ${characterName}, corps entier visible, fond blanc uni, plusieurs angles sur une seule image (face, trois-quarts, profil, dos), pose neutre, éclairage égal, aucun texte, aucun label, aucune annotation.${stateNote} Style : ${style.positivePrompt}.`;
+export function buildCharacterSheetPrompt(characterName: string, style: StylePreset): string {
+  return `Fiche casting complète de ${characterName}, corps entier visible, fond blanc ou gris neutre uni, personnage vu de face + trois-quarts + profil sur la même image, pose neutre, éclairage studio égal, aucun texte, aucun label, aucune annotation, style hyper-réaliste. Style visuel : ${style.positivePrompt}.`;
 }
 
 /** Règles image par défaut — modifiables depuis Paramètres > Prompts avancés. */
@@ -181,15 +183,12 @@ export function buildMandatoryImageRules(customRules?: string): string {
  * pas de paramètre negative_prompt séparé).
  */
 export function buildImagePrompt(
-  scene: Pick<Scene, "imagePrompt" | "characterState">,
+  scene: Pick<Scene, "imagePrompt">,
   style: StylePreset,
   brand: Brand | undefined,
   opts: { hasCharacterReference?: boolean; hasProductReference?: boolean; customRules?: string } = {}
 ): string {
   const brandNote = brand ? `Produit : ${brand.name}. ${brand.generationNotes || ""}`.trim() : "";
-  const stateNote = scene.characterState
-    ? `État du personnage dans ce plan : ${scene.characterState} — l'expression et la posture doivent refléter précisément cet état.`
-    : "";
   const referenceNotes = [
     opts.hasCharacterReference &&
       "Une image de référence du personnage est fournie ci-dessous : reproduire exactement son visage, sa coiffure et sa tenue, ne jamais changer son identité visuelle.",
@@ -201,7 +200,6 @@ export function buildImagePrompt(
 
   return [
     scene.imagePrompt,
-    stateNote,
     `Style : ${style.positivePrompt}.`,
     brandNote,
     referenceNotes,

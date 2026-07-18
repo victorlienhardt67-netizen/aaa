@@ -175,8 +175,6 @@ export interface Scene {
   durationSeconds: number;
   cameraMovement: CameraMovement;
   characters: string[]; // references to BrandAsset ids
-  /** État du personnage dans cette scène (ex: "avant" / "après") — un sheet distinct par état. */
-  characterState?: string;
   hasProduct: boolean;
   productAssetId?: string;
   needsFrame: boolean;
@@ -238,8 +236,6 @@ export type CharacterReferenceStatus = "pending" | "generating" | "generated" | 
 export interface CharacterReference {
   assetId: string; // id de la photo personnage de la marque (BrandAsset)
   name: string;
-  /** État de ce sheet (ex: "avant" / "après") — undefined = état par défaut unique. */
-  state?: string;
   prompt: string;
   sheetUrl?: string;
   status: CharacterReferenceStatus;

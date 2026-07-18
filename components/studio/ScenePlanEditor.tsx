@@ -129,17 +129,6 @@ function SceneEditor({ scene }: { scene: Scene }) {
             </label>
           </div>
 
-          {scene.characters.length > 0 && (
-            <div>
-              <Label>État du personnage dans cette scène (ex : avant, après, fatiguée, rayonnante)</Label>
-              <Input
-                value={scene.characterState ?? ""}
-                onChange={(e) => updateScene(scene.id, { characterState: e.target.value || undefined })}
-                placeholder="Laisser vide si un seul état existe"
-              />
-            </div>
-          )}
-
           <div>
             <Label>Prompt image (éditable)</Label>
             <Textarea

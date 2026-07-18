@@ -14,22 +14,22 @@ import { Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
 import { buildImagePrompt } from "@/lib/prompts";
-import { characterReferenceKey, formatCost } from "@/lib/utils";
+import { formatCost } from "@/lib/utils";
 import { Brand, CharacterReference, Project, Scene as SceneType } from "@/types";
 
 /**
- * Rassemble les images de référence (character sheets validés + photo produit
+ * Rassemble les images de référence (fiches casting validées + photo produit
  * réelle) à injecter dans la génération de frame pour garder personnages et
  * produit visuellement cohérents, et indique au prompt lesquelles sont
  * réellement fournies (pour ne jamais affirmer une consigne qui ne s'applique pas).
  */
 function getReferenceImageInfo(
-  scene: Pick<SceneType, "characters" | "characterState" | "hasProduct" | "productAssetId">,
+  scene: Pick<SceneType, "characters" | "hasProduct" | "productAssetId">,
   currentProject: Pick<Project, "characterReferences"> | undefined,
   brand: Brand | undefined
 ): { urls: string[]; hasCharacterReference: boolean; hasProductReference: boolean } {
   const characterUrls = scene.characters
-    .map((id) => currentProject?.characterReferences?.[characterReferenceKey(id, scene.characterState)])
+    .map((id) => currentProject?.characterReferences?.[id])
     .filter((ref): ref is CharacterReference => ref?.status === "validated" && !!ref.sheetUrl)
     .map((ref) => ref.sheetUrl!);
   const productUrl =
@@ -67,7 +67,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   async function runGeneration(prompt: string) {
     updateScene(scene.id, { frameStatus: "frame_generating" });
     const engine = currentProject?.imageEngine ?? "auto";
-    const fullPrompt = buildImagePrompt({ imagePrompt: prompt, characterState: scene.characterState }, style, brand, {
+    const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand, {
       hasCharacterReference,
       hasProductReference,
       customRules: mandatoryImageRules,
@@ -91,7 +91,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   async function handleCompare() {
     setComparing(true);
     setCompareOpen(true);
-    const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt, characterState: scene.characterState }, style, brand, {
+    const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand, {
       hasCharacterReference,
       hasProductReference,
       customRules: mandatoryImageRules,
@@ -261,7 +261,7 @@ export function FrameGenerator() {
             currentProject ?? undefined,
             brand
           );
-          const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt, characterState: scene.characterState }, style, brand, {
+          const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand, {
             hasCharacterReference,
             hasProductReference,
             customRules: mandatoryImageRules,
