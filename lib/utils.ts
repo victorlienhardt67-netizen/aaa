@@ -41,6 +41,34 @@ export function estimateSceneCount(durationSeconds: number): number {
   return Math.max(4, Math.round(durationSeconds / 5));
 }
 
+/**
+ * Détecte dans le script/brief combien de plans (frames de départ) sont
+ * nécessaires pour que la vidéo reste dynamique, plutôt que de se baser
+ * uniquement sur la durée cible.
+ *
+ * - Compte les "beats" narratifs (phrases/idées) présents dans le brief.
+ * - Borne le résultat pour qu'aucun plan ne dépasse ~7s (sinon ça devient
+ *   statique) ni ne descende sous ~3s (sinon le montage devient illisible).
+ */
+export function estimateSceneCountFromBrief(
+  brief: string,
+  targetDurationSeconds: number,
+  minSceneDuration = 3,
+  maxSceneDuration = 7
+): number {
+  const beats = brief
+    .split(/[.!?\n]+/)
+    .map((b) => b.trim())
+    .filter((b) => b.length > 8);
+  const beatsCount = beats.length;
+
+  const lowerBound = Math.max(4, Math.ceil(targetDurationSeconds / maxSceneDuration));
+  const upperBound = Math.max(lowerBound, Math.floor(targetDurationSeconds / minSceneDuration));
+
+  if (beatsCount >= lowerBound && beatsCount <= upperBound) return beatsCount;
+  return Math.min(Math.max(beatsCount, lowerBound), upperBound);
+}
+
 let idCounter = 0;
 export function generateId(prefix = "id"): string {
   idCounter += 1;

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Mic, Package, Users } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, DollarSign, Film, Mic, Package, Sparkles, Users } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useBrandStore } from "@/store/brandStore";
+import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
-import { CAMERA_MOVEMENT_LABELS, CameraMovement, Lang, Scene } from "@/types";
+import { CAMERA_MOVEMENT_LABELS, CameraMovement, IMAGE_ENGINE_LABELS, Lang, Scene, VIDEO_ENGINE_LABELS } from "@/types";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Label, Textarea, Input } from "@/components/ui/Input";
@@ -14,7 +15,8 @@ import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
 import { CameraPresetPicker } from "@/components/studio/CameraPresetPicker";
 import { AVAILABLE_VOICES } from "@/lib/higgsfield";
-import { formatDuration } from "@/lib/utils";
+import { estimateImageCost, estimateVideoCost } from "@/lib/mock";
+import { formatCost, formatDuration } from "@/lib/utils";
 
 const CAMERA_OPTIONS = (Object.keys(CAMERA_MOVEMENT_LABELS) as CameraMovement[]).map((v) => ({
   value: v,
@@ -194,9 +196,19 @@ export function ScenePlanEditor() {
   const currentProject = useProjectStore((s) => s.currentProject);
   const setStatus = useProjectStore((s) => s.setStatus);
   const motionIntensity = useSettingsStore((s) => s.generationDefaults.motionIntensity);
+  const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
+  const style = useStyleStore((s) => s.styles.find((st) => st.id === currentProject?.styleId));
 
   const plan = currentProject?.plan;
-  if (!plan) return null;
+  if (!plan || !currentProject) return null;
+
+  const imageEngine = currentProject.imageEngine;
+  const videoEngine = currentProject.videoEngine;
+  const framedScenes = plan.scenes.filter((s) => s.needsFrame);
+  const totalDuration = plan.scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
+  const estimatedImageCost = framedScenes.length * estimateImageCost(imageEngine);
+  const estimatedVideoCost = plan.scenes.reduce((sum, s) => sum + estimateVideoCost(videoEngine, s.durationSeconds), 0);
+  const estimatedTotalCost = estimatedImageCost + estimatedVideoCost;
 
   return (
     <div className="max-w-4xl mx-auto p-8 space-y-6">
@@ -207,6 +219,61 @@ export function ScenePlanEditor() {
           de mouvement : {motionIntensity}
         </p>
       </div>
+
+      {plan.briefAnalysis && (
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-gold" />
+            <h2 className="font-display font-bold text-sm text-ink">Analyse complète du brief</h2>
+          </div>
+          <p className="text-sm text-ink-secondary leading-relaxed">{plan.briefAnalysis}</p>
+        </Card>
+      )}
+
+      <Card className="p-5">
+        <h2 className="font-display font-bold text-sm text-ink mb-4">
+          Récapitulatif avant génération — tout savoir avant de lancer
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+          <div>
+            <p className="text-[10px] font-mono uppercase text-ink-secondary mb-1">Marque · Style</p>
+            <p className="text-sm text-ink">
+              {brand?.name ?? "—"} · {style?.name ?? "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-mono uppercase text-ink-secondary mb-1 flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Durée totale vidéo
+            </p>
+            <p className="text-sm text-ink">{formatDuration(totalDuration)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-mono uppercase text-ink-secondary mb-1 flex items-center gap-1">
+              <Film className="w-3 h-3" /> Moteurs
+            </p>
+            <p className="text-sm text-ink">
+              {IMAGE_ENGINE_LABELS[imageEngine]} · {VIDEO_ENGINE_LABELS[videoEngine]}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-mono uppercase text-ink-secondary mb-1 flex items-center gap-1">
+              <DollarSign className="w-3 h-3" /> Coût estimé total
+            </p>
+            <p className="text-sm text-gold-light font-mono">{formatCost(estimatedTotalCost)}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-xs text-ink-secondary bg-surface2 border border-border rounded p-3">
+          <span>
+            {framedScenes.length} frames à générer · {formatCost(estimatedImageCost)} estimé
+          </span>
+          <span>
+            {plan.scenes.length} vidéos à générer · {formatCost(estimatedVideoCost)} estimé
+          </span>
+        </div>
+        <p className="text-[11px] text-ink-secondary mt-3">
+          Estimation avant génération — le coût réel peut varier légèrement selon les régénérations.
+        </p>
+      </Card>
 
       <div className="space-y-3">
         {plan.scenes.map((scene) => (

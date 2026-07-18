@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
-import { higgsfieldGenerateImage } from "@/lib/higgsfield";
 import { buildImagePrompt } from "@/lib/prompts";
 import { formatCost } from "@/lib/utils";
 
@@ -36,10 +35,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
     updateScene(scene.id, { frameStatus: "frame_generating" });
     const engine = currentProject?.imageEngine ?? "auto";
     const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand);
-    const result =
-      engine === "nano_banana"
-        ? await higgsfieldGenerateImage(fullPrompt, apiKeys.higgsfieldApiKey)
-        : await falGenerateImage(fullPrompt, engine, apiKeys.falApiKey);
+    const result = await falGenerateImage(fullPrompt, engine, apiKeys.falApiKey);
     updateScene(scene.id, {
       frameUrl: result.url,
       frameStatus: "frame_generated",
@@ -56,7 +52,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
     const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand);
     const [a, b] = await Promise.all([
       falGenerateImage(fullPrompt, "flux_pro", apiKeys.falApiKey),
-      higgsfieldGenerateImage(fullPrompt, apiKeys.higgsfieldApiKey),
+      falGenerateImage(fullPrompt, "nano_banana", apiKeys.falApiKey),
     ]);
     setCompareResults([
       { engine: "Flux Pro", url: a.url },
@@ -214,10 +210,7 @@ export function FrameGenerator() {
         .map(async (scene) => {
           updateScene(scene.id, { frameStatus: "frame_generating" });
           const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand);
-          const result =
-            engine === "nano_banana"
-              ? await higgsfieldGenerateImage(fullPrompt, apiKeys.higgsfieldApiKey)
-              : await falGenerateImage(fullPrompt, engine, apiKeys.falApiKey);
+          const result = await falGenerateImage(fullPrompt, engine, apiKeys.falApiKey);
           updateScene(scene.id, {
             frameUrl: result.url,
             frameStatus: "frame_generated",

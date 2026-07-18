@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, KeyRound, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, KeyRound, RotateCcw, Sparkles } from "lucide-react";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useLearningStore } from "@/store/learningStore";
@@ -15,7 +15,7 @@ import {
   VIDEO_ENGINE_LABELS,
 } from "@/types";
 import { Card } from "@/components/ui/Card";
-import { Input, Label } from "@/components/ui/Input";
+import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Toggle } from "@/components/ui/Toggle";
 import { Slider } from "@/components/ui/Slider";
@@ -73,9 +73,13 @@ export default function SettingsPage() {
   const setApiKeys = useSettingsStore((s) => s.setApiKeys);
   const generationDefaults = useSettingsStore((s) => s.generationDefaults);
   const setGenerationDefaults = useSettingsStore((s) => s.setGenerationDefaults);
+  const advancedPrompts = useSettingsStore((s) => s.advancedPrompts);
+  const setAdvancedPrompts = useSettingsStore((s) => s.setAdvancedPrompts);
+  const resetAdvancedPrompts = useSettingsStore((s) => s.resetAdvancedPrompts);
   const styles = useStyleStore((s) => s.styles);
   const learningEntries = useLearningStore((s) => s.entries);
   const resetLearning = useLearningStore((s) => s.reset);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const motionIndex = MOTION_LEVELS.indexOf(generationDefaults.motionIntensity);
 
@@ -171,6 +175,100 @@ export default function SettingsPage() {
         <p className="text-xs text-ink-secondary">
           Cette intensité est injectée automatiquement dans tous les prompts vidéo générés.
         </p>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <button
+          className="w-full flex items-center justify-between"
+          onClick={() => setAdvancedOpen((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-gold" />
+            <h2 className="font-display font-bold text-sm text-ink">Prompts avancés (contrôle IA)</h2>
+          </div>
+          {advancedOpen ? (
+            <ChevronUp className="w-4 h-4 text-ink-secondary" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-ink-secondary" />
+          )}
+        </button>
+        <p className="text-xs text-ink-secondary">
+          Contrôle total sur la manière dont l&apos;IA analyse le brief, découpe les scènes et génère les
+          prompts vidéo — à ajuster en cas de problème, sans dépendre d&apos;une mise à jour du code.
+        </p>
+
+        {advancedOpen && (
+          <div className="space-y-5 pt-2 border-t border-border">
+            <div>
+              <Label>Prompt système — Analyse de brief</Label>
+              <Textarea
+                rows={8}
+                value={advancedPrompts.analyzeBriefSystemPrompt}
+                onChange={(e) => setAdvancedPrompts({ analyzeBriefSystemPrompt: e.target.value })}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div>
+              <Label>Prompt système — Génération de hooks</Label>
+              <Textarea
+                rows={3}
+                value={advancedPrompts.generateHooksSystemPrompt}
+                onChange={(e) => setAdvancedPrompts({ generateHooksSystemPrompt: e.target.value })}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div>
+              <Label>Règles vidéo obligatoires (une par ligne)</Label>
+              <Textarea
+                rows={5}
+                value={advancedPrompts.mandatoryVideoRules}
+                onChange={(e) => setAdvancedPrompts({ mandatoryVideoRules: e.target.value })}
+                className="font-mono text-xs"
+              />
+              <p className="text-[11px] text-ink-secondary mt-1">
+                Injectées automatiquement dans chaque prompt vidéo, en plus de l&apos;intensité de mouvement et
+                de la note phonétique FR.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Durée min. par plan (s)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={advancedPrompts.minSceneDurationSeconds}
+                  onChange={(e) => setAdvancedPrompts({ minSceneDurationSeconds: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>Durée max. par plan (s)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={advancedPrompts.maxSceneDurationSeconds}
+                  onChange={(e) => setAdvancedPrompts({ maxSceneDurationSeconds: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-ink-secondary -mt-2">
+              Bornes utilisées pour détecter combien de plans découper depuis le script, afin que la vidéo
+              reste dynamique.
+            </p>
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => confirm("Réinitialiser tous les prompts avancés aux valeurs par défaut ?") && resetAdvancedPrompts()}
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser aux valeurs par défaut
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card className="p-5 space-y-4">

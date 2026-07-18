@@ -30,6 +30,7 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
   const styles = useStyleStore((s) => s.styles);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
   const motionIntensity = useSettingsStore((s) => s.generationDefaults.motionIntensity);
+  const mandatoryVideoRules = useSettingsStore((s) => s.advancedPrompts.mandatoryVideoRules);
   const addLearningEntry = useLearningStore((s) => s.addEntry);
   const learningEntries = useLearningStore((s) => s.entries);
 
@@ -48,7 +49,7 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
     const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
     const fullPrompt = [
       buildScenePositivePrompt({ ...scene, videoPrompt: prompt }, style, motionIntensity),
-      `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang)}`,
+      `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules)}`,
       relevantLearning && `\n\n${relevantLearning}`,
     ]
       .filter(Boolean)

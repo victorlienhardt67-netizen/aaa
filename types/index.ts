@@ -168,6 +168,8 @@ export interface ProductionPlan {
   scenes: Scene[];
   detectedLang: Lang;
   generatedAt: string;
+  /** Synthèse de ce que l'IA a compris du brief (message clé, ton, structure narrative). */
+  briefAnalysis?: string;
 }
 
 export type ProjectStatus =
@@ -229,4 +231,17 @@ export interface LearningEntry {
   reason: string;
   comment?: string;
   createdAt: string;
+}
+
+/**
+ * Contrôle avancé du comportement de l'IA — modifiable en cas de problème,
+ * sans dépendre d'un changement de code. Tout ceci override les valeurs
+ * par défaut codées dans lib/prompts.ts et lib/utils.ts.
+ */
+export interface AdvancedPromptSettings {
+  analyzeBriefSystemPrompt: string;
+  generateHooksSystemPrompt: string;
+  mandatoryVideoRules: string; // une règle par ligne
+  minSceneDurationSeconds: number;
+  maxSceneDurationSeconds: number;
 }

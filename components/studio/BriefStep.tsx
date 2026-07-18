@@ -7,6 +7,7 @@ import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useProjectStore } from "@/store/projectStore";
 import { useTemplateStore } from "@/store/templateStore";
+import { useLearningStore } from "@/store/learningStore";
 import { ImageEngine, IMAGE_ENGINE_LABELS, Lang, VideoEngine, VIDEO_ENGINE_LABELS } from "@/types";
 import { Label, Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -16,7 +17,8 @@ import { Button } from "@/components/ui/Button";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { StyleCard } from "@/components/styles/StyleCard";
 import { generateHooks, analyzeBrief } from "@/lib/claude";
-import { estimateSceneCount, formatDuration } from "@/lib/utils";
+import { buildLearningContext } from "@/lib/prompts";
+import { estimateSceneCountFromBrief, formatDuration } from "@/lib/utils";
 import { autoRouteImageEngine, autoRouteVideoEngine } from "@/lib/fal";
 
 const IMAGE_ENGINE_OPTIONS = (Object.keys(IMAGE_ENGINE_LABELS) as ImageEngine[]).map((v) => ({
@@ -35,11 +37,13 @@ export function BriefStep() {
   const styles = useStyleStore((s) => s.styles);
   const settings = useSettingsStore((s) => s.generationDefaults);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const advancedPrompts = useSettingsStore((s) => s.advancedPrompts);
   const initProject = useProjectStore((s) => s.initProject);
   const updateCurrentProject = useProjectStore((s) => s.updateCurrentProject);
   const setStatus = useProjectStore((s) => s.setStatus);
   const pendingTemplate = useTemplateStore((s) => s.pendingTemplate);
   const clearPendingTemplate = useTemplateStore((s) => s.clearPendingTemplate);
+  const learningEntries = useLearningStore((s) => s.entries);
 
   const [brandId, setBrandId] = useState(activeBrandId ?? brands[0]?.id ?? "");
   const [lang, setLang] = useState<Lang>(settings.defaultLang);
@@ -76,13 +80,27 @@ export function BriefStep() {
   }, [styleId, styles, settings.defaultStyleId]);
 
   const brand = brands.find((b) => b.id === brandId);
-  const filteredStyles = styles.filter((s) => s.bestFor.includes(lang));
-  const sceneEstimate = estimateSceneCount(duration);
+  const filteredStyles = [...styles].sort((a, b) => {
+    const aMatch = a.bestFor.includes(lang) ? 0 : 1;
+    const bMatch = b.bestFor.includes(lang) ? 0 : 1;
+    return aMatch - bMatch;
+  });
+  const sceneEstimate = estimateSceneCountFromBrief(
+    brief,
+    duration,
+    advancedPrompts.minSceneDurationSeconds,
+    advancedPrompts.maxSceneDurationSeconds
+  );
 
   async function handleGenerateHooks() {
     setLoadingHooks(true);
     try {
-      const result = await generateHooks({ brand, lang, apiKey: apiKeys.claudeApiKey });
+      const result = await generateHooks({
+        brand,
+        lang,
+        apiKey: apiKeys.claudeApiKey,
+        systemPromptOverride: advancedPrompts.generateHooksSystemPrompt,
+      });
       setHooks(result);
     } finally {
       setLoadingHooks(false);
@@ -123,7 +141,12 @@ export function BriefStep() {
         style,
         lang,
         targetDuration: duration,
+        motionIntensity: settings.motionIntensity,
+        learningContext: buildLearningContext(learningEntries),
         apiKey: apiKeys.claudeApiKey,
+        systemPromptOverride: advancedPrompts.analyzeBriefSystemPrompt,
+        minSceneDurationSeconds: advancedPrompts.minSceneDurationSeconds,
+        maxSceneDurationSeconds: advancedPrompts.maxSceneDurationSeconds,
       });
       updateCurrentProject({
         plan,
@@ -197,7 +220,9 @@ export function BriefStep() {
         <div>
           <Slider
             label="Durée cible"
-            valueLabel={`${formatDuration(duration)} · ~${sceneEstimate} plans`}
+            valueLabel={`${formatDuration(duration)} · ~${sceneEstimate} plans${
+              brief.trim().length > 0 ? " (détecté depuis le script)" : ""
+            }`}
             min={40}
             max={180}
             step={5}
