@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CharacterReference, Project, ProjectStatus, Scene } from "@/types";
 import { STORAGE_KEYS } from "@/lib/storage";
-import { generateId } from "@/lib/utils";
+import { characterReferenceKey, generateId } from "@/lib/utils";
 
 interface InitProjectParams {
   name: string;
@@ -27,7 +27,8 @@ interface ProjectState {
   updateScene: (sceneId: string, patch: Partial<Scene>) => void;
   reorderScenes: (orderedIds: string[]) => void;
   initCharacterReferences: (refs: CharacterReference[]) => void;
-  updateCharacterReference: (assetId: string, patch: Partial<CharacterReference>) => void;
+  /** `key` est la clé composite `characterReferenceKey(assetId, state)`, pas l'assetId seul. */
+  updateCharacterReference: (key: string, patch: Partial<CharacterReference>) => void;
   recalcTotalCost: () => void;
   saveCurrentProject: () => void;
   loadProject: (id: string) => void;
@@ -114,22 +115,23 @@ export const useProjectStore = create<ProjectState>()(
           const existing = s.currentProject.characterReferences ?? {};
           const characterReferences = { ...existing };
           for (const ref of refs) {
-            if (!characterReferences[ref.assetId]) {
-              characterReferences[ref.assetId] = ref;
+            const key = characterReferenceKey(ref.assetId, ref.state);
+            if (!characterReferences[key]) {
+              characterReferences[key] = ref;
             }
           }
           return { currentProject: { ...s.currentProject, characterReferences } };
         }),
 
-      updateCharacterReference: (assetId, patch) =>
+      updateCharacterReference: (key, patch) =>
         set((s) => {
-          if (!s.currentProject?.characterReferences?.[assetId]) return s;
+          if (!s.currentProject?.characterReferences?.[key]) return s;
           return {
             currentProject: {
               ...s.currentProject,
               characterReferences: {
                 ...s.currentProject.characterReferences,
-                [assetId]: { ...s.currentProject.characterReferences[assetId], ...patch },
+                [key]: { ...s.currentProject.characterReferences[key], ...patch },
               },
             },
           };
