@@ -58,7 +58,8 @@ Règles obligatoires pour chaque scène :
 - Chaque scène doit avoir au minimum 1 directive caméra + 1 directive de mouvement dans son prompt vidéo (jamais "dynamic camera" seul — utilise des directives précises : slow push-in, slow pull-out, pan, tilt, handheld slight shake, dynamic zoom in, rack focus, orbit...)
 - Format final : vidéo verticale 9:16
 - Jamais de vidéo statique
-- Si un personnage récurrent est mentionné dans le brief → indique hasCharacter=true
+- Si un personnage récurrent est mentionné ou implicite dans le brief → indique hasCharacter=true, même si aucune photo de référence n'a été fournie (son apparence sera ensuite proposée par génération d'image, à valider avant les frames)
+- Donne un characterName cohérent et identique sur toutes les scènes où ce personnage apparaît (son prénom s'il est donné, sinon un descriptif court comme "La cliente")
 - Si ce personnage a plusieurs états dans la vidéo (ex: avant/après, fatiguée/rayonnante) → indique characterState pour chaque scène concernée
 - Si le produit est mentionné → indique hasProduct=true ; le produit n'apparaît QUE quand le script le justifie, jamais de placement systématique
 - Texte visible sur une frame : uniquement si essentiel (avis, CTA, label clé), toujours dans la langue détectée, jamais dans les deux langues, jamais décoratif
@@ -121,13 +122,65 @@ export function buildCharacterSheetPrompt(characterName: string, style: StylePre
   return `Character sheet complet de ${characterName}, corps entier visible, fond blanc uni, plusieurs angles sur une seule image (face, trois-quarts, profil, dos), pose neutre, éclairage égal, aucun texte, aucun label, aucune annotation.${stateNote} Style : ${style.positivePrompt}.`;
 }
 
-export function buildImagePrompt(scene: Pick<Scene, "imagePrompt">, style: StylePreset, brand: Brand | undefined): string {
-  const brandNote = brand ? ` Produit : ${brand.name}. ${brand.generationNotes || ""}`.trim() : "";
-  return `${scene.imagePrompt} Style : ${style.positivePrompt}.${brandNote ? " " + brandNote : ""}`;
+/** Règles image par défaut — modifiables depuis Paramètres > Prompts avancés. */
+export const DEFAULT_MANDATORY_IMAGE_RULES = [
+  "Format 9:16 vertical (portrait), sujet cadré plein cadre, aucune marge ni bord blanc",
+  "Aucun texte, sous-titre, watermark ou logo sur l'image, sauf si la description de la scène l'exige explicitement",
+  "Éclairage et ambiance cohérents avec le style visuel demandé, sans dérive de rendu",
+].join("\n");
+
+/**
+ * Règles de génération injectées automatiquement dans TOUT prompt image.
+ * `customRules` (une règle par ligne) permet de surcharger la liste par
+ * défaut depuis Paramètres > Prompts avancés, en cas de problème.
+ */
+export function buildMandatoryImageRules(customRules?: string): string {
+  const rules = (customRules?.trim() ? customRules : DEFAULT_MANDATORY_IMAGE_RULES)
+    .split("\n")
+    .map((r) => r.trim())
+    .filter(Boolean);
+  return rules.map((r) => `- ${r}`).join("\n");
 }
 
-export function buildNegativePrompt(style: StylePreset): string {
-  return style.negativePrompt;
+/**
+ * Construit le prompt final d'une frame. Conçu pour laisser 0 marge
+ * d'interprétation au modèle : règles obligatoires explicites, état du
+ * personnage précisé si applicable, rappel de fidélité aux images de
+ * référence fournies (jamais conditionnel — seulement quand elles existent
+ * réellement, pour ne pas induire le modèle en erreur), et négatif du style
+ * injecté directement dans le prompt (les moteurs image câblés n'exposent
+ * pas de paramètre negative_prompt séparé).
+ */
+export function buildImagePrompt(
+  scene: Pick<Scene, "imagePrompt" | "characterState">,
+  style: StylePreset,
+  brand: Brand | undefined,
+  opts: { hasCharacterReference?: boolean; hasProductReference?: boolean; customRules?: string } = {}
+): string {
+  const brandNote = brand ? `Produit : ${brand.name}. ${brand.generationNotes || ""}`.trim() : "";
+  const stateNote = scene.characterState
+    ? `État du personnage dans ce plan : ${scene.characterState} — l'expression et la posture doivent refléter précisément cet état.`
+    : "";
+  const referenceNotes = [
+    opts.hasCharacterReference &&
+      "Une image de référence du personnage est fournie ci-dessous : reproduire exactement son visage, sa coiffure et sa tenue, ne jamais changer son identité visuelle.",
+    opts.hasProductReference &&
+      "Une image de référence du produit est fournie ci-dessous : reproduire exactement son emballage, son logo et ses couleurs, ne jamais inventer un autre design.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return [
+    scene.imagePrompt,
+    stateNote,
+    `Style : ${style.positivePrompt}.`,
+    brandNote,
+    referenceNotes,
+    `Règles obligatoires :\n${buildMandatoryImageRules(opts.customRules)}`,
+    `À éviter absolument : ${style.negativePrompt}.`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /**

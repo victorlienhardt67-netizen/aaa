@@ -197,6 +197,8 @@ export interface ProductionPlan {
   generatedAt: string;
   /** Synthèse de ce que l'IA a compris du brief (message clé, ton, structure narrative). */
   briefAnalysis?: string;
+  /** Nom affiché de chaque personnage détecté, par assetId (y compris les personnages virtuels sans photo). */
+  characterNames?: Record<string, string>;
 }
 
 export type ProjectStatus =
@@ -287,6 +289,7 @@ export interface AdvancedPromptSettings {
   analyzeBriefSystemPrompt: string;
   generateHooksSystemPrompt: string;
   mandatoryVideoRules: string; // une règle par ligne
+  mandatoryImageRules: string; // une règle par ligne
   minSceneDurationSeconds: number;
   maxSceneDurationSeconds: number;
 }

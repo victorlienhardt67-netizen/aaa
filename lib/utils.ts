@@ -36,6 +36,18 @@ export function formatCost(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+/** Slug stable utilisé comme identifiant de personnage quand aucune photo n'est fournie. */
+export function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "personnage"
+  );
+}
+
 export function initials(name: string): string {
   return name
     .split(/\s+/)

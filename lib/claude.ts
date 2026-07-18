@@ -4,7 +4,7 @@
 // Sans clé, ou en cas d'erreur, on retombe sur un plan simulé mais réaliste.
 
 import { Brand, CameraMovement, Lang, MotionIntensity, ProductionPlan, Scene, StylePreset } from "@/types";
-import { estimateSceneCountFromBrief, generateId } from "./utils";
+import { estimateSceneCountFromBrief, generateId, slugify } from "./utils";
 import { simulatedDelay } from "./mock";
 
 const CAMERA_CYCLE: CameraMovement[] = [
@@ -44,12 +44,24 @@ interface ClaudeScene {
   cameraMovement: string;
   hasProduct: boolean;
   hasCharacter: boolean;
+  characterName?: string;
   characterState?: string;
   needsFrame: boolean;
   imagePrompt: string;
   videoPrompt: string;
   dialogueLang: Lang;
   voiceType?: "voiceover" | "lipsync" | "none";
+}
+
+/**
+ * Résout l'identifiant de personnage à utiliser pour une scène : la photo de
+ * marque uploadée si elle existe, sinon un identifiant virtuel stable dérivé
+ * du nom détecté par Claude — le character sheet est alors généré entièrement
+ * à partir du script (aucune photo de référence requise).
+ */
+function resolveCharacterAssetId(characterName: string | undefined, characterPhotoId: string | undefined): string {
+  if (characterPhotoId) return characterPhotoId;
+  return `virtual_${slugify(characterName || "personnage_principal")}`;
 }
 
 /**
@@ -97,34 +109,46 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
   const productPhoto = brand?.productPhotos[0];
   const characterPhoto = brand?.characterPhotos[0];
   const rawScenes: ClaudeScene[] = data.scenes ?? [];
+  const characterNames: Record<string, string> = {};
 
-  const scenes: Scene[] = rawScenes.map((s, i) => ({
-    id: generateId("scene"),
-    index: i + 1,
-    description: s.description,
-    durationSeconds: s.durationSeconds,
-    cameraMovement: (CAMERA_CYCLE.includes(s.cameraMovement as CameraMovement)
-      ? s.cameraMovement
-      : CAMERA_CYCLE[i % CAMERA_CYCLE.length]) as CameraMovement,
-    characters: s.hasCharacter && characterPhoto ? [characterPhoto.id] : [],
-    characterState: s.hasCharacter ? s.characterState : undefined,
-    hasProduct: s.hasProduct,
-    productAssetId: s.hasProduct ? productPhoto?.id : undefined,
-    needsFrame: s.needsFrame,
-    imagePrompt: s.imagePrompt,
-    videoPrompt: s.videoPrompt,
-    dialogueLang: s.dialogueLang ?? lang,
-    voiceType: s.voiceType ?? "none",
-    frameStatus: "frame_pending",
-    frameHistory: [],
-    videoStatus: "video_pending",
-  }));
+  const scenes: Scene[] = rawScenes.map((s, i) => {
+    let characters: string[] = [];
+    if (s.hasCharacter) {
+      const assetId = resolveCharacterAssetId(s.characterName, characterPhoto?.id);
+      characters = [assetId];
+      if (!characterNames[assetId]) {
+        characterNames[assetId] = characterPhoto?.name || s.characterName || "Personnage principal";
+      }
+    }
+    return {
+      id: generateId("scene"),
+      index: i + 1,
+      description: s.description,
+      durationSeconds: s.durationSeconds,
+      cameraMovement: (CAMERA_CYCLE.includes(s.cameraMovement as CameraMovement)
+        ? s.cameraMovement
+        : CAMERA_CYCLE[i % CAMERA_CYCLE.length]) as CameraMovement,
+      characters,
+      characterState: s.hasCharacter ? s.characterState : undefined,
+      hasProduct: s.hasProduct,
+      productAssetId: s.hasProduct ? productPhoto?.id : undefined,
+      needsFrame: s.needsFrame,
+      imagePrompt: s.imagePrompt,
+      videoPrompt: s.videoPrompt,
+      dialogueLang: s.dialogueLang ?? lang,
+      voiceType: s.voiceType ?? "none",
+      frameStatus: "frame_pending",
+      frameHistory: [],
+      videoStatus: "video_pending",
+    };
+  });
 
   return {
     scenes,
     detectedLang: (data.detectedLang as Lang) ?? lang,
     generatedAt: new Date().toISOString(),
     briefAnalysis: data.briefAnalysis,
+    characterNames,
   };
 }
 
@@ -172,12 +196,18 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
 
   const productPhoto = brand?.productPhotos[0];
   const characterPhoto = brand?.characterPhotos[0];
+  const characterAssetId = resolveCharacterAssetId(undefined, characterPhoto?.id);
+  const characterNames: Record<string, string> = {
+    [characterAssetId]: characterPhoto?.name || "Personnage principal",
+  };
 
   const scenes: Scene[] = Array.from({ length: sceneCount }).map((_, i) => {
     const beat = beatNames[i % beatNames.length];
     const camera = CAMERA_CYCLE[i % CAMERA_CYCLE.length];
     const hasProduct = i % 3 !== 1 && !!productPhoto;
-    const hasCharacter = i % 2 === 0 && !!characterPhoto;
+    // Simule la présence d'un personnage récurrent même sans photo uploadée
+    // (Claude peut inventer son apparence à partir du script).
+    const hasCharacter = i % 2 === 0;
     const duration = Math.max(3, Math.round(targetDuration / sceneCount));
 
     const descriptionFr = `${beat}${brand ? ` pour ${brand.name}` : ""}.`;
@@ -205,7 +235,7 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
       description: lang === "fr" ? descriptionFr : descriptionEn,
       durationSeconds: duration,
       cameraMovement: camera,
-      characters: hasCharacter && characterPhoto ? [characterPhoto.id] : [],
+      characters: hasCharacter ? [characterAssetId] : [],
       hasProduct,
       productAssetId: hasProduct ? productPhoto?.id : undefined,
       needsFrame: true,
@@ -233,6 +263,7 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
     detectedLang,
     generatedAt: new Date().toISOString(),
     briefAnalysis,
+    characterNames,
   };
 }
 

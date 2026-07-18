@@ -41,6 +41,11 @@ const PRODUCTION_PLAN_TOOL = {
             cameraMovement: { type: "string", enum: CAMERA_MOVEMENTS },
             hasProduct: { type: "boolean", description: "Le produit de la marque apparaît-il dans ce plan ?" },
             hasCharacter: { type: "boolean", description: "Un personnage récurrent apparaît-il dans ce plan ?" },
+            characterName: {
+              type: "string",
+              description:
+                "Nom du personnage récurrent si hasCharacter=true (ex: le prénom mentionné dans le brief, ou un descriptif court comme 'La cliente' si aucun nom n'est donné). Doit être identique pour toutes les scènes montrant le même personnage.",
+            },
             characterState: {
               type: "string",
               description:

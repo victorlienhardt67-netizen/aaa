@@ -223,7 +223,7 @@ export function CharacterReferences() {
     if (missing.length === 0) return;
     const refs = missing.map(({ assetId, state }) => {
       const photo = brand?.characterPhotos.find((p) => p.id === assetId);
-      const name = photo?.name || "Personnage";
+      const name = photo?.name || plan?.characterNames?.[assetId] || "Personnage";
       return {
         assetId,
         name,

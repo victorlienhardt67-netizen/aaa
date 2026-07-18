@@ -20,13 +20,14 @@ import { Brand, CharacterReference, Project, Scene as SceneType } from "@/types"
 /**
  * Rassemble les images de référence (character sheets validés + photo produit
  * réelle) à injecter dans la génération de frame pour garder personnages et
- * produit visuellement cohérents.
+ * produit visuellement cohérents, et indique au prompt lesquelles sont
+ * réellement fournies (pour ne jamais affirmer une consigne qui ne s'applique pas).
  */
-function getReferenceImageUrls(
+function getReferenceImageInfo(
   scene: Pick<SceneType, "characters" | "characterState" | "hasProduct" | "productAssetId">,
   currentProject: Pick<Project, "characterReferences"> | undefined,
   brand: Brand | undefined
-): string[] {
+): { urls: string[]; hasCharacterReference: boolean; hasProductReference: boolean } {
   const characterUrls = scene.characters
     .map((id) => currentProject?.characterReferences?.[characterReferenceKey(id, scene.characterState)])
     .filter((ref): ref is CharacterReference => ref?.status === "validated" && !!ref.sheetUrl)
@@ -35,7 +36,11 @@ function getReferenceImageUrls(
     scene.hasProduct && scene.productAssetId
       ? brand?.productPhotos.find((p) => p.id === scene.productAssetId)?.url
       : undefined;
-  return [...characterUrls, ...(productUrl ? [productUrl] : [])];
+  return {
+    urls: [...characterUrls, ...(productUrl ? [productUrl] : [])],
+    hasCharacterReference: characterUrls.length > 0,
+    hasProductReference: !!productUrl,
+  };
 }
 
 function SceneFrameCard({ scene }: { scene: Scene }) {
@@ -45,6 +50,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
   const styles = useStyleStore((s) => s.styles);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const mandatoryImageRules = useSettingsStore((s) => s.advancedPrompts.mandatoryImageRules);
   const [editing, setEditing] = useState(false);
   const [promptDraft, setPromptDraft] = useState(scene.imagePrompt);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -52,12 +58,20 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   const [comparing, setComparing] = useState(false);
 
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
-  const referenceImageUrls = getReferenceImageUrls(scene, currentProject ?? undefined, brand);
+  const { urls: referenceImageUrls, hasCharacterReference, hasProductReference } = getReferenceImageInfo(
+    scene,
+    currentProject ?? undefined,
+    brand
+  );
 
   async function runGeneration(prompt: string) {
     updateScene(scene.id, { frameStatus: "frame_generating" });
     const engine = currentProject?.imageEngine ?? "auto";
-    const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand);
+    const fullPrompt = buildImagePrompt({ imagePrompt: prompt, characterState: scene.characterState }, style, brand, {
+      hasCharacterReference,
+      hasProductReference,
+      customRules: mandatoryImageRules,
+    });
     const result = await falGenerateImage(
       fullPrompt,
       engine,
@@ -77,7 +91,11 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   async function handleCompare() {
     setComparing(true);
     setCompareOpen(true);
-    const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand);
+    const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt, characterState: scene.characterState }, style, brand, {
+      hasCharacterReference,
+      hasProductReference,
+      customRules: mandatoryImageRules,
+    });
     const [a, b] = await Promise.all([
       falGenerateImage(fullPrompt, "flux_pro", apiKeys.falApiKey),
       falGenerateImage(fullPrompt, "nano_banana", apiKeys.falApiKey),
@@ -218,6 +236,7 @@ export function FrameGenerator() {
   const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
   const styles = useStyleStore((s) => s.styles);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const mandatoryImageRules = useSettingsStore((s) => s.advancedPrompts.mandatoryImageRules);
   const recalcTotalCost = useProjectStore((s) => s.recalcTotalCost);
   const [generatingAll, setGeneratingAll] = useState(false);
 
@@ -237,8 +256,16 @@ export function FrameGenerator() {
         .filter((s) => !s.frameUrl)
         .map(async (scene) => {
           updateScene(scene.id, { frameStatus: "frame_generating" });
-          const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand);
-          const referenceImageUrls = getReferenceImageUrls(scene, currentProject ?? undefined, brand);
+          const { urls: referenceImageUrls, hasCharacterReference, hasProductReference } = getReferenceImageInfo(
+            scene,
+            currentProject ?? undefined,
+            brand
+          );
+          const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt, characterState: scene.characterState }, style, brand, {
+            hasCharacterReference,
+            hasProductReference,
+            customRules: mandatoryImageRules,
+          });
           const result = await falGenerateImage(
             fullPrompt,
             engine,

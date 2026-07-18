@@ -233,6 +233,20 @@ export default function SettingsPage() {
               </p>
             </div>
 
+            <div>
+              <Label>Règles image obligatoires (une par ligne)</Label>
+              <Textarea
+                rows={4}
+                value={advancedPrompts.mandatoryImageRules}
+                onChange={(e) => setAdvancedPrompts({ mandatoryImageRules: e.target.value })}
+                className="font-mono text-xs"
+              />
+              <p className="text-[11px] text-ink-secondary mt-1">
+                Injectées automatiquement dans chaque prompt de frame, avec le négatif du style et les rappels de
+                fidélité aux images de référence (personnage/produit) quand elles sont fournies.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Durée min. par plan (s)</Label>
