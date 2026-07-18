@@ -1,0 +1,47 @@
+import type { Metadata } from "next";
+import { Sora, Inter, JetBrains_Mono } from "next/font/google";
+import "./globals.css";
+import { Sidebar } from "@/components/sidebar/Sidebar";
+import { Header } from "@/components/layout/Header";
+
+const sora = Sora({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-sora",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const jbmono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-jbmono",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: "Golddust Studio",
+  description: "Outil de production vidéo IA — Golddust Studio",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="fr" className={`${sora.variable} ${inter.variable} ${jbmono.variable}`}>
+      <body className="font-body bg-background text-ink antialiased">
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0">
+            <Header />
+            <main className="flex-1 overflow-y-auto">{children}</main>
+          </div>
+        </div>
+      </body>
+    </html>
+  );
+}
