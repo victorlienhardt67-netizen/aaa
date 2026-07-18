@@ -24,7 +24,12 @@ export async function POST(req: NextRequest) {
       }
       const input = model.buildInput({ prompt, imageUrl, durationSeconds: durationSeconds ?? 5 });
       const result = await submitFalJob(model.modelId, apiKey, input);
-      return NextResponse.json({ requestId: result.request_id, modelId: model.modelId });
+      return NextResponse.json({
+        requestId: result.request_id,
+        modelId: model.modelId,
+        statusUrl: result.status_url,
+        resultUrl: result.response_url,
+      });
     }
 
     if (kind === "image") {
@@ -33,7 +38,12 @@ export async function POST(req: NextRequest) {
       if (Array.isArray(imageUrls) && imageUrls.length > 0) {
         const input = buildNanoBananaEditInput({ prompt, imageUrls });
         const result = await submitFalJob(NANO_BANANA_EDIT_MODEL_ID, apiKey, input);
-        return NextResponse.json({ requestId: result.request_id, modelId: NANO_BANANA_EDIT_MODEL_ID });
+        return NextResponse.json({
+          requestId: result.request_id,
+          modelId: NANO_BANANA_EDIT_MODEL_ID,
+          statusUrl: result.status_url,
+          resultUrl: result.response_url,
+        });
       }
 
       const modelId = WIRED_IMAGE_MODELS[engine];
@@ -42,7 +52,12 @@ export async function POST(req: NextRequest) {
       }
       const input = buildNanoBananaInput({ prompt });
       const result = await submitFalJob(modelId, apiKey, input);
-      return NextResponse.json({ requestId: result.request_id, modelId });
+      return NextResponse.json({
+        requestId: result.request_id,
+        modelId,
+        statusUrl: result.status_url,
+        resultUrl: result.response_url,
+      });
     }
 
     return NextResponse.json({ error: "invalid_kind" }, { status: 400 });

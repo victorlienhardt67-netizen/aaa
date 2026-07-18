@@ -6,13 +6,14 @@ export async function GET(req: NextRequest) {
   const apiKey = req.headers.get("x-fal-key");
   const modelId = searchParams.get("modelId");
   const requestId = searchParams.get("requestId");
+  const statusUrl = searchParams.get("statusUrl") ?? undefined;
 
   if (!apiKey || !modelId || !requestId) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
   try {
-    const result = await getFalStatus(modelId, apiKey, requestId);
+    const result = await getFalStatus(apiKey, { statusUrl, modelId, requestId });
     return NextResponse.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";

@@ -30,21 +30,35 @@ const WIRED_VIDEO_ENGINES: VideoEngine[] = ["kling_3_0", "grok_video"];
 const WIRED_IMAGE_ENGINES: ImageEngine[] = ["nano_banana"];
 const MAX_POLL_ATTEMPTS = 60; // ~5 minutes à 5s d'intervalle
 
-async function pollFalJob(modelId: string, requestId: string, apiKey: string): Promise<Record<string, unknown>> {
+interface FalSubmitData {
+  modelId: string;
+  requestId: string;
+  /** URLs exactes renvoyées par fal.ai à la soumission — toujours préférées à une
+   * reconstruction depuis modelId, qui casse pour les modèles multi-segments
+   * (ex: "fal-ai/nano-banana-pro/edit" renvoyait un 405 avant ce correctif). */
+  statusUrl?: string;
+  resultUrl?: string;
+}
+
+async function pollFalJob(submitData: FalSubmitData, apiKey: string): Promise<Record<string, unknown>> {
+  const { modelId, requestId, statusUrl, resultUrl } = submitData;
+  const statusParams = new URLSearchParams({ modelId, requestId });
+  if (statusUrl) statusParams.set("statusUrl", statusUrl);
+  const resultParams = new URLSearchParams({ modelId, requestId });
+  if (resultUrl) resultParams.set("resultUrl", resultUrl);
+
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await simulatedDelay(4500, 5500);
-    const statusRes = await fetch(
-      `/api/fal/status?modelId=${encodeURIComponent(modelId)}&requestId=${encodeURIComponent(requestId)}`,
-      { headers: { "x-fal-key": apiKey } }
-    );
+    const statusRes = await fetch(`/api/fal/status?${statusParams.toString()}`, {
+      headers: { "x-fal-key": apiKey },
+    });
     const statusData = await statusRes.json();
     if (!statusRes.ok) throw new Error(statusData?.error ?? `Erreur statut fal.ai (${statusRes.status})`);
 
     if (statusData.status === "COMPLETED") {
-      const resultRes = await fetch(
-        `/api/fal/result?modelId=${encodeURIComponent(modelId)}&requestId=${encodeURIComponent(requestId)}`,
-        { headers: { "x-fal-key": apiKey } }
-      );
+      const resultRes = await fetch(`/api/fal/result?${resultParams.toString()}`, {
+        headers: { "x-fal-key": apiKey },
+      });
       const resultData = await resultRes.json();
       if (!resultRes.ok) throw new Error(resultData?.error ?? `Erreur résultat fal.ai (${resultRes.status})`);
       return resultData;
@@ -84,7 +98,7 @@ export async function falGenerateImage(
       const submitData = await submitRes.json();
       if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
 
-      const result = await pollFalJob(submitData.modelId, submitData.requestId, apiKey);
+      const result = await pollFalJob(submitData, apiKey);
       const imageUrl = (result?.images as Array<{ url?: string }> | undefined)?.[0]?.url;
       if (!imageUrl) throw new Error("fal.ai n'a pas retourné d'URL d'image");
 
@@ -129,7 +143,7 @@ export async function falGenerateVideo(
       const submitData = await submitRes.json();
       if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
 
-      const result = await pollFalJob(submitData.modelId, submitData.requestId, apiKey);
+      const result = await pollFalJob(submitData, apiKey);
       const videoUrl = (result?.video as { url?: string } | undefined)?.url;
       if (!videoUrl) throw new Error("fal.ai n'a pas retourné d'URL vidéo");
 

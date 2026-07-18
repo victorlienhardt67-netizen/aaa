@@ -3,11 +3,20 @@
 
 const FAL_QUEUE_URL = "https://queue.fal.run";
 
+interface FalSubmitResponse {
+  request_id: string;
+  status: string;
+  /** URLs exactes fournies par fal.ai pour ce job précis — toujours préférées à une reconstruction manuelle,
+   * qui ne correspond pas au routage réel pour les modèles multi-segments (ex: "fal-ai/nano-banana-pro/edit"). */
+  status_url?: string;
+  response_url?: string;
+}
+
 export async function submitFalJob(
   modelId: string,
   apiKey: string,
   input: Record<string, unknown>
-): Promise<{ request_id: string; status: string }> {
+): Promise<FalSubmitResponse> {
   const res = await fetch(`${FAL_QUEUE_URL}/${modelId}`, {
     method: "POST",
     headers: {
@@ -23,12 +32,17 @@ export async function submitFalJob(
   return res.json();
 }
 
+/**
+ * Interroge le statut d'un job. `statusUrl` (renvoyé par submitFalJob) est
+ * toujours utilisé quand disponible ; à défaut, reconstruit l'URL à partir
+ * du modelId (repli best-effort, peut échouer pour les modèles multi-segments).
+ */
 export async function getFalStatus(
-  modelId: string,
   apiKey: string,
-  requestId: string
+  params: { statusUrl?: string; modelId: string; requestId: string }
 ): Promise<{ status: string; logs?: unknown[] }> {
-  const res = await fetch(`${FAL_QUEUE_URL}/${modelId}/requests/${requestId}/status`, {
+  const url = params.statusUrl ?? `${FAL_QUEUE_URL}/${params.modelId}/requests/${params.requestId}/status`;
+  const res = await fetch(url, {
     headers: { Authorization: `Key ${apiKey}` },
   });
   if (!res.ok) {
@@ -39,11 +53,11 @@ export async function getFalStatus(
 }
 
 export async function getFalResult(
-  modelId: string,
   apiKey: string,
-  requestId: string
+  params: { resultUrl?: string; modelId: string; requestId: string }
 ): Promise<Record<string, unknown>> {
-  const res = await fetch(`${FAL_QUEUE_URL}/${modelId}/requests/${requestId}`, {
+  const url = params.resultUrl ?? `${FAL_QUEUE_URL}/${params.modelId}/requests/${params.requestId}`;
+  const res = await fetch(url, {
     headers: { Authorization: `Key ${apiKey}` },
   });
   if (!res.ok) {
