@@ -51,17 +51,29 @@ async function pollFalJob(modelId: string, requestId: string, apiKey: string): P
   throw new Error("Délai d'attente dépassé pour la génération fal.ai");
 }
 
+/**
+ * Génère une image. Si `referenceImageUrls` est fourni (ex: character sheet
+ * validé), passe par la variante "edit" de Nano Banana pour garder le
+ * personnage visuellement cohérent d'une frame à l'autre.
+ */
 export async function falGenerateImage(
   prompt: string,
   engine: ImageEngine,
-  apiKey?: string
+  apiKey?: string,
+  referenceImageUrls?: string[]
 ): Promise<FalImageResult> {
-  if (apiKey && WIRED_IMAGE_ENGINES.includes(engine)) {
+  if (apiKey && (WIRED_IMAGE_ENGINES.includes(engine) || (referenceImageUrls && referenceImageUrls.length > 0))) {
     try {
       const submitRes = await fetch("/api/fal/submit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ apiKey, engine, prompt, kind: "image" }),
+        body: JSON.stringify({
+          apiKey,
+          engine,
+          prompt,
+          kind: "image",
+          imageUrls: referenceImageUrls,
+        }),
       });
       const submitData = await submitRes.json();
       if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);

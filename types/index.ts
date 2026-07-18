@@ -176,10 +176,25 @@ export type ProjectStatus =
   | "brief"
   | "analyzing"
   | "plan_ready"
+  | "characters"
   | "frames"
   | "videos"
   | "export"
   | "completed";
+
+export type CharacterReferenceStatus = "pending" | "generating" | "generated" | "validated";
+
+/**
+ * Character sheet généré + validé pour un personnage récurrent — sert de
+ * référence visuelle (image_urls) injectée dans les frames où ce personnage apparaît.
+ */
+export interface CharacterReference {
+  assetId: string; // id de la photo personnage de la marque (BrandAsset)
+  name: string;
+  prompt: string;
+  sheetUrl?: string;
+  status: CharacterReferenceStatus;
+}
 
 export interface Project {
   id: string;
@@ -193,6 +208,7 @@ export interface Project {
   brief: string;
   referenceImages: string[];
   plan?: ProductionPlan;
+  characterReferences?: Record<string, CharacterReference>;
   status: ProjectStatus;
   createdAt: string;
   updatedAt: string;

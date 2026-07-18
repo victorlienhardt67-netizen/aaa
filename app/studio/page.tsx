@@ -5,6 +5,7 @@ import { useProjectStore } from "@/store/projectStore";
 import { StudioProgressBar, getStepIndex } from "@/components/studio/ProgressBar";
 import { BriefStep } from "@/components/studio/BriefStep";
 import { ScenePlanEditor } from "@/components/studio/ScenePlanEditor";
+import { CharacterReferences } from "@/components/studio/CharacterReferences";
 import { FrameGenerator } from "@/components/studio/FrameGenerator";
 import { VideoGenerator } from "@/components/studio/VideoGenerator";
 import { ExportPanel } from "@/components/studio/ExportPanel";
@@ -50,6 +51,7 @@ export default function StudioPage() {
         )}
 
         {status === "plan_ready" && <ScenePlanEditor />}
+        {status === "characters" && <CharacterReferences />}
         {status === "frames" && <FrameGenerator />}
         {status === "videos" && <VideoGenerator />}
         {(status === "export" || status === "completed") && <ExportPanel />}

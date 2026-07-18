@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildNanoBananaInput, submitFalJob, WIRED_IMAGE_MODELS, WIRED_VIDEO_MODELS } from "@/lib/falServer";
+import {
+  buildNanoBananaEditInput,
+  buildNanoBananaInput,
+  NANO_BANANA_EDIT_MODEL_ID,
+  submitFalJob,
+  WIRED_IMAGE_MODELS,
+  WIRED_VIDEO_MODELS,
+} from "@/lib/falServer";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -7,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
-  const { apiKey, engine, prompt, imageUrl, durationSeconds, kind } = body;
+  const { apiKey, engine, prompt, imageUrl, imageUrls, durationSeconds, kind } = body;
 
   try {
     if (kind === "video") {
@@ -21,6 +28,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (kind === "image") {
+      // Si des images de référence sont fournies (character sheet validé), on
+      // passe par la variante "edit" pour garder le personnage cohérent.
+      if (Array.isArray(imageUrls) && imageUrls.length > 0) {
+        const input = buildNanoBananaEditInput({ prompt, imageUrls });
+        const result = await submitFalJob(NANO_BANANA_EDIT_MODEL_ID, apiKey, input);
+        return NextResponse.json({ requestId: result.request_id, modelId: NANO_BANANA_EDIT_MODEL_ID });
+      }
+
       const modelId = WIRED_IMAGE_MODELS[engine];
       if (!modelId) {
         return NextResponse.json({ error: "engine_not_wired" }, { status: 501 });

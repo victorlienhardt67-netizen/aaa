@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
   brief: "Brief",
   analyzing: "Analyse",
   plan_ready: "Plan prêt",
+  characters: "Personnages",
   frames: "Frames",
   videos: "Vidéos",
   export: "Export",

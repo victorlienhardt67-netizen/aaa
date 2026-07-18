@@ -282,7 +282,7 @@ export function ScenePlanEditor() {
       </div>
 
       <div className="flex justify-end pt-4 border-t border-border">
-        <Button onClick={() => setStatus("frames")}>Valider le plan</Button>
+        <Button onClick={() => setStatus("characters")}>Valider le plan</Button>
       </div>
     </div>
   );

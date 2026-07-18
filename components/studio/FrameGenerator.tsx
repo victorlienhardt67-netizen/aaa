@@ -30,12 +30,21 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   const [comparing, setComparing] = useState(false);
 
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
+  const characterSheetUrls = scene.characters
+    .map((id) => currentProject?.characterReferences?.[id])
+    .filter((ref) => ref?.status === "validated" && ref.sheetUrl)
+    .map((ref) => ref!.sheetUrl!);
 
   async function runGeneration(prompt: string) {
     updateScene(scene.id, { frameStatus: "frame_generating" });
     const engine = currentProject?.imageEngine ?? "auto";
     const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand);
-    const result = await falGenerateImage(fullPrompt, engine, apiKeys.falApiKey);
+    const result = await falGenerateImage(
+      fullPrompt,
+      engine,
+      apiKeys.falApiKey,
+      characterSheetUrls.length > 0 ? characterSheetUrls : undefined
+    );
     updateScene(scene.id, {
       frameUrl: result.url,
       frameStatus: "frame_generated",
@@ -210,7 +219,16 @@ export function FrameGenerator() {
         .map(async (scene) => {
           updateScene(scene.id, { frameStatus: "frame_generating" });
           const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand);
-          const result = await falGenerateImage(fullPrompt, engine, apiKeys.falApiKey);
+          const characterSheetUrls = scene.characters
+            .map((id) => currentProject?.characterReferences?.[id])
+            .filter((ref) => ref?.status === "validated" && ref.sheetUrl)
+            .map((ref) => ref!.sheetUrl!);
+          const result = await falGenerateImage(
+            fullPrompt,
+            engine,
+            apiKeys.falApiKey,
+            characterSheetUrls.length > 0 ? characterSheetUrls : undefined
+          );
           updateScene(scene.id, {
             frameUrl: result.url,
             frameStatus: "frame_generated",

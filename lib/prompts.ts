@@ -64,6 +64,16 @@ export function buildScenePositivePrompt(
   ].join(" ");
 }
 
+/**
+ * Prompt pour générer le character sheet d'un personnage récurrent :
+ * corps entier, fond blanc, multi-angles, aucun texte — sert ensuite de
+ * référence visuelle (image_urls) pour garder le personnage cohérent
+ * d'une frame à l'autre.
+ */
+export function buildCharacterSheetPrompt(characterName: string, style: StylePreset): string {
+  return `Character sheet complet de ${characterName}, corps entier visible, fond blanc uni, plusieurs angles sur une seule image (face, trois-quarts, profil, dos), pose neutre, éclairage égal, aucun texte, aucun label, aucune annotation. Style : ${style.positivePrompt}.`;
+}
+
 export function buildImagePrompt(scene: Pick<Scene, "imagePrompt">, style: StylePreset, brand: Brand | undefined): string {
   const brandNote = brand ? ` Produit : ${brand.name}. ${brand.generationNotes || ""}`.trim() : "";
   return `${scene.imagePrompt} Style : ${style.positivePrompt}.${brandNote ? " " + brandNote : ""}`;

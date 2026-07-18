@@ -109,3 +109,21 @@ export function buildNanoBananaInput(params: { prompt: string }) {
     resolution: "1K",
   };
 }
+
+/**
+ * Variante "edit" de Nano Banana (Nano Banana Pro) — prend des images de
+ * référence (image_urls) en plus du prompt, pour garder un personnage
+ * visuellement cohérent d'une frame à l'autre.
+ */
+export const NANO_BANANA_EDIT_MODEL_ID = "fal-ai/nano-banana-pro/edit";
+
+export function buildNanoBananaEditInput(params: { prompt: string; imageUrls: string[] }) {
+  return {
+    prompt: params.prompt,
+    image_urls: params.imageUrls,
+    num_images: 1,
+    aspect_ratio: "9:16",
+    output_format: "jpeg",
+    resolution: "1K",
+  };
+}
