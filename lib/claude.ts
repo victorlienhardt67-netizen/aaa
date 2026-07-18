@@ -441,3 +441,43 @@ export async function extractStyleFromImages(
     bestFor: ["fr", "en"],
   };
 }
+
+export interface CoConstructionTurn {
+  message: string;
+  quickReplies: string[];
+  isFinalSynthesis: boolean;
+  synthesis?: string;
+}
+
+/**
+ * Fait avancer d'un tour la conversation de co-construction du brief (Étape 0).
+ * `history` est la transcription des tours précédents (texte simple, pas de
+ * blocs tool_use) — Claude gère lui-même sa progression dans les 6 blocs
+ * définis par le system prompt, on ne code aucune logique de bloc côté client.
+ */
+export async function coConstructBrief(params: {
+  brief: string;
+  history: { role: "user" | "assistant"; content: string }[];
+  apiKey: string;
+  systemPromptOverride?: string;
+}): Promise<CoConstructionTurn> {
+  const res = await fetch("/api/claude/co-construction", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      apiKey: params.apiKey,
+      brief: params.brief,
+      history: params.history,
+      systemPromptOverride: params.systemPromptOverride,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error ?? `Erreur API ${res.status}`);
+
+  return {
+    message: data.message ?? "",
+    quickReplies: Array.isArray(data.quickReplies) ? data.quickReplies : [],
+    isFinalSynthesis: !!data.isFinalSynthesis,
+    synthesis: data.synthesis,
+  };
+}

@@ -15,6 +15,7 @@ import { formatCost, formatDate } from "@/lib/utils";
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   brief: "Brief",
+  brief_chat: "Co-construction",
   analyzing: "Analyse",
   plan_ready: "Plan prêt",
   characters: "Personnages",

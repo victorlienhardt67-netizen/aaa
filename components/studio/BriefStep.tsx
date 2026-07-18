@@ -132,9 +132,19 @@ export function BriefStep() {
       templateSourceId: pendingTemplate?.id,
     });
     updateCurrentProject({ brief, referenceImages: [] });
-    setStatus("analyzing");
     if (brandId) touchLastUsed(brandId);
 
+    // Avec une clé Claude, on passe d'abord par la co-construction du brief
+    // (Étape 0) — une conversation guidée, jamais de génération immédiate.
+    // Sans clé, la conversation n'aurait aucune valeur (pas de vraie IA en
+    // mode simulé) : on garde l'ancien flux direct vers l'analyse.
+    if (apiKeys.claudeApiKey) {
+      setStatus("brief_chat");
+      setAnalyzing(false);
+      return;
+    }
+
+    setStatus("analyzing");
     try {
       const plan = await analyzeBrief({
         brief,

@@ -227,6 +227,7 @@ export interface ProductionPlan {
 
 export type ProjectStatus =
   | "brief"
+  | "brief_chat"
   | "analyzing"
   | "plan_ready"
   | "characters"
@@ -234,6 +235,15 @@ export type ProjectStatus =
   | "videos"
   | "export"
   | "completed";
+
+/** Un tour de la conversation de co-construction du brief (Étape 0). */
+export interface CoConstructionMessage {
+  role: "assistant" | "user";
+  content: string;
+  quickReplies?: string[];
+  /** true si ce message assistant est la synthèse finale en attente de validation (bloc 6). */
+  isFinalSynthesis?: boolean;
+}
 
 export type CharacterReferenceStatus = "pending" | "generating" | "generated" | "validated";
 
@@ -260,6 +270,11 @@ export interface Project {
   videoEngine: VideoEngine;
   brief: string;
   referenceImages: string[];
+  /** Historique de la conversation d'Étape 0 (co-construction) + synthèse validée une fois complète. */
+  coConstruction?: {
+    messages: CoConstructionMessage[];
+    synthesis?: string;
+  };
   plan?: ProductionPlan;
   characterReferences?: Record<string, CharacterReference>;
   status: ProjectStatus;
@@ -310,6 +325,7 @@ export interface LearningEntry {
 export interface AdvancedPromptSettings {
   analyzeBriefSystemPrompt: string;
   generateHooksSystemPrompt: string;
+  coConstructionSystemPrompt: string;
   mandatoryVideoRules: string; // une règle par ligne
   mandatoryImageRules: string; // une règle par ligne
   minSceneDurationSeconds: number;

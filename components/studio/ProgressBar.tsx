@@ -51,6 +51,7 @@ export function StudioProgressBar({ currentStep }: { currentStep: number }) {
 export function getStepIndex(status: string, allFramesValidated: boolean): number {
   switch (status) {
     case "brief":
+    case "brief_chat":
       return 0;
     case "analyzing":
     case "plan_ready":

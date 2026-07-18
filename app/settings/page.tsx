@@ -220,6 +220,20 @@ export default function SettingsPage() {
             </div>
 
             <div>
+              <Label>Prompt système — Co-construction du brief (Étape 0)</Label>
+              <Textarea
+                rows={8}
+                value={advancedPrompts.coConstructionSystemPrompt}
+                onChange={(e) => setAdvancedPrompts({ coConstructionSystemPrompt: e.target.value })}
+                className="font-mono text-xs"
+              />
+              <p className="text-[11px] text-ink-secondary mt-1">
+                Contrôle la conversation guidée qui précède toute génération — structure en blocs, ton, règles de
+                questionnement.
+              </p>
+            </div>
+
+            <div>
               <Label>Règles vidéo obligatoires (une par ligne)</Label>
               <Textarea
                 rows={5}

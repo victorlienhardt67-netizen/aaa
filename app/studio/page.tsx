@@ -4,6 +4,7 @@ import { RefreshCw, RotateCcw } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { StudioProgressBar, getStepIndex } from "@/components/studio/ProgressBar";
 import { BriefStep } from "@/components/studio/BriefStep";
+import { BriefCoConstruction } from "@/components/studio/BriefCoConstruction";
 import { ScenePlanEditor } from "@/components/studio/ScenePlanEditor";
 import { CharacterReferences } from "@/components/studio/CharacterReferences";
 import { FrameGenerator } from "@/components/studio/FrameGenerator";
@@ -42,6 +43,7 @@ export default function StudioPage() {
         )}
 
         {status === "brief" && <BriefStep />}
+        {status === "brief_chat" && <BriefCoConstruction />}
 
         {status === "analyzing" && (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-ink-secondary">

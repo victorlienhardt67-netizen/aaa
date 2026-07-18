@@ -42,7 +42,19 @@ export async function callClaudeTool(params: {
   tool: ClaudeTool;
   /** Images en data URI (data:image/...;base64,...) — pour l'analyse visuelle (vision). */
   images?: string[];
+  /**
+   * Tours précédents d'une conversation multi-tours (ex: co-construction du
+   * brief) — texte brut uniquement, jamais les blocs tool_use bruts d'un appel
+   * précédent : le tool_choice forcé ne s'applique qu'au dernier tour généré,
+   * les tours antérieurs peuvent rester du texte simple.
+   */
+  history?: { role: "user" | "assistant"; content: string }[];
 }): Promise<Record<string, unknown>> {
+  const messages = [
+    ...(params.history ?? []),
+    { role: "user" as const, content: buildUserContent(params.userMessage, params.images) },
+  ];
+
   const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     headers: {
@@ -54,7 +66,7 @@ export async function callClaudeTool(params: {
       model: CLAUDE_MODEL,
       max_tokens: 8192,
       system: params.system,
-      messages: [{ role: "user", content: buildUserContent(params.userMessage, params.images) }],
+      messages,
       tools: [params.tool],
       tool_choice: { type: "tool", name: params.tool.name },
     }),

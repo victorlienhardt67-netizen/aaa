@@ -6,6 +6,7 @@ import { AdvancedPromptSettings, ApiKeys, GenerationDefaults } from "@/types";
 import { STORAGE_KEYS } from "@/lib/storage";
 import {
   DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT,
+  DEFAULT_CO_CONSTRUCTION_SYSTEM_PROMPT,
   DEFAULT_GENERATE_HOOKS_SYSTEM_PROMPT,
   DEFAULT_MANDATORY_IMAGE_RULES,
   DEFAULT_MANDATORY_VIDEO_RULES,
@@ -16,6 +17,7 @@ import {
 const DEFAULT_ADVANCED_PROMPTS: AdvancedPromptSettings = {
   analyzeBriefSystemPrompt: DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT,
   generateHooksSystemPrompt: DEFAULT_GENERATE_HOOKS_SYSTEM_PROMPT,
+  coConstructionSystemPrompt: DEFAULT_CO_CONSTRUCTION_SYSTEM_PROMPT,
   mandatoryVideoRules: DEFAULT_MANDATORY_VIDEO_RULES,
   mandatoryImageRules: DEFAULT_MANDATORY_IMAGE_RULES,
   minSceneDurationSeconds: DEFAULT_MIN_SCENE_DURATION,
