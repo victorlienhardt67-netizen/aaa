@@ -11,6 +11,10 @@ export interface FalImageResult {
   url: string;
   engine: ImageEngine;
   costEstimate: number;
+  /** true si `url` est une image simulée (pas de clé fournie, ou appel réel échoué). */
+  isMock?: boolean;
+  /** Présent uniquement si une clé était fournie mais que l'appel réel a échoué (jamais pour une simple absence de clé). */
+  errorMessage?: string;
 }
 
 export interface FalVideoResult {
@@ -18,6 +22,8 @@ export interface FalVideoResult {
   engine: VideoEngine;
   costEstimate: number;
   durationSeconds: number;
+  isMock?: boolean;
+  errorMessage?: string;
 }
 
 const WIRED_VIDEO_ENGINES: VideoEngine[] = ["kling_3_0", "grok_video"];
@@ -84,7 +90,16 @@ export async function falGenerateImage(
 
       return { url: imageUrl, engine, costEstimate: estimateImageCost(engine) };
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Erreur inconnue";
       console.error("Appel fal.ai (image) échoué, repli sur le mode simulé :", e);
+      await simulatedDelay(1200, 2600);
+      return {
+        url: generatePlaceholderFrame(prompt, `${engine} · fal.ai`),
+        engine,
+        costEstimate: estimateImageCost(engine),
+        isMock: true,
+        errorMessage: message,
+      };
     }
   }
 
@@ -93,6 +108,7 @@ export async function falGenerateImage(
     url: generatePlaceholderFrame(prompt, `${engine} · fal.ai`),
     engine,
     costEstimate: estimateImageCost(engine),
+    isMock: true,
   };
 }
 
@@ -119,7 +135,17 @@ export async function falGenerateVideo(
 
       return { url: videoUrl, engine, costEstimate: estimateVideoCost(engine, durationSeconds), durationSeconds };
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Erreur inconnue";
       console.error("Appel fal.ai (vidéo) échoué, repli sur le mode simulé :", e);
+      await simulatedDelay(2500, 5000);
+      return {
+        url: generatePlaceholderVideoUrl(prompt + (frameUrl ?? "")),
+        engine,
+        costEstimate: estimateVideoCost(engine, durationSeconds),
+        durationSeconds,
+        isMock: true,
+        errorMessage: message,
+      };
     }
   }
 
@@ -129,6 +155,7 @@ export async function falGenerateVideo(
     engine,
     costEstimate: estimateVideoCost(engine, durationSeconds),
     durationSeconds,
+    isMock: true,
   };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, RefreshCw, Sparkles, SplitSquareHorizontal } from "lucide-react";
+import { AlertTriangle, Check, KeyRound, RefreshCw, Sparkles, SplitSquareHorizontal } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
@@ -84,6 +84,8 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
       frameHistory: [...scene.frameHistory, result.url],
       imageCostEstimate: "costEstimate" in result ? result.costEstimate : 0.02,
       imagePrompt: prompt,
+      frameIsMock: result.isMock,
+      frameError: result.errorMessage,
     });
     recalcTotalCost();
   }
@@ -143,6 +145,19 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
           <span className="text-xs text-ink-secondary px-4 text-center">Aucune frame générée</span>
         )}
       </div>
+
+      {!isGenerating && scene.frameUrl && scene.frameError && (
+        <div className="flex items-start gap-1.5 bg-red-950/30 border border-red-900/50 rounded p-2 text-[11px] text-red-400">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>Échec de l&apos;appel fal.ai ({scene.frameError}) — frame simulée affichée, pas une vraie génération.</span>
+        </div>
+      )}
+      {!isGenerating && scene.frameUrl && !scene.frameError && scene.frameIsMock && (
+        <div className="flex items-start gap-1.5 bg-surface2 border border-border rounded p-2 text-[11px] text-ink-secondary">
+          <KeyRound className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>Aucune clé fal.ai configurée — frame simulée. Ajoute ta clé dans Paramètres pour générer la vraie image.</span>
+        </div>
+      )}
 
       {editing ? (
         <div className="space-y-2">
@@ -277,6 +292,8 @@ export function FrameGenerator() {
             frameStatus: "frame_generated",
             frameHistory: [result.url],
             imageCostEstimate: "costEstimate" in result ? result.costEstimate : 0.02,
+            frameIsMock: result.isMock,
+            frameError: result.errorMessage,
           });
         })
     );

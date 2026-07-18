@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, RefreshCw, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import { AlertTriangle, Check, KeyRound, RefreshCw, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -61,6 +61,8 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
       videoStatus: "video_generated",
       videoCostEstimate: result.costEstimate,
       videoPrompt: prompt,
+      videoIsMock: result.isMock,
+      videoError: result.errorMessage,
     });
     recalcTotalCost();
   }
@@ -142,6 +144,19 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
           )}
         </div>
       </div>
+
+      {!isGenerating && scene.videoUrl && scene.videoError && (
+        <div className="flex items-start gap-1.5 bg-red-950/30 border border-red-900/50 rounded p-2 text-[11px] text-red-400">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>Échec de l&apos;appel fal.ai ({scene.videoError}) — vidéo simulée affichée, pas une vraie génération.</span>
+        </div>
+      )}
+      {!isGenerating && scene.videoUrl && !scene.videoError && scene.videoIsMock && (
+        <div className="flex items-start gap-1.5 bg-surface2 border border-border rounded p-2 text-[11px] text-ink-secondary">
+          <KeyRound className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>Aucune clé fal.ai configurée — vidéo simulée. Ajoute ta clé dans Paramètres pour générer la vraie vidéo.</span>
+        </div>
+      )}
 
       {editing ? (
         <div className="space-y-2">

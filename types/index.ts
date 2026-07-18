@@ -198,11 +198,19 @@ export interface Scene {
   frameUrl?: string;
   frameStatus: SceneStatus;
   frameHistory: string[];
+  /** true si frameUrl est une image simulée (pas de clé fal.ai, ou appel réel échoué) — jamais masqué silencieusement. */
+  frameIsMock?: boolean;
+  /** Message d'erreur si l'appel fal.ai réel a échoué (clé présente mais échec) — distinct du cas "pas de clé". */
+  frameError?: string;
 
   videoUrl?: string;
   videoStatus: SceneStatus;
   videoCostEstimate?: number;
   imageCostEstimate?: number;
+  /** true si videoUrl est une vidéo simulée (pas de clé fal.ai, ou appel réel échoué). */
+  videoIsMock?: boolean;
+  /** Message d'erreur si l'appel fal.ai réel a échoué. */
+  videoError?: string;
 
   feedback?: SceneFeedback;
 }
