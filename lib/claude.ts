@@ -16,6 +16,7 @@ const CAMERA_CYCLE: CameraMovement[] = [
   "zoom_explosif",
   "tilt_reveal",
   "dolly_out",
+  "rack_focus",
 ];
 
 function detectLang(brief: string): Lang {
@@ -43,10 +44,12 @@ interface ClaudeScene {
   cameraMovement: string;
   hasProduct: boolean;
   hasCharacter: boolean;
+  characterState?: string;
   needsFrame: boolean;
   imagePrompt: string;
   videoPrompt: string;
   dialogueLang: Lang;
+  voiceType?: "voiceover" | "lipsync" | "none";
 }
 
 /**
@@ -104,12 +107,14 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
       ? s.cameraMovement
       : CAMERA_CYCLE[i % CAMERA_CYCLE.length]) as CameraMovement,
     characters: s.hasCharacter && characterPhoto ? [characterPhoto.id] : [],
+    characterState: s.hasCharacter ? s.characterState : undefined,
     hasProduct: s.hasProduct,
     productAssetId: s.hasProduct ? productPhoto?.id : undefined,
     needsFrame: s.needsFrame,
     imagePrompt: s.imagePrompt,
     videoPrompt: s.videoPrompt,
     dialogueLang: s.dialogueLang ?? lang,
+    voiceType: s.voiceType ?? "none",
     frameStatus: "frame_pending",
     frameHistory: [],
     videoStatus: "video_pending",
@@ -207,6 +212,7 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
       imagePrompt: lang === "fr" ? imagePromptFr : imagePromptEn,
       videoPrompt: lang === "fr" ? videoPromptFr : videoPromptEn,
       dialogueLang: lang,
+      voiceType: hasCharacter ? "voiceover" : "none",
       frameStatus: "frame_pending",
       frameHistory: [],
       videoStatus: "video_pending",
@@ -276,4 +282,41 @@ export async function generateHooks(params: {
     `Stop searching — ${name} already has the answer.`,
     `95% of people miss this detail... until they try ${name}.`,
   ];
+}
+
+export type ExtractedStyle = Omit<StylePreset, "id" | "isCustom" | "createdAt">;
+
+/**
+ * Analyse les images de référence fournies (vision Claude) et en extrait un
+ * DNA visuel complet (type de rendu, palette, détail, trait, lumière, style
+ * des personnages) synthétisé en un style réutilisable. Le style n'est
+ * JAMAIS fixé à l'avance — toujours extrait des images pour ce brief précis.
+ */
+export async function extractStyleFromImages(
+  images: string[],
+  lang: Lang,
+  apiKey: string
+): Promise<ExtractedStyle> {
+  const res = await fetch("/api/claude/extract-style", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ apiKey, images, lang }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error ?? `Erreur API ${res.status}`);
+
+  const detailsLine = [data.renderType, data.colorPalette, data.detailLevel, data.lineStyle, data.lightingMood, data.characterStyle]
+    .filter(Boolean)
+    .join(" · ");
+
+  return {
+    name: data.name ?? "Style extrait",
+    icon: "Sparkles",
+    shortDescription: data.shortDescription ?? detailsLine,
+    positivePrompt: data.positivePrompt,
+    negativePrompt: data.negativePrompt ?? "",
+    recommendedImageEngine: "nano_banana",
+    recommendedVideoEngine: lang === "en" ? "kling_3_0" : "grok_video",
+    bestFor: ["fr", "en"],
+  };
 }

@@ -11,11 +11,37 @@ interface ClaudeTool {
   input_schema: Record<string, unknown>;
 }
 
+/** data:image/png;base64,xxxx → { mediaType, data } */
+function parseDataUri(dataUri: string): { mediaType: string; data: string } | null {
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUri);
+  if (!match) return null;
+  return { mediaType: match[1], data: match[2] };
+}
+
+type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
+function buildUserContent(userMessage: string, images?: string[]): string | ContentBlock[] {
+  if (!images || images.length === 0) return userMessage;
+  const blocks: ContentBlock[] = [];
+  for (const img of images) {
+    const parsed = parseDataUri(img);
+    if (parsed) {
+      blocks.push({ type: "image", source: { type: "base64", media_type: parsed.mediaType, data: parsed.data } });
+    }
+  }
+  blocks.push({ type: "text", text: userMessage });
+  return blocks;
+}
+
 export async function callClaudeTool(params: {
   apiKey: string;
   system: string;
   userMessage: string;
   tool: ClaudeTool;
+  /** Images en data URI (data:image/...;base64,...) — pour l'analyse visuelle (vision). */
+  images?: string[];
 }): Promise<Record<string, unknown>> {
   const res = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
@@ -28,7 +54,7 @@ export async function callClaudeTool(params: {
       model: CLAUDE_MODEL,
       max_tokens: 8192,
       system: params.system,
-      messages: [{ role: "user", content: params.userMessage }],
+      messages: [{ role: "user", content: buildUserContent(params.userMessage, params.images) }],
       tools: [params.tool],
       tool_choice: { type: "tool", name: params.tool.name },
     }),

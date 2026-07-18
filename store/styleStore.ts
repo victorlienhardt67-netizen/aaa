@@ -9,7 +9,7 @@ import { generateId } from "@/lib/utils";
 
 interface StyleState {
   styles: StylePreset[];
-  addCustomStyle: (data: Omit<StylePreset, "id" | "isCustom" | "createdAt">) => void;
+  addCustomStyle: (data: Omit<StylePreset, "id" | "isCustom" | "createdAt">) => StylePreset;
   updateStyle: (id: string, patch: Partial<StylePreset>) => void;
   deleteStyle: (id: string) => void;
 }
@@ -19,13 +19,16 @@ export const useStyleStore = create<StyleState>()(
     (set) => ({
       styles: DEFAULT_STYLES,
 
-      addCustomStyle: (data) =>
-        set((s) => ({
-          styles: [
-            ...s.styles,
-            { ...data, id: generateId("style"), isCustom: true, createdAt: new Date().toISOString() },
-          ],
-        })),
+      addCustomStyle: (data) => {
+        const style: StylePreset = {
+          ...data,
+          id: generateId("style"),
+          isCustom: true,
+          createdAt: new Date().toISOString(),
+        };
+        set((s) => ({ styles: [...s.styles, style] }));
+        return style;
+      },
 
       updateStyle: (id, patch) =>
         set((s) => ({

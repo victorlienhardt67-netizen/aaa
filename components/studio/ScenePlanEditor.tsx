@@ -108,6 +108,17 @@ function SceneEditor({ scene }: { scene: Scene }) {
             </label>
           </div>
 
+          {scene.characters.length > 0 && (
+            <div>
+              <Label>État du personnage dans cette scène (ex : avant, après, fatiguée, rayonnante)</Label>
+              <Input
+                value={scene.characterState ?? ""}
+                onChange={(e) => updateScene(scene.id, { characterState: e.target.value || undefined })}
+                placeholder="Laisser vide si un seul état existe"
+              />
+            </div>
+          )}
+
           <div>
             <Label>Prompt image (éditable)</Label>
             <Textarea
@@ -147,36 +158,51 @@ function SceneEditor({ scene }: { scene: Scene }) {
               />
             </div>
             <div>
-              <label className="flex items-center gap-2 text-xs text-ink-secondary mb-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!scene.voiceOver?.enabled}
-                  onChange={(e) =>
-                    updateScene(scene.id, {
-                      voiceOver: {
-                        enabled: e.target.checked,
-                        text: scene.voiceOver?.text ?? "",
-                        voiceId: scene.voiceOver?.voiceId ?? voicesForLang[0]?.id,
-                        lang: scene.dialogueLang ?? "fr",
-                      },
-                    })
-                  }
-                  className="accent-gold"
-                />
-                <Mic className="w-3.5 h-3.5" /> Ajouter une voix off
-              </label>
-              {scene.voiceOver?.enabled && (
-                <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Mic className="w-3.5 h-3.5" /> Type de voix (détecté automatiquement, modifiable)
+              </Label>
+              <Select
+                value={scene.voiceType ?? "none"}
+                onChange={(e) => {
+                  const voiceType = e.target.value as "voiceover" | "lipsync" | "none";
+                  updateScene(scene.id, {
+                    voiceType,
+                    voiceOver:
+                      voiceType === "none"
+                        ? scene.voiceOver
+                        : {
+                            enabled: true,
+                            text: scene.voiceOver?.text ?? "",
+                            voiceId: scene.voiceOver?.voiceId ?? voicesForLang[0]?.id,
+                            lang: scene.dialogueLang ?? "fr",
+                          },
+                  });
+                }}
+                options={[
+                  { value: "none", label: "Aucune voix" },
+                  { value: "voiceover", label: "Voix off (hors-champ)" },
+                  { value: "lipsync", label: "Lip-sync (personnage parle à l'écran)" },
+                ]}
+              />
+              {scene.voiceType && scene.voiceType !== "none" && (
+                <div className="space-y-2 mt-2">
                   <Textarea
                     rows={2}
                     placeholder="Texte du dialogue..."
-                    value={scene.voiceOver.text}
+                    value={scene.voiceOver?.text ?? ""}
                     onChange={(e) =>
-                      updateScene(scene.id, { voiceOver: { ...scene.voiceOver!, text: e.target.value } })
+                      updateScene(scene.id, {
+                        voiceOver: {
+                          enabled: true,
+                          text: e.target.value,
+                          voiceId: scene.voiceOver?.voiceId ?? voicesForLang[0]?.id,
+                          lang: scene.dialogueLang ?? "fr",
+                        },
+                      })
                     }
                   />
                   <Select
-                    value={scene.voiceOver.voiceId ?? ""}
+                    value={scene.voiceOver?.voiceId ?? ""}
                     onChange={(e) =>
                       updateScene(scene.id, { voiceOver: { ...scene.voiceOver!, voiceId: e.target.value } })
                     }

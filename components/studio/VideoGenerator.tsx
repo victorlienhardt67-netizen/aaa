@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { falGenerateVideo } from "@/lib/fal";
-import { buildScenePositivePrompt, buildMandatoryVideoRules, buildLearningContext } from "@/lib/prompts";
+import { buildScenePositivePrompt, buildMandatoryVideoRules, buildLearningContext, buildVoiceDirective } from "@/lib/prompts";
 import { formatCost } from "@/lib/utils";
 
 const FEEDBACK_REASONS = [
@@ -49,11 +49,12 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
     const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
     const fullPrompt = [
       buildScenePositivePrompt({ ...scene, videoPrompt: prompt }, style, motionIntensity),
+      buildVoiceDirective(scene.voiceOver, lang, scene.voiceType),
       `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules)}`,
       relevantLearning && `\n\n${relevantLearning}`,
     ]
       .filter(Boolean)
-      .join("");
+      .join(" ");
     const result = await falGenerateVideo(fullPrompt, scene.frameUrl, engine, scene.durationSeconds, apiKeys.falApiKey);
     updateScene(scene.id, {
       videoUrl: result.url,

@@ -14,7 +14,29 @@ import { Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
 import { buildImagePrompt } from "@/lib/prompts";
-import { formatCost } from "@/lib/utils";
+import { characterReferenceKey, formatCost } from "@/lib/utils";
+import { Brand, CharacterReference, Project, Scene as SceneType } from "@/types";
+
+/**
+ * Rassemble les images de référence (character sheets validés + photo produit
+ * réelle) à injecter dans la génération de frame pour garder personnages et
+ * produit visuellement cohérents.
+ */
+function getReferenceImageUrls(
+  scene: Pick<SceneType, "characters" | "characterState" | "hasProduct" | "productAssetId">,
+  currentProject: Pick<Project, "characterReferences"> | undefined,
+  brand: Brand | undefined
+): string[] {
+  const characterUrls = scene.characters
+    .map((id) => currentProject?.characterReferences?.[characterReferenceKey(id, scene.characterState)])
+    .filter((ref): ref is CharacterReference => ref?.status === "validated" && !!ref.sheetUrl)
+    .map((ref) => ref.sheetUrl!);
+  const productUrl =
+    scene.hasProduct && scene.productAssetId
+      ? brand?.productPhotos.find((p) => p.id === scene.productAssetId)?.url
+      : undefined;
+  return [...characterUrls, ...(productUrl ? [productUrl] : [])];
+}
 
 function SceneFrameCard({ scene }: { scene: Scene }) {
   const currentProject = useProjectStore((s) => s.currentProject);
@@ -30,10 +52,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   const [comparing, setComparing] = useState(false);
 
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
-  const characterSheetUrls = scene.characters
-    .map((id) => currentProject?.characterReferences?.[id])
-    .filter((ref) => ref?.status === "validated" && ref.sheetUrl)
-    .map((ref) => ref!.sheetUrl!);
+  const referenceImageUrls = getReferenceImageUrls(scene, currentProject ?? undefined, brand);
 
   async function runGeneration(prompt: string) {
     updateScene(scene.id, { frameStatus: "frame_generating" });
@@ -43,7 +62,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
       fullPrompt,
       engine,
       apiKeys.falApiKey,
-      characterSheetUrls.length > 0 ? characterSheetUrls : undefined
+      referenceImageUrls.length > 0 ? referenceImageUrls : undefined
     );
     updateScene(scene.id, {
       frameUrl: result.url,
@@ -219,15 +238,12 @@ export function FrameGenerator() {
         .map(async (scene) => {
           updateScene(scene.id, { frameStatus: "frame_generating" });
           const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand);
-          const characterSheetUrls = scene.characters
-            .map((id) => currentProject?.characterReferences?.[id])
-            .filter((ref) => ref?.status === "validated" && ref.sheetUrl)
-            .map((ref) => ref!.sheetUrl!);
+          const referenceImageUrls = getReferenceImageUrls(scene, currentProject ?? undefined, brand);
           const result = await falGenerateImage(
             fullPrompt,
             engine,
             apiKeys.falApiKey,
-            characterSheetUrls.length > 0 ? characterSheetUrls : undefined
+            referenceImageUrls.length > 0 ? referenceImageUrls : undefined
           );
           updateScene(scene.id, {
             frameUrl: result.url,

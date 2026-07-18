@@ -4,6 +4,15 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+/**
+ * Clé composite pour identifier un character sheet par personnage + état
+ * (ex: "asset123::avant" / "asset123::après"). Sans état, la clé est juste
+ * l'id de l'asset (état par défaut unique).
+ */
+export function characterReferenceKey(assetId: string, state?: string): string {
+  return state ? `${assetId}::${state}` : assetId;
+}
+
 export function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString("fr-FR", {

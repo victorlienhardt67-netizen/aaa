@@ -11,6 +11,7 @@ const CAMERA_MOVEMENTS = [
   "zoom_explosif",
   "tilt_reveal",
   "dolly_out",
+  "rack_focus",
 ];
 
 const PRODUCTION_PLAN_TOOL = {
@@ -40,6 +41,11 @@ const PRODUCTION_PLAN_TOOL = {
             cameraMovement: { type: "string", enum: CAMERA_MOVEMENTS },
             hasProduct: { type: "boolean", description: "Le produit de la marque apparaît-il dans ce plan ?" },
             hasCharacter: { type: "boolean", description: "Un personnage récurrent apparaît-il dans ce plan ?" },
+            characterState: {
+              type: "string",
+              description:
+                "État du personnage dans cette scène si plusieurs états existent (ex: 'avant', 'après', 'fatiguée', 'rayonnante'). Omettre si un seul état existe pour ce personnage.",
+            },
             needsFrame: { type: "boolean", description: "Une frame de départ (image) est-elle nécessaire ?" },
             imagePrompt: { type: "string", description: "Prompt détaillé pour générer l'image de départ (frame)." },
             videoPrompt: {
@@ -48,6 +54,12 @@ const PRODUCTION_PLAN_TOOL = {
                 "Prompt détaillé pour générer la vidéo du plan, incluant au moins 1 directive caméra + 1 directive de mouvement.",
             },
             dialogueLang: { type: "string", enum: ["fr", "en"] },
+            voiceType: {
+              type: "string",
+              enum: ["voiceover", "lipsync", "none"],
+              description:
+                "Détecte automatiquement qui parle et comment : 'voiceover' si c'est une narration hors-champ (aucun personnage ne parle à l'écran), 'lipsync' si un personnage parle directement face caméra et doit synchroniser ses lèvres, 'none' s'il n'y a aucune voix dans ce plan.",
+            },
           },
           required: [
             "description",
@@ -59,6 +71,7 @@ const PRODUCTION_PLAN_TOOL = {
             "imagePrompt",
             "videoPrompt",
             "dialogueLang",
+            "voiceType",
           ],
         },
       },

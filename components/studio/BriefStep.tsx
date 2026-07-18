@@ -16,7 +16,7 @@ import { Slider } from "@/components/ui/Slider";
 import { Button } from "@/components/ui/Button";
 import { Dropzone } from "@/components/ui/Dropzone";
 import { StyleCard } from "@/components/styles/StyleCard";
-import { generateHooks, analyzeBrief } from "@/lib/claude";
+import { generateHooks, analyzeBrief, extractStyleFromImages } from "@/lib/claude";
 import { buildLearningContext } from "@/lib/prompts";
 import { estimateSceneCountFromBrief, formatDuration } from "@/lib/utils";
 import { autoRouteImageEngine, autoRouteVideoEngine } from "@/lib/fal";
@@ -35,6 +35,7 @@ export function BriefStep() {
   const activeBrandId = useBrandStore((s) => s.activeBrandId);
   const touchLastUsed = useBrandStore((s) => s.touchLastUsed);
   const styles = useStyleStore((s) => s.styles);
+  const addCustomStyle = useStyleStore((s) => s.addCustomStyle);
   const settings = useSettingsStore((s) => s.generationDefaults);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
   const advancedPrompts = useSettingsStore((s) => s.advancedPrompts);
@@ -57,6 +58,9 @@ export function BriefStep() {
   const [hooks, setHooks] = useState<string[]>([]);
   const [loadingHooks, setLoadingHooks] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [extractStyleMode, setExtractStyleMode] = useState(false);
+  const [clarificationError, setClarificationError] = useState<string | null>(null);
+  const [extractingStyle, setExtractingStyle] = useState(false);
 
   useEffect(() => {
     if (pendingTemplate) {
@@ -113,8 +117,45 @@ export function BriefStep() {
 
   async function handleAnalyze() {
     if (!brief.trim()) return;
+    setClarificationError(null);
+
+    // Questions de cadrage groupées : on bloque avant de générer quoi que ce
+    // soit si des infos essentielles manquent, plutôt que de deviner.
+    if (extractStyleMode) {
+      if (referenceImages.length === 0) {
+        setClarificationError(
+          "Extraction de style activée : ajoute au moins une image de référence (hook ou exemple de style) avant de continuer."
+        );
+        return;
+      }
+      if (!apiKeys.claudeApiKey) {
+        setClarificationError(
+          "L'extraction de style nécessite une clé API Claude — ajoute-la dans Paramètres avant de continuer."
+        );
+        return;
+      }
+    }
+
     setAnalyzing(true);
-    const style = styles.find((s) => s.id === styleId) ?? styles[0];
+
+    let style = styles.find((s) => s.id === styleId) ?? styles[0];
+    if (extractStyleMode) {
+      setExtractingStyle(true);
+      try {
+        const extracted = await extractStyleFromImages(referenceImages, lang, apiKeys.claudeApiKey);
+        style = addCustomStyle(extracted);
+      } catch (e) {
+        setClarificationError(
+          e instanceof Error ? `Échec de l'extraction du style : ${e.message}` : "Échec de l'extraction du style."
+        );
+        setAnalyzing(false);
+        setExtractingStyle(false);
+        return;
+      } finally {
+        setExtractingStyle(false);
+      }
+    }
+
     const resolvedImageEngine =
       imageEngine === "auto" ? style.recommendedImageEngine ?? autoRouteImageEngine() : imageEngine;
     const resolvedVideoEngine =
@@ -201,20 +242,43 @@ export function BriefStep() {
         </div>
 
         <div>
-          <Label>Style visuel</Label>
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-            {filteredStyles.map((style) => (
-              <div
-                key={style.id}
-                onClick={() => setStyleId(style.id)}
-                className={
-                  styleId === style.id ? "ring-2 ring-gold rounded-lg" : "rounded-lg"
-                }
-              >
-                <StyleCard style={style} />
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-2">
+            <Label className="mb-0">Style visuel</Label>
+            <button
+              type="button"
+              onClick={() => setExtractStyleMode((v) => !v)}
+              className={`text-xs font-mono px-3 py-1.5 rounded border transition-colors flex items-center gap-1.5 ${
+                extractStyleMode
+                  ? "bg-gold/10 border-gold/50 text-gold-light"
+                  : "border-border text-ink-secondary hover:text-ink"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Extraire le style depuis mes images de référence
+            </button>
           </div>
+
+          {extractStyleMode ? (
+            <div className="bg-surface2 border border-dashed border-gold/40 rounded-lg p-4 text-sm text-ink-secondary">
+              Le style ne sera pas choisi dans la bibliothèque : il sera analysé automatiquement à partir des
+              images de référence que tu ajoutes ci-dessous (frame de départ souhaitée, exemples de
+              style/design). Ajoute au moins une image pour continuer.
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              {filteredStyles.map((style) => (
+                <div
+                  key={style.id}
+                  onClick={() => setStyleId(style.id)}
+                  className={
+                    styleId === style.id ? "ring-2 ring-gold rounded-lg" : "rounded-lg"
+                  }
+                >
+                  <StyleCard style={style} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
@@ -286,10 +350,16 @@ export function BriefStep() {
         />
 
         <div>
-          <Label>Images de référence (optionnel)</Label>
+          <Label>
+            Images de référence {extractStyleMode ? "(requis pour l'extraction de style)" : "(optionnel)"}
+          </Label>
           <Dropzone
             onFiles={(files) => setReferenceImages((prev) => [...prev, ...files])}
-            hint="En complément des photos produit de la marque"
+            hint={
+              extractStyleMode
+                ? "Frame de départ souhaitée et/ou exemples de style — le DNA visuel sera extrait de ces images"
+                : "En complément des photos produit de la marque"
+            }
           />
           {referenceImages.length > 0 && (
             <div className="grid grid-cols-6 gap-2 mt-2">
@@ -309,9 +379,16 @@ export function BriefStep() {
           )}
         </div>
 
+        {clarificationError && (
+          <div className="bg-red-950/30 border border-red-900/50 rounded p-3 text-sm text-red-400">
+            {clarificationError}
+          </div>
+        )}
+
         <div className="flex justify-end">
           <Button onClick={handleAnalyze} disabled={!brief.trim() || analyzing || !brandId}>
-            <Wand2 className="w-4 h-4" /> {analyzing ? "Analyse en cours..." : "Analyser le brief"}
+            <Wand2 className="w-4 h-4" />{" "}
+            {extractingStyle ? "Extraction du style..." : analyzing ? "Analyse en cours..." : "Analyser le brief"}
           </Button>
         </div>
       </section>

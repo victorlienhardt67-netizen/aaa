@@ -84,7 +84,8 @@ export type CameraMovement =
   | "zoom_explosif"
   | "tilt_reveal"
   | "dolly_out"
-  | "static_pan";
+  | "static_pan"
+  | "rack_focus";
 
 export const CAMERA_MOVEMENT_LABELS: Record<CameraMovement, string> = {
   push_in: "Push-in dramatique",
@@ -96,6 +97,24 @@ export const CAMERA_MOVEMENT_LABELS: Record<CameraMovement, string> = {
   tilt_reveal: "Tilt reveal",
   dolly_out: "Dolly out",
   static_pan: "Pan latéral lent",
+  rack_focus: "Rack focus",
+};
+
+/**
+ * Phrases précises injectées dans les prompts vidéo (toujours en anglais,
+ * langage standard de production) — jamais "dynamic camera" seul.
+ */
+export const CAMERA_MOVEMENT_VIDEO_PHRASES: Record<CameraMovement, string> = {
+  push_in: "slow push-in toward the subject",
+  whip_pan: "fast whip pan sweeping across the frame",
+  orbit_360: "360 degree orbit around the subject",
+  crane_up: "slow crane up, rising above the subject",
+  handheld_shake: "handheld slight shake, natural UGC feel",
+  zoom_explosif: "dynamic zoom in on a key moment",
+  tilt_reveal: "tilt reveal, slow tilt to unveil the scene",
+  dolly_out: "slow pull-out revealing the surroundings",
+  static_pan: "static shot with subtle ambient movement",
+  rack_focus: "rack focus shifting sharpness between subject and background",
 };
 
 export type MotionIntensity = "doux" | "equilibre" | "dynamique" | "extreme";
@@ -144,6 +163,8 @@ export interface Scene {
   durationSeconds: number;
   cameraMovement: CameraMovement;
   characters: string[]; // references to BrandAsset ids
+  /** État du personnage dans cette scène (ex: "avant" / "après") — un sheet distinct par état. */
+  characterState?: string;
   hasProduct: boolean;
   productAssetId?: string;
   needsFrame: boolean;
@@ -151,6 +172,12 @@ export interface Scene {
   videoPrompt: string;
   dialogueLang?: Lang;
   voiceOver?: VoiceOver;
+  /**
+   * Détecté automatiquement par l'analyse (ou modifiable manuellement) :
+   * "voiceover" = narration hors-champ, no lip sync ; "lipsync" = personnage
+   * parle à l'écran, lèvres synchronisées ; "none" = pas de voix.
+   */
+  voiceType?: "voiceover" | "lipsync" | "none";
 
   frameUrl?: string;
   frameStatus: SceneStatus;
@@ -191,6 +218,8 @@ export type CharacterReferenceStatus = "pending" | "generating" | "generated" | 
 export interface CharacterReference {
   assetId: string; // id de la photo personnage de la marque (BrandAsset)
   name: string;
+  /** État de ce sheet (ex: "avant" / "après") — undefined = état par défaut unique. */
+  state?: string;
   prompt: string;
   sheetUrl?: string;
   status: CharacterReferenceStatus;
