@@ -15,6 +15,7 @@ import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
 import { buildImagePrompt } from "@/lib/prompts";
 import { characterReferenceKey, formatCost, mapWithConcurrency } from "@/lib/utils";
+import { ImageDownloadButton } from "./ImageDownloadButton";
 import { fileToBase64 } from "@/lib/storage";
 import { Brand, CharacterReference, Project, Scene as SceneType } from "@/types";
 
@@ -168,8 +169,11 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
           </div>
         )}
         {!isGenerating && scene.frameUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={scene.frameUrl} alt={`Frame scène ${scene.index}`} className="w-full h-full object-cover" />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={scene.frameUrl} alt={`Frame scène ${scene.index}`} className="w-full h-full object-cover" />
+            <ImageDownloadButton url={scene.frameUrl} filename={`scene-${scene.index}-frame.jpg`} />
+          </>
         )}
         {!isGenerating && !scene.frameUrl && (
           <span className="text-xs text-ink-secondary px-4 text-center">Aucune frame générée</span>
@@ -278,9 +282,10 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
           <div className="grid grid-cols-2 gap-4">
             {compareResults.map((r) => (
               <div key={r.engine} className="space-y-2">
-                <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden">
+                <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={r.url} alt={r.engine} className="w-full h-full object-cover" />
+                  <ImageDownloadButton url={r.url} filename={`scene-${scene.index}-${r.engine.toLowerCase().replace(/\s+/g, "-")}.jpg`} />
                 </div>
                 <div className="flex items-center justify-between">
                   <Badge tone="neutral">{r.engine}</Badge>

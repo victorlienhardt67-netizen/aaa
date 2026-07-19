@@ -93,6 +93,28 @@ export async function mapWithConcurrency<T, R>(
   return results;
 }
 
+/**
+ * Télécharge une image (URL distante ou data URL) directement dans le
+ * dossier téléchargements de l'utilisateur — sans popup ni confirmation.
+ * Repli sur un nouvel onglet si le fetch échoue (ex: CORS bloqué par l'hébergeur).
+ */
+export async function downloadImage(url: string, filename: string): Promise<void> {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    window.open(url, "_blank");
+  }
+}
+
 let idCounter = 0;
 export function generateId(prefix = "id"): string {
   idCounter += 1;

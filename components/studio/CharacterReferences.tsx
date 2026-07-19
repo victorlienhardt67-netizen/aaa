@@ -7,7 +7,7 @@ import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { CharacterReference } from "@/types";
-import { characterReferenceKey } from "@/lib/utils";
+import { characterReferenceKey, slugify } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +16,7 @@ import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
 import { refineCharacterPrompt } from "@/lib/claude";
 import { buildCharacterSheetPrompt } from "@/lib/prompts";
+import { ImageDownloadButton } from "./ImageDownloadButton";
 
 const PROPOSAL_VARIANTS = [
   "Interprétation 1 : expression douce et posture détendue.",
@@ -154,7 +155,7 @@ function CharacterCard({
         )}
         <div>
           <p className="text-[10px] font-mono uppercase text-ink-secondary mb-1">Fiche casting</p>
-          <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden flex items-center justify-center">
+          <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden flex items-center justify-center relative">
             {isGenerating && (
               <div className="flex flex-col items-center gap-2 text-ink-secondary">
                 <RefreshCw className="w-5 h-5 animate-spin text-gold" />
@@ -162,8 +163,11 @@ function CharacterCard({
               </div>
             )}
             {!isGenerating && reference.sheetUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={reference.sheetUrl} alt={`${displayName} sheet`} className="w-full h-full object-cover" />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={reference.sheetUrl} alt={`${displayName} sheet`} className="w-full h-full object-cover" />
+                <ImageDownloadButton url={reference.sheetUrl} filename={`${slugify(displayName)}-fiche-casting.jpg`} />
+              </>
             )}
             {!isGenerating && !reference.sheetUrl && (
               <span className="text-xs text-ink-secondary px-3 text-center">Aucune fiche générée</span>
@@ -233,7 +237,7 @@ function CharacterCard({
           <div className="flex gap-4 overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible pb-2">
             {proposals.map((proposal, i) => (
               <div key={i} className="space-y-2 w-[220px] sm:w-auto shrink-0 sm:shrink">
-                <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden flex items-center justify-center">
+                <div className="aspect-[9/16] bg-surface2 border border-border rounded overflow-hidden flex items-center justify-center relative">
                   {proposal.loading && (
                     <div className="flex flex-col items-center gap-2 text-ink-secondary">
                       <RefreshCw className="w-5 h-5 animate-spin text-gold" />
@@ -247,8 +251,11 @@ function CharacterCard({
                     </div>
                   )}
                   {!proposal.loading && !proposal.error && proposal.url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proposal.url} alt={`Proposition ${i + 1}`} className="w-full h-full object-cover" />
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={proposal.url} alt={`Proposition ${i + 1}`} className="w-full h-full object-cover" />
+                      <ImageDownloadButton url={proposal.url} filename={`${slugify(displayName)}-proposition-${i + 1}.jpg`} />
+                    </>
                   )}
                 </div>
                 {proposal.error ? (
