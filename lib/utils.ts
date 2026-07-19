@@ -5,13 +5,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Clé composite pour indexer une fiche casting par personnage + variante
- * physique (avant/après). Contrainte au type "avant"|"après" — jamais une
- * chaîne libre — pour empêcher toute dérive vers des variantes multiples
- * (le bug corrigé précédemment venait d'un état émotionnel en texte libre).
+ * Un personnage = une seule fiche de référence — la clé est directement
+ * l'assetId, jamais de variante composite (plus de dérive possible vers
+ * plusieurs fiches pour un même personnage).
  */
-export function characterReferenceKey(assetId: string, variant?: "avant" | "après"): string {
-  return variant ? `${assetId}::${variant}` : assetId;
+export function characterReferenceKey(assetId: string): string {
+  return assetId;
 }
 
 export function formatDate(iso: string): string {

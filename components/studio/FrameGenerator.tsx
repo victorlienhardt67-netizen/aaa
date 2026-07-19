@@ -14,34 +14,38 @@ import { Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
 import { buildImagePrompt } from "@/lib/prompts";
-import { characterReferenceKey, formatCost, mapWithConcurrency } from "@/lib/utils";
+import { formatCost, mapWithConcurrency } from "@/lib/utils";
 import { ImageDownloadButton } from "./ImageDownloadButton";
 import { fileToBase64 } from "@/lib/storage";
-import { Brand, CharacterReference, Project, Scene as SceneType } from "@/types";
+import { Brand, CharacterReference, LocationReference, Project, Scene as SceneType } from "@/types";
 
 /**
- * Rassemble les images de référence (fiches casting validées + photo produit
- * réelle) à injecter dans la génération de frame pour garder personnages et
- * produit visuellement cohérents, et indique au prompt lesquelles sont
- * réellement fournies (pour ne jamais affirmer une consigne qui ne s'applique pas).
+ * Rassemble les images de référence (fiches personnages validées + référence
+ * de décor validée + photo produit réelle) à injecter dans la génération de
+ * frame pour garder personnages, décor et produit visuellement cohérents, et
+ * indique au prompt lesquelles sont réellement fournies (pour ne jamais
+ * affirmer une consigne qui ne s'applique pas).
  */
 function getReferenceImageInfo(
-  scene: Pick<SceneType, "characters" | "characterVariant" | "hasProduct" | "productAssetId">,
-  currentProject: Pick<Project, "characterReferences"> | undefined,
+  scene: Pick<SceneType, "characters" | "locationId" | "hasProduct" | "productAssetId">,
+  currentProject: Pick<Project, "characterReferences" | "locationReferences"> | undefined,
   brand: Brand | undefined
-): { urls: string[]; hasCharacterReference: boolean; hasProductReference: boolean } {
+): { urls: string[]; hasCharacterReference: boolean; hasProductReference: boolean; hasLocationReference: boolean } {
   const characterUrls = scene.characters
-    .map((id) => currentProject?.characterReferences?.[characterReferenceKey(id, scene.characterVariant)])
+    .map((id) => currentProject?.characterReferences?.[id])
     .filter((ref): ref is CharacterReference => ref?.status === "validated" && !!ref.sheetUrl)
     .map((ref) => ref.sheetUrl!);
+  const locationRef = scene.locationId ? currentProject?.locationReferences?.[scene.locationId] : undefined;
+  const locationUrl = locationRef?.status === "validated" && locationRef.sheetUrl ? locationRef.sheetUrl : undefined;
   const productUrl =
     scene.hasProduct && scene.productAssetId
       ? brand?.productPhotos.find((p) => p.id === scene.productAssetId)?.url
       : undefined;
   return {
-    urls: [...characterUrls, ...(productUrl ? [productUrl] : [])],
+    urls: [...characterUrls, ...(locationUrl ? [locationUrl] : []), ...(productUrl ? [productUrl] : [])],
     hasCharacterReference: characterUrls.length > 0,
     hasProductReference: !!productUrl,
+    hasLocationReference: !!locationUrl,
   };
 }
 
@@ -62,7 +66,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
-  const { urls: referenceImageUrls, hasCharacterReference, hasProductReference } = getReferenceImageInfo(
+  const { urls: referenceImageUrls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
     scene,
     currentProject ?? undefined,
     brand
@@ -85,6 +89,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
     const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand, {
       hasCharacterReference,
       hasProductReference,
+      hasLocationReference,
       customRules: mandatoryImageRules,
     });
     try {
@@ -119,6 +124,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
     const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand, {
       hasCharacterReference,
       hasProductReference,
+      hasLocationReference,
       customRules: mandatoryImageRules,
     });
     try {
@@ -331,7 +337,7 @@ export function FrameGenerator() {
       8,
       async (scene) => {
           updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined });
-          const { urls: referenceImageUrls, hasCharacterReference, hasProductReference } = getReferenceImageInfo(
+          const { urls: referenceImageUrls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
             scene,
             currentProject ?? undefined,
             brand
@@ -339,6 +345,7 @@ export function FrameGenerator() {
           const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand, {
             hasCharacterReference,
             hasProductReference,
+            hasLocationReference,
             customRules: mandatoryImageRules,
           });
           try {

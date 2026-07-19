@@ -57,6 +57,7 @@ export function getStepIndex(status: string, allFramesValidated: boolean): numbe
     case "plan_ready":
       return 1;
     case "characters":
+    case "locations":
     case "frames":
       return allFramesValidated ? 3 : 2;
     case "videos":

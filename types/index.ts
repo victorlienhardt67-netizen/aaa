@@ -177,13 +177,8 @@ export interface Scene {
   durationSeconds: number;
   cameraMovement: CameraMovement;
   characters: string[]; // references to BrandAsset ids
-  /**
-   * Variante physique DURABLE (poids, silhouette, peau) montrée dans cette
-   * scène — jamais pour des états émotionnels passagers (fatigue, choc,
-   * joie...), qui se décrivent uniquement dans imagePrompt. Contrainte à
-   * exactement 2 valeurs pour éviter toute dérive vers des variantes multiples.
-   */
-  characterVariant?: "avant" | "après";
+  /** Lieu où se déroule cette scène — référence une entrée de `ProductionPlan.locationNames` / `Project.locationReferences`. */
+  locationId?: string;
   hasProduct: boolean;
   productAssetId?: string;
   needsFrame: boolean;
@@ -231,12 +226,14 @@ export interface ProductionPlan {
   /** Nom affiché de chaque personnage détecté, par assetId (y compris les personnages virtuels sans photo). */
   characterNames?: Record<string, string>;
   /**
-   * Description physique brute (avant/après) par assetId, pour les personnages
-   * à transformation physique durable — première occurrence non vide retenue,
-   * jamais une exigence de répétition exacte (contrairement à l'ancien
-   * characterState en texte libre, source de dérive corrigée précédemment).
+   * Trait physique du personnage (ex: "corpulent", "très mince", "grand et
+   * athlétique") si le script en mentionne un — intégré directement dans le
+   * prompt de sa fiche de référence unique, jamais comme variante séparée.
+   * Première occurrence non vide retenue par personnage.
    */
-  characterProfiles?: Record<string, { etatAvant?: string; etatApres?: string }>;
+  characterProfiles?: Record<string, { physicalState?: string }>;
+  /** Nom affiché de chaque lieu détecté dans le script, par locationId. */
+  locationNames?: Record<string, string>;
   /** Évaluation du hook (3-5 premières secondes) — toujours vérifiée en premier. */
   hook?: {
     texte: string;
@@ -258,6 +255,7 @@ export type ProjectStatus =
   | "analyzing"
   | "plan_ready"
   | "characters"
+  | "locations"
   | "frames"
   | "videos"
   | "export"
@@ -276,13 +274,27 @@ export type CharacterReferenceStatus = "pending" | "generating" | "generated" | 
 
 /**
  * Character sheet généré + validé pour un personnage récurrent — sert de
- * référence visuelle (image_urls) injectée dans les frames où ce personnage apparaît.
+ * référence visuelle (image_urls) injectée dans les frames où ce personnage
+ * apparaît. Un personnage = une seule fiche, jamais de variantes multiples ;
+ * un trait physique éventuel (`ProductionPlan.characterProfiles`) est intégré
+ * directement dans `prompt` plutôt que de créer une fiche séparée.
  */
 export interface CharacterReference {
   assetId: string; // id de la photo personnage de la marque (BrandAsset)
   name: string;
-  /** Uniquement "avant"/"après" pour une transformation physique durable — jamais un état émotionnel. */
-  variant?: "avant" | "après";
+  prompt: string;
+  sheetUrl?: string;
+  status: CharacterReferenceStatus;
+}
+
+/**
+ * Référence visuelle d'un lieu/décor détecté dans le script — sert à garder
+ * le décor cohérent d'une frame à l'autre pour toutes les scènes situées au
+ * même endroit (même mécanisme que CharacterReference, appliqué aux lieux).
+ */
+export interface LocationReference {
+  id: string; // locationId
+  name: string;
   prompt: string;
   sheetUrl?: string;
   status: CharacterReferenceStatus;
@@ -306,6 +318,7 @@ export interface Project {
   };
   plan?: ProductionPlan;
   characterReferences?: Record<string, CharacterReference>;
+  locationReferences?: Record<string, LocationReference>;
   status: ProjectStatus;
   createdAt: string;
   updatedAt: string;

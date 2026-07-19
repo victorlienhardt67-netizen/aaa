@@ -76,21 +76,15 @@ const PRODUCTION_PLAN_TOOL = {
               description:
                 "Nom du personnage récurrent si hasCharacter=true (ex: le prénom mentionné dans le brief, ou un descriptif court comme 'La cliente' si aucun nom n'est donné). Doit être identique pour toutes les scènes montrant le même personnage.",
             },
-            characterVariant: {
+            characterPhysicalState: {
               type: "string",
-              enum: ["avant", "après"],
               description:
-                "Uniquement si une transformation PHYSIQUE DURABLE (poids, silhouette, peau) est explicitement présente dans le script — jamais pour un état émotionnel passager. Indique quel état est montré dans cette frame.",
+                "Trait physique du personnage explicitement mentionné dans le script (ex: 'corpulent, ventre proéminent', 'très mince', 'grand et athlétique') — c'est une CARACTÉRISTIQUE du personnage, pas une variante : une seule image de référence sera générée pour ce personnage avec ce trait intégré. Une seule fois suffit (première scène où il apparaît) ; omettre si aucun trait physique particulier n'est mentionné.",
             },
-            etatAvant: {
+            locationName: {
               type: "string",
               description:
-                "Description physique précise et SANS FILTRE de l'état avant transformation (ex: 'ventre visiblement gonflé, jambes lourdes, teint terne'). Une seule fois suffit par personnage — sur la première frame characterVariant='avant'.",
-            },
-            etatApres: {
-              type: "string",
-              description:
-                "Description physique précise de l'état après transformation. Une seule fois suffit par personnage — sur la première frame characterVariant='après'.",
+                "Nom court du lieu où se déroule cette scène (ex: 'Salle de bain', 'Cuisine', 'Rue ensoleillée'). Doit être IDENTIQUE (même texte exact) pour toutes les scènes se déroulant au même endroit, pour qu'elles partagent la même référence de décor.",
             },
             needsFrame: { type: "boolean", description: "Une frame de départ (image) est-elle nécessaire ?" },
             imagePrompt: {

@@ -61,12 +61,10 @@ interface ClaudeScene {
   hasProduct: boolean;
   hasCharacter: boolean;
   characterName?: string;
-  /** Variante physique DURABLE montrée dans cette scène (jamais un état émotionnel passager). */
-  characterVariant?: "avant" | "après";
-  /** Description physique brute de l'état avant, sans filtre — retenue une seule fois par personnage (première occurrence). */
-  etatAvant?: string;
-  /** Description physique brute de l'état après — retenue une seule fois par personnage (première occurrence). */
-  etatApres?: string;
+  /** Trait physique du personnage (ex: "corpulent", "très mince") si le script en mentionne un — retenu une seule fois par personnage (première occurrence), intégré dans sa fiche de référence unique. */
+  characterPhysicalState?: string;
+  /** Nom du lieu où se déroule cette scène (ex: "Salle de bain", "Rue"), identique pour toutes les scènes au même endroit. */
+  locationName?: string;
   needsFrame: boolean;
   imagePrompt: string;
   videoPrompt: string;
@@ -86,6 +84,12 @@ interface ClaudeScene {
 function resolveCharacterAssetId(characterName: string | undefined, characterPhotoId: string | undefined): string {
   if (characterPhotoId) return characterPhotoId;
   return `virtual_${slugify(characterName || "personnage_principal")}`;
+}
+
+/** Identifiant stable de lieu dérivé du nom détecté par Claude — un lieu = une seule référence de décor. */
+function resolveLocationId(locationName: string | undefined): string | undefined {
+  if (!locationName?.trim()) return undefined;
+  return `location_${slugify(locationName)}`;
 }
 
 /**
@@ -134,7 +138,8 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
   const characterPhoto = brand?.characterPhotos[0];
   const rawScenes: ClaudeScene[] = data.scenes ?? [];
   const characterNames: Record<string, string> = {};
-  const characterProfiles: Record<string, { etatAvant?: string; etatApres?: string }> = {};
+  const characterProfiles: Record<string, { physicalState?: string }> = {};
+  const locationNames: Record<string, string> = {};
 
   const scenes: Scene[] = rawScenes.map((s, i) => {
     let characters: string[] = [];
@@ -144,10 +149,13 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
       if (!characterNames[assetId]) {
         characterNames[assetId] = characterPhoto?.name || s.characterName || "Personnage principal";
       }
-      const profile = characterProfiles[assetId] ?? {};
-      if (!profile.etatAvant && s.etatAvant) profile.etatAvant = s.etatAvant;
-      if (!profile.etatApres && s.etatApres) profile.etatApres = s.etatApres;
-      if (profile.etatAvant || profile.etatApres) characterProfiles[assetId] = profile;
+      if (!characterProfiles[assetId]?.physicalState && s.characterPhysicalState) {
+        characterProfiles[assetId] = { physicalState: s.characterPhysicalState };
+      }
+    }
+    const locationId = resolveLocationId(s.locationName);
+    if (locationId && !locationNames[locationId]) {
+      locationNames[locationId] = s.locationName!;
     }
     return {
       id: generateId("scene"),
@@ -158,7 +166,7 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
         ? s.cameraMovement
         : CAMERA_CYCLE[i % CAMERA_CYCLE.length]) as CameraMovement,
       characters,
-      characterVariant: s.hasCharacter ? s.characterVariant : undefined,
+      locationId,
       hasProduct: s.hasProduct,
       productAssetId: s.hasProduct ? productPhoto?.id : undefined,
       needsFrame: s.needsFrame,
@@ -186,6 +194,7 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
     briefAnalysis: data.briefAnalysis,
     characterNames,
     characterProfiles,
+    locationNames,
     hook: data.hook,
     arcNarratif: data.arcNarratif,
     marqueDetectee: data.marqueDetectee,
@@ -253,46 +262,47 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
   const characterNames: Record<string, string> = {
     [characterAssetId]: characterPhoto?.name || "Personnage principal",
   };
-  const characterProfiles: Record<string, { etatAvant?: string; etatApres?: string }> = {
-    [characterAssetId]:
-      lang === "fr"
-        ? {
-            etatAvant: "ventre visiblement gonflé, jambes lourdes avec rétention d'eau visible, teint terne, posture voûtée",
-            etatApres: "ventre plat, silhouette affinée, posture droite, teint lumineux",
-          }
-        : {
-            etatAvant: "visibly bloated belly, heavy legs with visible water retention, dull complexion, slouched posture",
-            etatApres: "flat belly, defined silhouette, upright posture, radiant complexion",
-          },
+  // Trait physique unique du personnage — intégré dans sa seule fiche de référence, jamais une variante séparée.
+  const characterProfiles: Record<string, { physicalState?: string }> = {
+    [characterAssetId]: {
+      physicalState:
+        lang === "fr"
+          ? "silhouette et posture cohérentes avec le problème décrit dans le script"
+          : "silhouette and posture consistent with the problem described in the script",
+    },
   };
+
+  // Lieux mock par bloc narratif — un lieu par groupe de beats, pour illustrer
+  // la génération de références de décor sans clé API.
+  const BEAT_LOCATIONS: Record<string, { fr: string; en: string }> = {
+    Accroche: { fr: "Salle de bain, devant le miroir", en: "Bathroom, in front of the mirror" },
+    "Présentation du problème": { fr: "Salle de bain, devant le miroir", en: "Bathroom, in front of the mirror" },
+    "Introduction du produit": { fr: "Cuisine lumineuse", en: "Bright kitchen" },
+    "Démonstration des bénéfices": { fr: "Cuisine lumineuse", en: "Bright kitchen" },
+    Transformation: { fr: "Extérieur, rue ensoleillée", en: "Outdoor, sunlit street" },
+    Témoignage: { fr: "Intérieur salon chaleureux", en: "Warm indoor living room" },
+    "Récapitulatif des bénéfices": { fr: "Extérieur, rue ensoleillée", en: "Outdoor, sunlit street" },
+    "Appel à l'action final": { fr: "Cuisine lumineuse", en: "Bright kitchen" },
+  };
+  const locationNames: Record<string, string> = {};
 
   const scenes: Scene[] = [];
   let globalIndex = 0;
-
-  const transformationBeatIdx = BEAT_TEMPLATES.findIndex((b) => b.labelFr === "Transformation");
 
   BEAT_TEMPLATES.forEach((beatTemplate, beatIdx) => {
     const count = frameCounts[beatIdx];
     const beatLabel = lang === "fr" ? beatTemplate.labelFr : beatTemplate.labelEn;
 
     const isTransformationBeat = beatTemplate.labelFr === "Transformation";
+    const locationName = BEAT_LOCATIONS[beatTemplate.labelFr]?.[lang] ?? (lang === "fr" ? "Décor neutre" : "Neutral setting");
+    const locationId = `location_${slugify(locationName)}`;
+    if (!locationNames[locationId]) locationNames[locationId] = locationName;
 
     for (let j = 0; j < count; j++) {
       const camera = CAMERA_CYCLE[globalIndex % CAMERA_CYCLE.length];
       const framing = FRAMING_CYCLE[globalIndex % FRAMING_CYCLE.length];
       const hasProduct = isTransformationBeat ? false : globalIndex % 3 !== 1 && !!productPhoto;
       const hasCharacter = isTransformationBeat || globalIndex % 2 === 0;
-      // Variante physique DURABLE (jamais un état émotionnel passager) — cohérente sur
-      // tout le script : avant la Transformation = "avant", pendant/après = "après".
-      const characterVariant: "avant" | "après" | undefined = !hasCharacter
-        ? undefined
-        : isTransformationBeat
-        ? j < Math.ceil(count / 2)
-          ? "avant"
-          : "après"
-        : beatIdx < transformationBeatIdx
-        ? "avant"
-        : "après";
       const duration = Math.min(
         Math.max(beatTemplate.minDuration + (j % (beatTemplate.maxDuration - beatTemplate.minDuration + 1)), minDur),
         maxDur
@@ -303,10 +313,10 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
 
       const imagePromptFr = `${beatLabel}, ${framing === "wide" ? "plan large" : framing === "medium" ? "plan moyen" : "gros plan"} — cadrage vertical 9:16, ${
         hasProduct ? "produit visible dans le cadre, " : ""
-      }${hasCharacter ? `personnage en action dans la scène${characterVariant ? `, état ${characterVariant}` : ""}, ` : ""}ambiance ${style.name.toLowerCase()}.`;
+      }${hasCharacter ? `personnage en action dans la scène, ` : ""}ambiance ${style.name.toLowerCase()}.`;
       const imagePromptEn = `${beatLabel}, ${framing.replace("_", " ")} — vertical 9:16 framing, ${
         hasProduct ? "product visible in frame, " : ""
-      }${hasCharacter ? `character in action within the scene${characterVariant ? `, ${characterVariant === "avant" ? "before" : "after"} state` : ""}, ` : ""}${style.name.toLowerCase()} mood.`;
+      }${hasCharacter ? `character in action within the scene, ` : ""}${style.name.toLowerCase()} mood.`;
 
       const videoPromptFr = `${descriptionFr} Mouvement de caméra en ${camera.replace(
         /_/g,
@@ -324,7 +334,7 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
         durationSeconds: duration,
         cameraMovement: camera,
         characters: hasCharacter ? [characterAssetId] : [],
-        characterVariant: hasCharacter ? characterVariant : undefined,
+        locationId,
         hasProduct,
         productAssetId: hasProduct ? productPhoto?.id : undefined,
         needsFrame: true,
@@ -374,6 +384,7 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
     briefAnalysis,
     characterNames,
     characterProfiles,
+    locationNames,
     hook,
     arcNarratif: lang === "fr" ? "témoignage transformation" : "transformation testimonial",
     marqueDetectee: brand?.name,

@@ -55,14 +55,14 @@ export function buildVoiceDirective(
 
 export const DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT = `Tu es un expert senior en production de vidéos publicitaires IA, spécialisé notamment dans les marques de compléments alimentaires. Ta mission : analyser un script en profondeur et le découper en un plan de production détaillé, frame par frame — chaque frame correspond à un plan (shot) unique de 3 à 8 secondes, qui deviendra une image de départ puis un clip vidéo. Tu extrais TOUTES les informations déductibles du script sans jamais rien inventer d'arbitraire.
 
-CONNAISSANCE CONTEXTE MARQUES (si l'une d'elles est détectée dans le script, applique sa logique avant/après précise) :
-- LYNAE → rétention d'eau / drainage lymphatique. AVANT : ventre VISUELLEMENT très gonflé, jambes enflées, visage bouffi, teint terne. APRÈS : ventre plat, visage défini, légèreté visible. Erreur critique à éviter : générer une femme mince dans les scènes AVANT rendrait le message incompréhensible.
+CONNAISSANCE CONTEXTE MARQUES (si l'une d'elles est détectée dans le script, applique sa logique avant/après précise DANS LE CONTENU DES SCÈNES — jamais comme variante de personnage, voir règle sur les personnages plus bas) :
+- LYNAE → rétention d'eau / drainage lymphatique. AVANT : ventre VISUELLEMENT très gonflé, jambes enflées, visage bouffi, teint terne. APRÈS : ventre plat, visage défini, légèreté visible. Erreur critique à éviter : montrer une femme mince dans les scènes AVANT rendrait le message incompréhensible.
 - LYVEEN → thyroïde / Hashimoto. AVANT : fatigue chronique visible, prise de poids, posture abattue, regard éteint. APRÈS : énergie retrouvée, silhouette affinée, posture droite, regard vif.
 - T-MEN → testostérone / métabolisme masculin. AVANT : ventre visible malgré les efforts, posture abattue. APRÈS : silhouette affinée, posture et regard confiants.
 - VENALYS → circulation / jambes lourdes. AVANT : jambes visiblement gonflées, douleur visible. APRÈS : légèreté, jambes fines, mobilité retrouvée.
 Si une autre marque ou un autre problème est détecté, applique la même logique : déduis un état AVANT et un état APRÈS physiquement précis et cohérents avec le problème décrit.
 
-RÈGLE UNIVERSELLE AVANT/APRÈS : les frames AVANT doivent montrer le problème de façon CLAIRE ET SANS FILTRE — ne jamais adoucir l'état AVANT. C'est le contraste qui fait le message et qui convertit.
+RÈGLE UNIVERSELLE AVANT/APRÈS : les frames AVANT doivent montrer le problème de façon CLAIRE ET SANS FILTRE dans imagePrompt — ne jamais adoucir l'état AVANT. C'est le contraste qui fait le message et qui convertit. Ce contraste se décrit scène par scène dans imagePrompt (action, posture, expression, ambiance) — il ne crée jamais de deuxième fiche de référence pour le personnage (voir règle personnages).
 
 ÉVALUATION DU HOOK (toujours en premier, dans le champ hook) :
 Évalue les 3-5 premières secondes du script. "fort" → rien à changer. "moyen" ou "faible" → explique précisément le problème (probleme) et propose 2 alternatives concrètes et courtes (alternatives).
@@ -95,12 +95,13 @@ RÈGLES OBLIGATOIRES DE PRODUCTION (toutes les frames) :
 - Jamais de vidéo statique
 - Si un personnage récurrent est mentionné ou implicite dans le script → indique hasCharacter=true, même si aucune photo de référence n'a été fournie (son apparence sera ensuite proposée par génération d'image, à valider avant les frames)
 - Donne un characterName cohérent et identique sur toutes les frames où ce personnage apparaît (son prénom s'il est donné, sinon un descriptif court comme "La cliente")
-- RÈGLE CRITIQUE : un personnage récurrent = UNE seule identité visuelle fixe pour tout le script. La SEULE exception autorisée : une transformation PHYSIQUE DURABLE (poids, silhouette, peau) explicitement présente dans le script — dans ce cas uniquement, indique characterVariant="avant" ou "après" selon l'état montré dans la frame, et remplis une seule fois etatAvant/etatApres avec une description physique précise et sans filtre (première occurrence suffit, pas besoin de répéter sur chaque frame). Ne JAMAIS créer de variante pour un état émotionnel passager (fatiguée, rayonnante, choquée, stressée...) — ces états se décrivent librement dans imagePrompt, frame par frame, sans jamais toucher à characterName ni créer characterVariant.
-- IMPORTANT : si hasCharacter=true, ne redécris JAMAIS l'apparence physique FIXE du personnage (visage, coiffure, morphologie, tenue de base) dans imagePrompt — une image de référence validée unique sera injectée pour garder son identité visuelle exacte sur toutes les frames. Décris en revanche librement son action, sa pose, son expression et son état émotionnel du moment.
+- RÈGLE CRITIQUE PERSONNAGES : un personnage récurrent = UNE seule fiche de référence visuelle pour tout le script, JAMAIS plusieurs variantes (pas de "avant/après", pas de version alternative). Si le script mentionne un trait physique particulier pour ce personnage (corpulent, très mince, grand, petit...), remplis characterPhysicalState une seule fois (première scène où il apparaît) — ce trait sera intégré directement dans le prompt de sa fiche unique, comme une caractéristique du personnage, pas comme un état à part.
+- IMPORTANT : si hasCharacter=true, ne redécris JAMAIS l'apparence physique FIXE du personnage (visage, coiffure, tenue de base) dans imagePrompt — une image de référence validée unique sera injectée pour garder son identité visuelle exacte sur toutes les frames. Décris en revanche librement son action, sa pose, son expression, son état émotionnel du moment, et — si le script montre une transformation avant/après — l'état physique du moment (posture, allure générale) directement dans imagePrompt de cette scène précise, sans jamais changer characterName ni créer de fiche supplémentaire.
 - imagePrompt doit toujours couvrir : le cadrage précis (extreme close-up / bust shot / medium shot / full body / wide shot) et la position du sujet, l'action physique précise en cours, le décor avec 2-3 détails visuels clés qui renforcent l'émotion (jamais un décor neutre par défaut — salle de bain/miroir pour un problème corporel, extérieur lumineux pour une transformation, environnement médical pour la crédibilité), et l'ambiance lumineuse (warm golden / cold clinical / dramatic side-lit / soft natural daylight).
 - Pour toute scène de mécanisme scientifique interne (digestion, circulation, drainage...) : décrire UNIQUEMENT comme overlay graphique ou illustration médicale intégrée au décor (ex: "cross-section diagram illustration floating beside the character, medical infographic style") — ne JAMAIS décrire de corps humain nu, semi-transparent ou anatomique réaliste, pour éviter tout déclenchement de filtre de contenu.
 - Si le produit est mentionné → indique hasProduct=true ; le produit n'apparaît QUE quand le script le justifie, jamais de placement systématique
-- Texte visible sur une frame : uniquement si essentiel (avis, CTA, label clé), toujours dans la langue détectée, jamais dans les deux langues, jamais décoratif
+- RÈGLE LIEUX (locationName) : identifie le lieu où se déroule chaque scène et donne-lui un nom court (ex: "Salle de bain", "Cuisine", "Rue ensoleillée") — EXACTEMENT le même texte pour toutes les scènes situées au même endroit, pour qu'elles partagent la même référence de décor. Un script simple peut n'avoir qu'un seul lieu.
+- Aucun texte visible dans les frames de départ — jamais de titre, sous-titre, mot, lettre ou logo textuel dans l'image générée (l'éventuel texte à l'écran d'une pub se fait uniquement en overlay au montage, jamais dans imagePrompt)
 - Détecte automatiquement pour chaque frame qui parle et comment : narration hors-champ (voiceover), personnage qui parle face caméra (lipsync), ou aucune voix (none)
 - Détecte la langue du script (fr ou en)
 - Chaque frame doit indiquer si une frame de départ (image) est nécessaire (oui par défaut)
@@ -150,7 +151,7 @@ CE QUE TU DÉDUIS SEUL — NE JAMAIS DEMANDER, JAMAIS :
 QUESTIONS AUTORISÉES — dans cet ordre de priorité, groupées en 1 à 3 questions à la fois, avec des choix cliquables courts quand c'est pertinent (l'utilisateur peut toujours répondre librement à la place) :
 
 PRIORITÉ 1 — Transformation physique imprécise
-Si une transformation physique est détectée mais que l'état AVANT ou APRÈS n'est pas assez précis dans le script, demande pour CE personnage : "Pour que le contraste soit visuellement percutant et lisible immédiatement, précise-moi l'état AVANT (ex: ventre très gonflé et proéminent, visage bouffi, jambes enflées, posture voûtée — plus c'est marqué, plus ça convertit) et l'état APRÈS (ex: ventre plat, visage défini, silhouette affinée, posture droite, teint lumineux)."
+Si une transformation physique est détectée mais que l'état AVANT ou APRÈS n'est pas assez précis dans le script, demande pour CE personnage : "Pour que le contraste soit visuellement percutant et lisible immédiatement, précise-moi l'état AVANT (ex: ventre très gonflé et proéminent, visage bouffi, jambes enflées, posture voûtée — plus c'est marqué, plus ça convertit) et l'état APRÈS (ex: ventre plat, visage défini, silhouette affinée, posture droite, teint lumineux)." Ce contraste se décrit scène par scène dans le plan de production (pas une deuxième fiche de référence pour le personnage — un personnage garde une seule identité visuelle fixe tout au long du script).
 
 PRIORITÉ 2 — Scènes sans description visuelle
 Pour chaque scène qui n'a pas de description visuelle dans le script, propose DIRECTEMENT un visuel impactant (cadrage + personnage + décor + émotion + état physique précis si applicable) et demande validation : [ Valider ] [ Modifier ]. Règles pour ces propositions : montrer physiquement l'état émotionnel ou corporel décrit dans la VO ; cadrage varié et dynamique ; décors qui renforcent l'émotion (salle de bain/miroir/balance → problème corporel ; extérieur lumineux/mouvement → transformation ; environnement médical → crédibilité ; intérieur corps/anatomique → mécanisme scientifique, toujours en overlay graphique jamais en anatomie réaliste).
@@ -177,9 +178,9 @@ STYLE : [rappelle le style déjà choisi par l'utilisateur, ne le remets jamais 
 
 PERSONNAGES :
 - [Nom/rôle] — [type]
-  AVANT : [description physique précise sans filtre, si transformation physique]
-  APRÈS : [description physique précise, si transformation physique]
-  Récurrent : OUI → référence visuelle à créer
+  Trait physique : [description si le script en mentionne un, sinon omettre — une seule fiche de référence par personnage, jamais de variante]
+  Contraste avant/après montré dans le script : [description scène par scène si applicable]
+  Récurrent : OUI → référence visuelle unique à créer
 
 PLAN DE PRODUCTION :
 Scène 1 — [intention visuelle et émotionnelle]
@@ -243,26 +244,21 @@ export function buildScenePositivePrompt(
 }
 
 /**
- * Prompt pour générer la fiche casting d'un personnage récurrent : une seule
- * identité visuelle fixe (visage, coiffure, morphologie, tenue), vue de face
- * + trois-quarts + profil sur la même image, fond neutre, aucun texte — sert
- * ensuite de référence visuelle (image_urls) pour garder le personnage
- * cohérent d'une frame à l'autre. Les états ÉMOTIONNELS (fatiguée, choquée,
- * rayonnante...) ne sont JAMAIS gérés ici : ils se décrivent frame par frame
- * dans le prompt d'image de chaque scène. Seule exception : une transformation
- * PHYSIQUE durable (poids, silhouette, peau), qui justifie exactement 2
- * fiches distinctes (avant/après) — jamais plus, jamais pour autre chose.
+ * Prompt pour générer la fiche de référence d'un personnage récurrent : une
+ * seule identité visuelle fixe (visage, coiffure, morphologie, tenue), vue de
+ * face + dos + profils sur la même image, fond neutre — sert ensuite de
+ * référence visuelle (image_urls) pour garder le personnage cohérent d'une
+ * frame à l'autre. Un personnage = UNE seule fiche, jamais de variantes
+ * multiples. Un trait physique mentionné dans le script (corpulence, taille...)
+ * est une caractéristique du personnage : il est intégré directement dans
+ * cette unique fiche, pas géré comme un état à part. Les états ÉMOTIONNELS
+ * (fatiguée, choquée, rayonnante...) ne sont JAMAIS gérés ici : ils se
+ * décrivent frame par frame dans le prompt d'image de chaque scène.
  *
- * L'état AVANT doit être montré sans filtre (le contraste fait le message).
- * L'état APRÈS chaîne explicitement sur l'identité de la version AVANT —
- * l'image de référence AVANT doit être passée comme image_url supplémentaire
- * lors de la génération pour garantir que c'est bien le même visage.
- */
-/**
- * Gabarit fixe de la fiche casting — 5 panneaux labellisés côte à côte,
- * identique à chaque génération (mêmes labels, même disposition, même
- * réglet de taille) pour que les fiches de personnages différents restent
- * visuellement comparables entre elles d'un projet à l'autre.
+ * Gabarit fixe — 5 panneaux labellisés côte à côte, identique à chaque
+ * génération (mêmes labels, même disposition, même réglet de taille) pour
+ * que les fiches de personnages différents restent visuellement comparables
+ * entre elles d'un projet à l'autre.
  */
 function characterSheetTemplateBlock(characterName: string): string {
   return [
@@ -279,21 +275,23 @@ function characterSheetTemplateBlock(characterName: string): string {
 export function buildCharacterSheetPrompt(
   characterName: string,
   style: StylePreset,
-  variant?: "avant" | "après",
   physicalState?: string
 ): string {
   const template = characterSheetTemplateBlock(characterName);
-  if (variant === "avant") {
-    return `${template} État AVANT transformation physique : ${
-      physicalState ?? "problème physique visible"
-    } — à montrer SANS FILTRE et sans adoucir, le problème doit être immédiatement et clairement lisible sur les 5 panneaux, c'est ce contraste qui fait le message. Style visuel du personnage : ${style.positivePrompt}.`;
-  }
-  if (variant === "après") {
-    return `${template} Même visage, même identité que la version AVANT de ce personnage (image de référence fournie), mais maintenant : ${
-      physicalState ?? "transformation physique visible"
-    } — la transformation doit être immédiatement et clairement lisible sur les 5 panneaux, sans changer les traits du visage ni l'identité. Style visuel du personnage : ${style.positivePrompt}.`;
-  }
-  return `${template} Style visuel du personnage : ${style.positivePrompt}.`;
+  const physicalTrait = physicalState
+    ? ` Trait physique du personnage à représenter clairement sur les 5 panneaux : ${physicalState}.`
+    : "";
+  return `${template}${physicalTrait} Style visuel du personnage : ${style.positivePrompt}.`;
+}
+
+/**
+ * Prompt pour générer la référence visuelle d'un lieu/décor détecté dans le
+ * script — un plan large et clair du lieu, sans personnage, sans texte,
+ * qui sert ensuite de référence visuelle (image_urls) pour garder le décor
+ * cohérent d'une frame à l'autre pour toutes les scènes situées au même endroit.
+ */
+export function buildLocationSheetPrompt(locationName: string, style: StylePreset): string {
+  return `Establishing reference shot of this location: ${locationName}. Wide clear view of the empty space, no character, no person, no text, no watermark, natural balanced lighting representative of this place, all key visual elements of the location clearly visible. Style visuel : ${style.positivePrompt}.`;
 }
 
 /**
@@ -336,7 +334,12 @@ export function buildImagePrompt(
   scene: Pick<Scene, "imagePrompt">,
   style: StylePreset,
   brand: Brand | undefined,
-  opts: { hasCharacterReference?: boolean; hasProductReference?: boolean; customRules?: string } = {}
+  opts: {
+    hasCharacterReference?: boolean;
+    hasProductReference?: boolean;
+    hasLocationReference?: boolean;
+    customRules?: string;
+  } = {}
 ): string {
   const brandNote = brand ? `Produit : ${brand.name}. ${brand.generationNotes || ""}`.trim() : "";
   const referenceNotes = [
@@ -344,6 +347,8 @@ export function buildImagePrompt(
       "Reference image provided for the main character — same character, unchanged appearance, do not alter face, hair or identity, describe only action/expression/posture for this shot.",
     opts.hasProductReference &&
       "Reference image provided for the product — reproduce this exact bottle/packaging faithfully, same shape, same cap, same label design, do not redesign or reinvent.",
+    opts.hasLocationReference &&
+      "Reference image provided for the background location — reproduce this exact location/setting faithfully, same layout, same key visual elements, do not redesign the background.",
   ]
     .filter(Boolean)
     .join(" ");

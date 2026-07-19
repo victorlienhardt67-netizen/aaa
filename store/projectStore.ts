@@ -2,9 +2,9 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CharacterReference, Project, ProjectStatus, Scene } from "@/types";
+import { CharacterReference, LocationReference, Project, ProjectStatus, Scene } from "@/types";
 import { STORAGE_KEYS } from "@/lib/storage";
-import { characterReferenceKey, generateId } from "@/lib/utils";
+import { generateId } from "@/lib/utils";
 
 interface InitProjectParams {
   name: string;
@@ -31,8 +31,10 @@ interface ProjectState {
   /** Retire une frame — refusé si c'est la dernière du bloc (minimum 1 frame par bloc). */
   removeScene: (sceneId: string) => void;
   initCharacterReferences: (refs: CharacterReference[]) => void;
-  /** `key` est characterReferenceKey(assetId, variant) — jamais l'assetId seul quand une variante existe. */
+  /** `key` est l'assetId du personnage — un personnage = une seule fiche de référence. */
   updateCharacterReference: (key: string, patch: Partial<CharacterReference>) => void;
+  initLocationReferences: (refs: LocationReference[]) => void;
+  updateLocationReference: (id: string, patch: Partial<LocationReference>) => void;
   recalcTotalCost: () => void;
   saveCurrentProject: () => void;
   loadProject: (id: string) => void;
@@ -169,9 +171,8 @@ export const useProjectStore = create<ProjectState>()(
           const existing = s.currentProject.characterReferences ?? {};
           const characterReferences = { ...existing };
           for (const ref of refs) {
-            const key = characterReferenceKey(ref.assetId, ref.variant);
-            if (!characterReferences[key]) {
-              characterReferences[key] = ref;
+            if (!characterReferences[ref.assetId]) {
+              characterReferences[ref.assetId] = ref;
             }
           }
           return { currentProject: { ...s.currentProject, characterReferences } };
@@ -186,6 +187,33 @@ export const useProjectStore = create<ProjectState>()(
               characterReferences: {
                 ...s.currentProject.characterReferences,
                 [key]: { ...s.currentProject.characterReferences[key], ...patch },
+              },
+            },
+          };
+        }),
+
+      initLocationReferences: (refs) =>
+        set((s) => {
+          if (!s.currentProject) return s;
+          const existing = s.currentProject.locationReferences ?? {};
+          const locationReferences = { ...existing };
+          for (const ref of refs) {
+            if (!locationReferences[ref.id]) {
+              locationReferences[ref.id] = ref;
+            }
+          }
+          return { currentProject: { ...s.currentProject, locationReferences } };
+        }),
+
+      updateLocationReference: (id, patch) =>
+        set((s) => {
+          if (!s.currentProject?.locationReferences?.[id]) return s;
+          return {
+            currentProject: {
+              ...s.currentProject,
+              locationReferences: {
+                ...s.currentProject.locationReferences,
+                [id]: { ...s.currentProject.locationReferences[id], ...patch },
               },
             },
           };
