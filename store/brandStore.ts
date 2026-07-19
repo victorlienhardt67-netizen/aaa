@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Brand, BrandAsset } from "@/types";
 import { STORAGE_KEYS } from "@/lib/storage";
+import { DEFAULT_BRANDS } from "@/lib/brandSeeds";
 import { generateId } from "@/lib/utils";
 
 interface BrandState {
@@ -24,7 +25,7 @@ interface BrandState {
 export const useBrandStore = create<BrandState>()(
   persist(
     (set, get) => ({
-      brands: [],
+      brands: DEFAULT_BRANDS,
       activeBrandId: null,
 
       createBrand: (data) => {

@@ -16,7 +16,7 @@ export const DEFAULT_MANDATORY_VIDEO_RULES = [
  * Appliqué uniquement au texte de la voix off, jamais aux prompts descriptifs.
  */
 export function applyFrenchPhoneticTransform(text: string): string {
-  return text.replace(/é/g, "er").replace(/É/g, "ER");
+  return text.replace(/\bSOPK\b/gi, "S-O-P-K").replace(/é/g, "er").replace(/É/g, "ER");
 }
 
 /**
@@ -63,6 +63,7 @@ CONNAISSANCE CONTEXTE MARQUES (si l'une d'elles est détectée dans le script, a
 Si une autre marque ou un autre problème est détecté, applique la même logique : déduis un état AVANT et un état APRÈS physiquement précis et cohérents avec le problème décrit.
 
 RÈGLE UNIVERSELLE AVANT/APRÈS : les frames AVANT doivent montrer le problème de façon CLAIRE ET SANS FILTRE dans imagePrompt — ne jamais adoucir l'état AVANT. C'est le contraste qui fait le message et qui convertit. Ce contraste se décrit scène par scène dans imagePrompt (action, posture, expression, ambiance) — il ne crée jamais de deuxième fiche de référence pour le personnage (voir règle personnages).
+RÈGLE SYMPTÔME VISIBLE — NON NÉGOCIABLE : si le brief décrit un symptôme physique (ventre gonflé, ballonnements, jambes/chevilles enflées, visage bouffi, SOPK, rétention d'eau...), ce symptôme doit être visuellement visible dans imagePrompt sur CHAQUE frame concernée — visible mais pas outrancier. Ne JAMAIS décrire un personnage avec un ventre plat ou une silhouette normale sur une scène où le script parle de ballonnement/gonflement.
 
 ÉVALUATION DU HOOK (toujours en premier, dans le champ hook) :
 Évalue les 3-5 premières secondes du script. "fort" → rien à changer. "moyen" ou "faible" → explique précisément le problème (probleme) et propose 2 alternatives concrètes et courtes (alternatives).
@@ -136,6 +137,7 @@ CONNAISSANCE CONTEXTE MARQUES (applique la logique avant/après précise si l'un
 - VENALYS → circulation / jambes lourdes. AVANT : jambes visiblement gonflées, douleur visible. APRÈS : légèreté, jambes fines, mobilité retrouvée.
 
 RÈGLE UNIVERSELLE AVANT/APRÈS : les frames AVANT doivent montrer le problème CLAIREMENT ET SANS FILTRE — ne jamais adoucir l'état AVANT, c'est le contraste qui convertit.
+RÈGLE SYMPTÔME VISIBLE : un symptôme physique décrit dans le script (ventre gonflé, jambes enflées, visage bouffi, SOPK...) doit rester visible sur les propositions visuelles — jamais de silhouette normale/ventre plat sur une scène de ballonnement.
 
 ÉVALUATION DU HOOK — TOUJOURS EN PREMIER, avant toute autre question :
 Fort → tu le dis, tu continues. Moyen ou faible → explique précisément pourquoi et propose 2 alternatives concrètes avec des choix cliquables : [ Garder l'original ] [ Alternative 1 ] [ Alternative 2 ].
@@ -244,6 +246,60 @@ export function buildScenePositivePrompt(
 }
 
 /**
+ * Prompt vidéo Grok (FR) — structure imposée : Mouvement → Sujet → Scène →
+ * Éclairage → Ambiance → Audio → Ratio. Le mouvement caméra est décrit en
+ * premier (Grok répond mieux quand le mouvement précède le sujet). La
+ * directive audio (buildVoiceDirective) porte déjà la règle phonétique
+ * française (é→er, SOPK→S-O-P-K) — ne jamais la redoubler ici.
+ */
+export function buildGrokVideoPrompt(
+  scene: Pick<Scene, "cameraMovement" | "videoPrompt">,
+  style: StylePreset,
+  motionIntensity: MotionIntensity,
+  voiceDirective: string
+): string {
+  const cameraPhrase = CAMERA_MOVEMENT_VIDEO_PHRASES[scene.cameraMovement];
+  return [
+    `Movement: ${cameraPhrase}.`,
+    `Subject: ${scene.videoPrompt}`,
+    `Scene visual style: ${style.positivePrompt}.`,
+    `Lighting: consistent with the reference frame, natural continuity.`,
+    `Mood and pace: ${MOTION_INTENSITY_LABELS[motionIntensity]} energy.`,
+    `Audio: ${voiceDirective}`,
+    `Aspect ratio: 9:16 vertical.`,
+  ].join(" ");
+}
+
+/**
+ * Prompt vidéo Kling 3.0 (US) — structure imposée : Scène → Personnages →
+ * Action → Caméra → Audio & Style, en shot avec timecode et labels
+ * personnage explicites. 20-50 mots visés par shot (un prompt à 300 mots
+ * fait halluciner Kling) — reste volontairement concis.
+ */
+export function buildKlingVideoPrompt(
+  scene: Pick<Scene, "cameraMovement" | "videoPrompt" | "durationSeconds" | "characters">,
+  style: StylePreset,
+  motionIntensity: MotionIntensity,
+  voiceDirective: string,
+  characterNames: Record<string, string> | undefined
+): string {
+  const cameraPhrase = CAMERA_MOVEMENT_VIDEO_PHRASES[scene.cameraMovement];
+  const labels = scene.characters
+    .map((id) => characterNames?.[id])
+    .filter((name): name is string => !!name)
+    .map((name, i) => `[Character ${String.fromCharCode(65 + i)}: ${name}]`)
+    .join(" ");
+  return [
+    `Shot 1 (0-${scene.durationSeconds}s): ${labels ? `${labels} ` : ""}${scene.videoPrompt}`,
+    `Camera: ${cameraPhrase}, natural micro-movements — breathing, hair, fabric, light flicker.`,
+    `SFX: ${voiceDirective}`,
+    `Style: ${style.positivePrompt}, ${MOTION_INTENSITY_LABELS[motionIntensity]} pace.`,
+    `No morphing textures, stable face, outfit artifact free, no circular motion.`,
+    `Aspect ratio 9:16.`,
+  ].join(" ");
+}
+
+/**
  * Prompt pour générer la fiche de référence d'un personnage récurrent : une
  * seule identité visuelle fixe (visage, coiffure, morphologie, tenue), vue de
  * face + dos + profils sur la même image, fond neutre — sert ensuite de
@@ -281,7 +337,7 @@ export function buildCharacterSheetPrompt(
   const physicalTrait = physicalState
     ? ` Trait physique du personnage à représenter clairement sur les 5 panneaux : ${physicalState}.`
     : "";
-  return `${template}${physicalTrait} Style visuel du personnage : ${style.positivePrompt}.`;
+  return `${template}${physicalTrait} Style visuel du personnage : ${style.positivePrompt}. exactly two arms, no extra limbs, anatomically correct hands, no duplicate arms.`;
 }
 
 /**
@@ -301,6 +357,8 @@ export function buildLocationSheetPrompt(locationName: string, style: StylePrese
 export const DEFAULT_MANDATORY_IMAGE_RULES = [
   "No text, no typography, no letters, no subtitles, no watermarks, no logos, no captions",
   "FULL SCREEN vertical 9:16, no black bars, no borders, no letterbox",
+  "exactly two arms, no extra limbs, anatomically correct hands, no duplicate arms",
+  "No cluttered background, no extra text, no blurry subject",
 ].join("\n");
 
 /**
@@ -314,6 +372,25 @@ export function buildMandatoryImageRules(customRules?: string): string {
     .map((r) => r.trim())
     .filter(Boolean);
   return rules.map((r) => `- ${r}`).join("\n");
+}
+
+/**
+ * Matériel photo cité explicitement dans chaque prompt frame — renforce le
+ * rendu photographique haut de gamme attendu pour des publicités santé.
+ * Choix déterministe par frame (dérivé du texte du prompt) pour varier d'une
+ * frame à l'autre sans changer à chaque régénération de la même frame.
+ */
+const CAMERA_GEAR_PHRASES = [
+  "shot on Sony A7III, 50mm f1.4 lens, shallow depth of field",
+  "shot on Canon 5D Mark IV, 85mm portrait lens",
+  "shot on Hasselblad medium format, ultra sharp detail",
+  "Kodak Portra 400 film look, soft natural grain",
+];
+
+function pickCameraGear(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return CAMERA_GEAR_PHRASES[hash % CAMERA_GEAR_PHRASES.length];
 }
 
 /**
@@ -359,6 +436,7 @@ export function buildImagePrompt(
     scene.imagePrompt, // BLOC 3-5 — personnage/cadrage/action/décor/ambiance
     brandNote,
     referenceNotes, // BLOC 6 — éléments supplémentaires
+    `${pickCameraGear(scene.imagePrompt)}. High-end health and wellness advertisement, professional editorial quality.`, // matériel photo + contexte d'usage
     `Règles obligatoires :\n${buildMandatoryImageRules(opts.customRules)}`, // BLOC 7 — négatifs
     `À éviter absolument : ${style.negativePrompt}.`,
     `Ultra detailed photorealistic ${style.name} 4K.`,

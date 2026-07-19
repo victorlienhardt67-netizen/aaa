@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Sparkles, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, ImagePlus, Sparkles, UploadCloud, Wand2 } from "lucide-react";
 import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -16,10 +16,11 @@ import { Slider } from "@/components/ui/Slider";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StyleCard } from "@/components/styles/StyleCard";
-import { generateHooks, analyzeBrief } from "@/lib/claude";
+import { generateHooks, analyzeBrief, extractStyleFromImages } from "@/lib/claude";
 import { buildLearningContext } from "@/lib/prompts";
 import { estimateFrameCountForDuration, formatDuration } from "@/lib/utils";
 import { autoRouteImageEngine, autoRouteVideoEngine } from "@/lib/fal";
+import { fileToBase64 } from "@/lib/storage";
 
 const IMAGE_ENGINE_OPTIONS = (Object.keys(IMAGE_ENGINE_LABELS) as ImageEngine[]).map((v) => ({
   value: v,
@@ -51,10 +52,15 @@ export function BriefStep() {
   const clearPendingTemplate = useTemplateStore((s) => s.clearPendingTemplate);
   const learningEntries = useLearningStore((s) => s.entries);
 
+  const addCustomStyle = useStyleStore((s) => s.addCustomStyle);
   const [brandId, setBrandId] = useState(activeBrandId ?? brands[0]?.id ?? "");
   const [lang, setLang] = useState<Lang>(settings.defaultLang);
   const [styleId, setStyleId] = useState("");
-  const [showAllStyles, setShowAllStyles] = useState(false);
+  const [customStyleOpen, setCustomStyleOpen] = useState(false);
+  const [customStyleImages, setCustomStyleImages] = useState<string[]>([]);
+  const [extractingStyle, setExtractingStyle] = useState(false);
+  const [customStyleError, setCustomStyleError] = useState<string | undefined>();
+  const customStyleInputRef = useRef<HTMLInputElement>(null);
   const [duration, setDuration] = useState(pendingTemplate?.recommendedDuration ?? 60);
   const [imageEngine, setImageEngine] = useState<ImageEngine>(settings.imageEngine);
   const [videoEngine, setVideoEngine] = useState<VideoEngine>(settings.videoEngine);
@@ -81,10 +87,30 @@ export function BriefStep() {
   }, [brandId, activeBrandId, brands]);
 
   const brand = brands.find((b) => b.id === brandId);
-  const featuredStyles = styles.filter((s) => s.featured);
-  const otherStyles = styles.filter((s) => !s.featured);
   const selectedStyle = styles.find((s) => s.id === styleId);
   const frameTarget = estimateFrameCountForDuration(duration);
+
+  async function handleAddCustomStyleImages(files: FileList) {
+    const encoded = await Promise.all(Array.from(files).map(fileToBase64));
+    setCustomStyleImages((prev) => [...prev, ...encoded]);
+  }
+
+  async function handleExtractStyle() {
+    if (customStyleImages.length === 0) return;
+    setExtractingStyle(true);
+    setCustomStyleError(undefined);
+    try {
+      const extracted = await extractStyleFromImages(customStyleImages, lang, apiKeys.claudeApiKey);
+      const style = addCustomStyle(extracted);
+      setStyleId(style.id);
+      setCustomStyleOpen(false);
+      setCustomStyleImages([]);
+    } catch (e) {
+      setCustomStyleError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setExtractingStyle(false);
+    }
+  }
 
   async function handleGenerateHooks() {
     setLoadingHooks(true);
@@ -166,7 +192,9 @@ export function BriefStep() {
     void project;
   }
 
-  // Étape 0 — le style doit être choisi avant tout le reste.
+  // Étape 0 — le style doit être choisi avant tout le reste. Tous les styles
+  // sont présentés à égalité, aucun n'est suggéré ou mis en avant par défaut —
+  // le choix reste entièrement libre.
   if (!selectedStyle) {
     return (
       <div className="max-w-4xl mx-auto p-8 space-y-6">
@@ -178,31 +206,67 @@ export function BriefStep() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {featuredStyles.map((style) => (
+          {styles.map((style) => (
             <div key={style.id} onClick={() => setStyleId(style.id)} className="cursor-pointer">
               <StyleCard style={style} />
             </div>
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowAllStyles((v) => !v)}
-          className="text-xs font-mono uppercase tracking-wide text-ink-secondary hover:text-ink flex items-center gap-1"
-        >
-          {showAllStyles ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          {showAllStyles ? "Masquer les autres styles" : "Voir plus de styles"}
-        </button>
-
-        {showAllStyles && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {otherStyles.map((style) => (
-              <div key={style.id} onClick={() => setStyleId(style.id)} className="cursor-pointer">
-                <StyleCard style={style} />
+        <div className="border-t border-border pt-4">
+          {!customStyleOpen ? (
+            <button
+              type="button"
+              onClick={() => setCustomStyleOpen(true)}
+              className="text-xs font-mono uppercase tracking-wide text-ink-secondary hover:text-gold-light flex items-center gap-1.5"
+            >
+              <ImagePlus className="w-3.5 h-3.5" /> Style atypique ou très spécifique ? Envoyer des références visuelles
+            </button>
+          ) : (
+            <Card className="p-5 space-y-3">
+              <p className="text-sm text-ink-secondary">
+                Envoie une dizaine d&apos;images qui représentent le style que tu veux (screenshots, moodboard,
+                exemples...) — Claude en extrait un style réutilisable pour tout le projet.
+              </p>
+              {customStyleImages.length > 0 && (
+                <div className="grid grid-cols-5 gap-2">
+                  {customStyleImages.map((img, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={img} alt={`Référence ${i + 1}`} className="aspect-square object-cover rounded border border-border" />
+                  ))}
+                </div>
+              )}
+              {customStyleError && <p className="text-xs text-red-400">{customStyleError}</p>}
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => customStyleInputRef.current?.click()}
+                  disabled={extractingStyle}
+                >
+                  <UploadCloud className="w-3.5 h-3.5" /> Ajouter des images
+                </Button>
+                <input
+                  ref={customStyleInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.length) void handleAddCustomStyleImages(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <Button size="sm" onClick={handleExtractStyle} disabled={customStyleImages.length === 0 || extractingStyle}>
+                  <Wand2 className="w-3.5 h-3.5" /> {extractingStyle ? "Extraction..." : "Extraire le style"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { setCustomStyleOpen(false); setCustomStyleImages([]); }}>
+                  Annuler
+                </Button>
               </div>
-            ))}
-          </div>
-        )}
+            </Card>
+          )}
+        </div>
       </div>
     );
   }

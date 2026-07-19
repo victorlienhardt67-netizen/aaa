@@ -6,15 +6,22 @@ import { useProjectStore } from "@/store/projectStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useLearningStore } from "@/store/learningStore";
-import { Scene } from "@/types";
+import { LearningEntry, MotionIntensity, Scene, StylePreset, VideoEngine } from "@/types";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { falGenerateVideo } from "@/lib/fal";
-import { buildScenePositivePrompt, buildMandatoryVideoRules, buildLearningContext, buildVoiceDirective } from "@/lib/prompts";
-import { formatCost } from "@/lib/utils";
+import {
+  buildScenePositivePrompt,
+  buildGrokVideoPrompt,
+  buildKlingVideoPrompt,
+  buildMandatoryVideoRules,
+  buildLearningContext,
+  buildVoiceDirective,
+} from "@/lib/prompts";
+import { estimateDurationFromWordCount, formatCost, mapWithConcurrency } from "@/lib/utils";
 
 const FEEDBACK_REASONS = [
   { value: "mouvement_lent", label: "Mouvement trop lent" },
@@ -22,6 +29,72 @@ const FEEDBACK_REASONS = [
   { value: "personnage_incoherent", label: "Personnage incohérent" },
   { value: "autre", label: "Autre" },
 ];
+
+/**
+ * Génère la vidéo d'une scène — logique partagée entre le bouton individuel
+ * de chaque carte et le workflow batch ("3 premières puis le reste") de
+ * VideoGenerator, pour ne jamais dupliquer la construction du prompt.
+ */
+async function generateSceneVideo(params: {
+  scene: Scene;
+  prompt: string;
+  style: StylePreset;
+  engine: VideoEngine;
+  lang: "fr" | "en";
+  motionIntensity: MotionIntensity;
+  mandatoryVideoRules: string;
+  characterNames: Record<string, string> | undefined;
+  learningEntries: LearningEntry[];
+  apiKey: string;
+  updateScene: (sceneId: string, patch: Partial<Scene>) => void;
+  recalcTotalCost: () => void;
+}) {
+  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, learningEntries, apiKey, updateScene, recalcTotalCost } = params;
+  updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
+  const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
+  const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType);
+  const sceneWithPrompt = { ...scene, videoPrompt: prompt };
+  const engineBody =
+    engine === "grok_video"
+      ? buildGrokVideoPrompt(sceneWithPrompt, style, motionIntensity, voiceDirective)
+      : engine === "kling_3_0"
+      ? buildKlingVideoPrompt(sceneWithPrompt, style, motionIntensity, voiceDirective, characterNames)
+      : [buildScenePositivePrompt(sceneWithPrompt, style, motionIntensity), voiceDirective].join(" ");
+  const fullPrompt = [
+    engineBody,
+    `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules)}`,
+    relevantLearning && `\n\n${relevantLearning}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  // Règle Grok FR : la durée est toujours calculée et fixée explicitement
+  // depuis le nombre de mots du dialogue (÷2,5) — jamais laissée à Grok.
+  const hasSpeech =
+    (scene.voiceType === "voiceover" || scene.voiceType === "lipsync") && !!scene.voiceOver?.text?.trim();
+  const durationSeconds =
+    lang === "fr" && engine === "grok_video" && hasSpeech
+      ? estimateDurationFromWordCount(scene.voiceOver!.text)
+      : scene.durationSeconds;
+  if (durationSeconds !== scene.durationSeconds) {
+    updateScene(scene.id, { durationSeconds });
+  }
+  try {
+    const result = await falGenerateVideo(fullPrompt, scene.frameUrl, engine, durationSeconds, apiKey);
+    updateScene(scene.id, {
+      videoUrl: result.url,
+      videoStatus: "video_generated",
+      videoCostEstimate: result.costEstimate,
+      videoPrompt: prompt,
+      videoError: undefined,
+    });
+    recalcTotalCost();
+  } catch (e) {
+    updateScene(scene.id, {
+      videoStatus: "error",
+      videoError: e instanceof Error ? e.message : "Erreur inconnue",
+    });
+  }
+}
 
 function SceneVideoCard({ scene }: { scene: Scene }) {
   const currentProject = useProjectStore((s) => s.currentProject);
@@ -45,32 +118,20 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
   const lang = currentProject?.lang ?? "fr";
 
   async function runGeneration(prompt: string) {
-    updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
-    const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
-    const fullPrompt = [
-      buildScenePositivePrompt({ ...scene, videoPrompt: prompt }, style, motionIntensity),
-      buildVoiceDirective(scene.voiceOver, lang, scene.voiceType),
-      `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules)}`,
-      relevantLearning && `\n\n${relevantLearning}`,
-    ]
-      .filter(Boolean)
-      .join(" ");
-    try {
-      const result = await falGenerateVideo(fullPrompt, scene.frameUrl, engine, scene.durationSeconds, apiKeys.falApiKey);
-      updateScene(scene.id, {
-        videoUrl: result.url,
-        videoStatus: "video_generated",
-        videoCostEstimate: result.costEstimate,
-        videoPrompt: prompt,
-        videoError: undefined,
-      });
-      recalcTotalCost();
-    } catch (e) {
-      updateScene(scene.id, {
-        videoStatus: "error",
-        videoError: e instanceof Error ? e.message : "Erreur inconnue",
-      });
-    }
+    await generateSceneVideo({
+      scene,
+      prompt,
+      style,
+      engine,
+      lang,
+      motionIntensity,
+      mandatoryVideoRules,
+      characterNames: currentProject?.plan?.characterNames,
+      learningEntries,
+      apiKey: apiKeys.falApiKey,
+      updateScene,
+      recalcTotalCost,
+    });
   }
 
   function submitFeedback(rating: "up" | "down") {
@@ -255,13 +316,65 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
 export function VideoGenerator() {
   const currentProject = useProjectStore((s) => s.currentProject);
   const setStatus = useProjectStore((s) => s.setStatus);
+  const updateScene = useProjectStore((s) => s.updateScene);
+  const recalcTotalCost = useProjectStore((s) => s.recalcTotalCost);
+  const styles = useStyleStore((s) => s.styles);
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const motionIntensity = useSettingsStore((s) => s.generationDefaults.motionIntensity);
+  const mandatoryVideoRules = useSettingsStore((s) => s.advancedPrompts.mandatoryVideoRules);
+  const learningEntries = useLearningStore((s) => s.entries);
+  const [generatingFirstBatch, setGeneratingFirstBatch] = useState(false);
+  const [generatingRest, setGeneratingRest] = useState(false);
 
   const plan = currentProject?.plan;
-  if (!plan) return null;
+  if (!plan || !currentProject) return null;
 
   const scenes = plan.scenes;
   const validatedCount = scenes.filter((s) => s.videoStatus === "video_validated").length;
   const allValidated = scenes.length > 0 && validatedCount === scenes.length;
+
+  const style = styles.find((s) => s.id === currentProject.styleId) ?? styles[0];
+  const engine = currentProject.videoEngine ?? "auto";
+  const lang = currentProject.lang ?? "fr";
+  const characterNames = plan.characterNames;
+
+  // Workflow "3 premières puis batch" — uniquement pertinent s'il y a plus de
+  // 3 scènes ; sinon la génération individuelle normale suffit.
+  const firstBatch = scenes.slice(0, 3);
+  const restBatch = scenes.slice(3);
+  const firstBatchGenerated = firstBatch.length > 0 && firstBatch.every((s) => !!s.videoUrl);
+  const firstBatchValidated = firstBatch.length > 0 && firstBatch.every((s) => s.videoStatus === "video_validated");
+
+  async function generateBatch(batchScenes: Scene[]) {
+    await mapWithConcurrency(batchScenes, 8, (scene) =>
+      generateSceneVideo({
+        scene,
+        prompt: scene.videoPrompt,
+        style,
+        engine,
+        lang,
+        motionIntensity,
+        mandatoryVideoRules,
+        characterNames,
+        learningEntries,
+        apiKey: apiKeys.falApiKey,
+        updateScene,
+        recalcTotalCost,
+      })
+    );
+  }
+
+  async function handleGenerateFirstBatch() {
+    setGeneratingFirstBatch(true);
+    await generateBatch(firstBatch);
+    setGeneratingFirstBatch(false);
+  }
+
+  async function handleGenerateRest() {
+    setGeneratingRest(true);
+    await generateBatch(restBatch);
+    setGeneratingRest(false);
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-8 space-y-6">
@@ -272,7 +385,31 @@ export function VideoGenerator() {
             {validatedCount}/{scenes.length} vidéos validées
           </p>
         </div>
+        {restBatch.length > 0 && (
+          <div className="flex gap-2">
+            {!firstBatchValidated ? (
+              <Button variant="secondary" onClick={handleGenerateFirstBatch} disabled={generatingFirstBatch}>
+                <Sparkles className="w-4 h-4" />{" "}
+                {generatingFirstBatch
+                  ? "Génération..."
+                  : firstBatchGenerated
+                  ? "Régénérer les 3 premières"
+                  : "Générer les 3 premières"}
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={handleGenerateRest} disabled={generatingRest}>
+                <Sparkles className="w-4 h-4" /> {generatingRest ? "Génération..." : `Générer le reste en batch (${restBatch.length})`}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
+
+      {restBatch.length > 0 && !firstBatchValidated && (
+        <p className="text-xs text-ink-secondary bg-surface2 border border-border rounded p-3">
+          Valide d&apos;abord les 3 premières vidéos (voix + rendu global) avant de lancer le reste en batch.
+        </p>
+      )}
 
       <div className="h-1.5 bg-surface2 rounded-full overflow-hidden">
         <div

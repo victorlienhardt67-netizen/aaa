@@ -71,6 +71,18 @@ export function estimateFrameCountForDuration(targetDurationSeconds: number): { 
 }
 
 /**
+ * Durée de clip vidéo calculée depuis le nombre de mots du dialogue, à raison
+ * de 2,5 mots/seconde — pour toujours fixer explicitement la durée envoyée au
+ * modèle vidéo (jamais le laisser improviser un rythme de voix). Arrondie à
+ * la seconde supérieure, avec un minimum de 3s même pour un texte très court.
+ */
+export function estimateDurationFromWordCount(text: string): number {
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  if (wordCount === 0) return 3;
+  return Math.max(3, Math.ceil(wordCount / 2.5));
+}
+
+/**
  * Exécute `fn` sur chaque élément avec au maximum `limit` appels simultanés —
  * évite de saturer la file d'attente fal.ai quand on génère beaucoup de
  * frames en parallèle (ex: "Générer toutes les frames" sur un plan de 30 plans).
