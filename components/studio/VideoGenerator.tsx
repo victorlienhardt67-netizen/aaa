@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Check, KeyRound, RefreshCw, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import { AlertTriangle, Check, RefreshCw, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -45,7 +45,7 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
   const lang = currentProject?.lang ?? "fr";
 
   async function runGeneration(prompt: string) {
-    updateScene(scene.id, { videoStatus: "video_generating" });
+    updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
     const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
     const fullPrompt = [
       buildScenePositivePrompt({ ...scene, videoPrompt: prompt }, style, motionIntensity),
@@ -55,16 +55,22 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
     ]
       .filter(Boolean)
       .join(" ");
-    const result = await falGenerateVideo(fullPrompt, scene.frameUrl, engine, scene.durationSeconds, apiKeys.falApiKey);
-    updateScene(scene.id, {
-      videoUrl: result.url,
-      videoStatus: "video_generated",
-      videoCostEstimate: result.costEstimate,
-      videoPrompt: prompt,
-      videoIsMock: result.isMock,
-      videoError: result.errorMessage,
-    });
-    recalcTotalCost();
+    try {
+      const result = await falGenerateVideo(fullPrompt, scene.frameUrl, engine, scene.durationSeconds, apiKeys.falApiKey);
+      updateScene(scene.id, {
+        videoUrl: result.url,
+        videoStatus: "video_generated",
+        videoCostEstimate: result.costEstimate,
+        videoPrompt: prompt,
+        videoError: undefined,
+      });
+      recalcTotalCost();
+    } catch (e) {
+      updateScene(scene.id, {
+        videoStatus: "error",
+        videoError: e instanceof Error ? e.message : "Erreur inconnue",
+      });
+    }
   }
 
   function submitFeedback(rating: "up" | "down") {
@@ -145,16 +151,10 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
         </div>
       </div>
 
-      {!isGenerating && scene.videoUrl && scene.videoError && (
+      {!isGenerating && scene.videoError && (
         <div className="flex items-start gap-1.5 bg-red-950/30 border border-red-900/50 rounded p-2 text-[11px] text-red-400">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>Échec de l&apos;appel fal.ai ({scene.videoError}) — vidéo simulée affichée, pas une vraie génération.</span>
-        </div>
-      )}
-      {!isGenerating && scene.videoUrl && !scene.videoError && scene.videoIsMock && (
-        <div className="flex items-start gap-1.5 bg-surface2 border border-border rounded p-2 text-[11px] text-ink-secondary">
-          <KeyRound className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>Aucune clé fal.ai configurée — vidéo simulée. Ajoute ta clé dans Paramètres pour générer la vraie vidéo.</span>
+          <span>{scene.videoError}</span>
         </div>
       )}
 
@@ -217,7 +217,15 @@ function SceneVideoCard({ scene }: { scene: Scene }) {
       <div className="flex flex-wrap gap-1.5 pt-1">
         {!scene.videoUrl && (
           <Button size="sm" onClick={() => runGeneration(scene.videoPrompt)} disabled={isGenerating}>
-            <Sparkles className="w-3.5 h-3.5" /> Générer la vidéo
+            {scene.videoError ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5" /> Réessayer
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" /> Générer la vidéo
+              </>
+            )}
           </Button>
         )}
         {scene.videoUrl && !isGenerating && (

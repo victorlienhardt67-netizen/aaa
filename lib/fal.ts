@@ -1,20 +1,16 @@
 // Client fal.ai — Kling 3.0, Grok Video, Wan 2.6, Seedance 2.0 (vidéo) + Nano Banana (image)
 // Kling 3.0, Grok Video et Nano Banana sont branchés sur la vraie API fal.ai
-// (voir /api/fal/*) quand une clé est fournie. Wan 2.6 et Seedance 2.0 restent
-// simulés tant que leur schéma exact n'est pas confirmé. En cas d'erreur ou
-// d'absence de clé, repli automatique sur des données mockées réalistes.
+// (voir /api/fal/*). Aucun repli simulé : sans clé, ou en cas d'échec réel,
+// l'appel lève une erreur affichée telle quelle dans l'UI (jamais de frame
+// ou de vidéo simulée en remplacement d'un échec).
 
 import { ImageEngine, VideoEngine } from "@/types";
-import { estimateImageCost, estimateVideoCost, generatePlaceholderFrame, generatePlaceholderVideoUrl, simulatedDelay } from "./mock";
+import { estimateImageCost, estimateVideoCost, simulatedDelay } from "./mock";
 
 export interface FalImageResult {
   url: string;
   engine: ImageEngine;
   costEstimate: number;
-  /** true si `url` est une image simulée (pas de clé fournie, ou appel réel échoué). */
-  isMock?: boolean;
-  /** Présent uniquement si une clé était fournie mais que l'appel réel a échoué (jamais pour une simple absence de clé). */
-  errorMessage?: string;
 }
 
 export interface FalVideoResult {
@@ -22,8 +18,6 @@ export interface FalVideoResult {
   engine: VideoEngine;
   costEstimate: number;
   durationSeconds: number;
-  isMock?: boolean;
-  errorMessage?: string;
 }
 
 const WIRED_VIDEO_ENGINES: VideoEngine[] = ["kling_3_0", "grok_video"];
@@ -75,6 +69,9 @@ async function pollFalJob(submitData: FalSubmitData, apiKey: string): Promise<Re
  * Génère une image. Si `referenceImageUrls` est fourni (ex: character sheet
  * validé), passe par la variante "edit" de Nano Banana pour garder le
  * personnage visuellement cohérent d'une frame à l'autre.
+ *
+ * `apiKey` est lu par l'appelant depuis le store de réglages à CHAQUE appel
+ * (jamais mis en cache) — voir components/studio/FrameGenerator.tsx.
  */
 export async function falGenerateImage(
   prompt: string,
@@ -82,48 +79,33 @@ export async function falGenerateImage(
   apiKey?: string,
   referenceImageUrls?: string[]
 ): Promise<FalImageResult> {
-  if (apiKey && (WIRED_IMAGE_ENGINES.includes(engine) || (referenceImageUrls && referenceImageUrls.length > 0))) {
-    try {
-      const submitRes = await fetch("/api/fal/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          apiKey,
-          engine,
-          prompt,
-          kind: "image",
-          imageUrls: referenceImageUrls,
-        }),
-      });
-      const submitData = await submitRes.json();
-      if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
-
-      const result = await pollFalJob(submitData, apiKey);
-      const imageUrl = (result?.images as Array<{ url?: string }> | undefined)?.[0]?.url;
-      if (!imageUrl) throw new Error("fal.ai n'a pas retourné d'URL d'image");
-
-      return { url: imageUrl, engine, costEstimate: estimateImageCost(engine) };
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Erreur inconnue";
-      console.error("Appel fal.ai (image) échoué, repli sur le mode simulé :", e);
-      await simulatedDelay(1200, 2600);
-      return {
-        url: generatePlaceholderFrame(prompt, `${engine} · fal.ai`),
-        engine,
-        costEstimate: estimateImageCost(engine),
-        isMock: true,
-        errorMessage: message,
-      };
-    }
+  if (!apiKey) {
+    throw new Error("Clé API fal.ai manquante — ajoute-la dans Réglages avant de générer une frame.");
+  }
+  const hasReference = !!referenceImageUrls && referenceImageUrls.length > 0;
+  if (!WIRED_IMAGE_ENGINES.includes(engine) && !hasReference) {
+    throw new Error(`Le moteur "${engine}" n'est pas encore branché sur l'API fal.ai réelle.`);
   }
 
-  await simulatedDelay(1200, 2600);
-  return {
-    url: generatePlaceholderFrame(prompt, `${engine} · fal.ai`),
-    engine,
-    costEstimate: estimateImageCost(engine),
-    isMock: true,
-  };
+  const submitRes = await fetch("/api/fal/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      apiKey,
+      engine,
+      prompt,
+      kind: "image",
+      imageUrls: referenceImageUrls,
+    }),
+  });
+  const submitData = await submitRes.json();
+  if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
+
+  const result = await pollFalJob(submitData, apiKey);
+  const imageUrl = (result?.images as Array<{ url?: string }> | undefined)?.[0]?.url;
+  if (!imageUrl) throw new Error("fal.ai n'a pas retourné d'URL d'image");
+
+  return { url: imageUrl, engine, costEstimate: estimateImageCost(engine) };
 }
 
 export async function falGenerateVideo(
@@ -133,44 +115,29 @@ export async function falGenerateVideo(
   durationSeconds: number,
   apiKey?: string
 ): Promise<FalVideoResult> {
-  if (apiKey && frameUrl && WIRED_VIDEO_ENGINES.includes(engine)) {
-    try {
-      const submitRes = await fetch("/api/fal/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ apiKey, engine, prompt, imageUrl: frameUrl, durationSeconds, kind: "video" }),
-      });
-      const submitData = await submitRes.json();
-      if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
-
-      const result = await pollFalJob(submitData, apiKey);
-      const videoUrl = (result?.video as { url?: string } | undefined)?.url;
-      if (!videoUrl) throw new Error("fal.ai n'a pas retourné d'URL vidéo");
-
-      return { url: videoUrl, engine, costEstimate: estimateVideoCost(engine, durationSeconds), durationSeconds };
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Erreur inconnue";
-      console.error("Appel fal.ai (vidéo) échoué, repli sur le mode simulé :", e);
-      await simulatedDelay(2500, 5000);
-      return {
-        url: generatePlaceholderVideoUrl(prompt + (frameUrl ?? "")),
-        engine,
-        costEstimate: estimateVideoCost(engine, durationSeconds),
-        durationSeconds,
-        isMock: true,
-        errorMessage: message,
-      };
-    }
+  if (!apiKey) {
+    throw new Error("Clé API fal.ai manquante — ajoute-la dans Réglages avant de générer une vidéo.");
+  }
+  if (!frameUrl) {
+    throw new Error("Aucune frame validée pour cette scène — génère d'abord la frame.");
+  }
+  if (!WIRED_VIDEO_ENGINES.includes(engine)) {
+    throw new Error(`Le moteur "${engine}" n'est pas encore branché sur l'API fal.ai réelle.`);
   }
 
-  await simulatedDelay(2500, 5000);
-  return {
-    url: generatePlaceholderVideoUrl(prompt + (frameUrl ?? "")),
-    engine,
-    costEstimate: estimateVideoCost(engine, durationSeconds),
-    durationSeconds,
-    isMock: true,
-  };
+  const submitRes = await fetch("/api/fal/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ apiKey, engine, prompt, imageUrl: frameUrl, durationSeconds, kind: "video" }),
+  });
+  const submitData = await submitRes.json();
+  if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
+
+  const result = await pollFalJob(submitData, apiKey);
+  const videoUrl = (result?.video as { url?: string } | undefined)?.url;
+  if (!videoUrl) throw new Error("fal.ai n'a pas retourné d'URL vidéo");
+
+  return { url: videoUrl, engine, costEstimate: estimateVideoCost(engine, durationSeconds), durationSeconds };
 }
 
 /** Routing automatique du moteur vidéo selon la langue du projet. */

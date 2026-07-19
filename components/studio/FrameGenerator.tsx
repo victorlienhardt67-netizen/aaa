@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, Check, KeyRound, RefreshCw, Sparkles, SplitSquareHorizontal, UploadCloud } from "lucide-react";
+import { AlertTriangle, Check, RefreshCw, Sparkles, SplitSquareHorizontal, UploadCloud } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
@@ -57,6 +57,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareResults, setCompareResults] = useState<{ engine: string; url: string }[]>([]);
   const [comparing, setComparing] = useState(false);
+  const [compareError, setCompareError] = useState<string | undefined>();
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
@@ -73,53 +74,64 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
       frameStatus: "frame_generated",
       frameHistory: [...scene.frameHistory, base64],
       frameProvided: true,
-      frameIsMock: false,
       frameError: undefined,
     });
   }
 
   async function runGeneration(prompt: string) {
-    updateScene(scene.id, { frameStatus: "frame_generating" });
+    updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined });
     const engine = currentProject?.imageEngine ?? "auto";
     const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand, {
       hasCharacterReference,
       hasProductReference,
       customRules: mandatoryImageRules,
     });
-    const result = await falGenerateImage(
-      fullPrompt,
-      engine,
-      apiKeys.falApiKey,
-      referenceImageUrls.length > 0 ? referenceImageUrls : undefined
-    );
-    updateScene(scene.id, {
-      frameUrl: result.url,
-      frameStatus: "frame_generated",
-      frameHistory: [...scene.frameHistory, result.url],
-      imageCostEstimate: "costEstimate" in result ? result.costEstimate : 0.02,
-      imagePrompt: prompt,
-      frameIsMock: result.isMock,
-      frameError: result.errorMessage,
-    });
-    recalcTotalCost();
+    try {
+      const result = await falGenerateImage(
+        fullPrompt,
+        engine,
+        apiKeys.falApiKey,
+        referenceImageUrls.length > 0 ? referenceImageUrls : undefined
+      );
+      updateScene(scene.id, {
+        frameUrl: result.url,
+        frameStatus: "frame_generated",
+        frameHistory: [...scene.frameHistory, result.url],
+        imageCostEstimate: result.costEstimate,
+        imagePrompt: prompt,
+        frameError: undefined,
+      });
+      recalcTotalCost();
+    } catch (e) {
+      updateScene(scene.id, {
+        frameStatus: "error",
+        frameError: e instanceof Error ? e.message : "Erreur inconnue",
+      });
+    }
   }
 
   async function handleCompare() {
     setComparing(true);
     setCompareOpen(true);
+    setCompareError(undefined);
+    setCompareResults([]);
     const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand, {
       hasCharacterReference,
       hasProductReference,
       customRules: mandatoryImageRules,
     });
-    const [a, b] = await Promise.all([
-      falGenerateImage(fullPrompt, "flux_pro", apiKeys.falApiKey),
-      falGenerateImage(fullPrompt, "nano_banana", apiKeys.falApiKey),
-    ]);
-    setCompareResults([
-      { engine: "Flux Pro", url: a.url },
-      { engine: "Nano Banana", url: b.url },
-    ]);
+    try {
+      const [a, b] = await Promise.all([
+        falGenerateImage(fullPrompt, "flux_pro", apiKeys.falApiKey),
+        falGenerateImage(fullPrompt, "nano_banana", apiKeys.falApiKey),
+      ]);
+      setCompareResults([
+        { engine: "Flux Pro", url: a.url },
+        { engine: "Nano Banana", url: b.url },
+      ]);
+    } catch (e) {
+      setCompareError(e instanceof Error ? e.message : "Erreur inconnue");
+    }
     setComparing(false);
   }
 
@@ -134,6 +146,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
 
   const isGenerating = scene.frameStatus === "frame_generating";
   const isValidated = scene.frameStatus === "frame_validated";
+  const isError = scene.frameStatus === "error";
 
   return (
     <Card className="p-4 space-y-3">
@@ -142,8 +155,8 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
           Scène #{scene.index}
           {scene.frameProvided && <Badge tone="success">Frame fournie</Badge>}
         </span>
-        <Badge tone={isValidated ? "success" : scene.frameStatus === "frame_generated" ? "gold" : "neutral"}>
-          {isValidated ? "Validée" : scene.frameStatus === "frame_generated" ? "À valider" : isGenerating ? "Génération..." : "En attente"}
+        <Badge tone={isValidated ? "success" : isError ? "danger" : scene.frameStatus === "frame_generated" ? "gold" : "neutral"}>
+          {isValidated ? "Validée" : isError ? "Erreur" : scene.frameStatus === "frame_generated" ? "À valider" : isGenerating ? "Génération..." : "En attente"}
         </Badge>
       </div>
 
@@ -163,16 +176,10 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
         )}
       </div>
 
-      {!isGenerating && scene.frameUrl && scene.frameError && (
+      {!isGenerating && scene.frameError && (
         <div className="flex items-start gap-1.5 bg-red-950/30 border border-red-900/50 rounded p-2 text-[11px] text-red-400">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>Échec de l&apos;appel fal.ai ({scene.frameError}) — frame simulée affichée, pas une vraie génération.</span>
-        </div>
-      )}
-      {!isGenerating && scene.frameUrl && !scene.frameError && scene.frameIsMock && (
-        <div className="flex items-start gap-1.5 bg-surface2 border border-border rounded p-2 text-[11px] text-ink-secondary">
-          <KeyRound className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>Aucune clé fal.ai configurée — frame simulée. Ajoute ta clé dans Paramètres pour générer la vraie image.</span>
+          <span>{scene.frameError}</span>
         </div>
       )}
 
@@ -206,7 +213,15 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
         {!scene.frameUrl && (
           <>
             <Button size="sm" onClick={() => runGeneration(scene.imagePrompt)} disabled={isGenerating}>
-              <Sparkles className="w-3.5 h-3.5" /> Générer la frame
+              {scene.frameError ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5" /> Réessayer
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" /> Générer la frame
+                </>
+              )}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => uploadInputRef.current?.click()} disabled={isGenerating}>
               <UploadCloud className="w-3.5 h-3.5" /> J&apos;ai déjà une frame
@@ -253,6 +268,11 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
           <div className="py-12 flex flex-col items-center gap-3 text-ink-secondary">
             <RefreshCw className="w-6 h-6 animate-spin text-gold" />
             Génération des deux variantes...
+          </div>
+        ) : compareError ? (
+          <div className="flex items-start gap-2 bg-red-950/30 border border-red-900/50 rounded p-3 text-sm text-red-400">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{compareError}</span>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4">
@@ -305,7 +325,7 @@ export function FrameGenerator() {
       framedScenes.filter((s) => !s.frameUrl),
       8,
       async (scene) => {
-          updateScene(scene.id, { frameStatus: "frame_generating" });
+          updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined });
           const { urls: referenceImageUrls, hasCharacterReference, hasProductReference } = getReferenceImageInfo(
             scene,
             currentProject ?? undefined,
@@ -316,20 +336,26 @@ export function FrameGenerator() {
             hasProductReference,
             customRules: mandatoryImageRules,
           });
-          const result = await falGenerateImage(
-            fullPrompt,
-            engine,
-            apiKeys.falApiKey,
-            referenceImageUrls.length > 0 ? referenceImageUrls : undefined
-          );
-          updateScene(scene.id, {
-            frameUrl: result.url,
-            frameStatus: "frame_generated",
-            frameHistory: [result.url],
-            imageCostEstimate: "costEstimate" in result ? result.costEstimate : 0.02,
-            frameIsMock: result.isMock,
-            frameError: result.errorMessage,
-          });
+          try {
+            const result = await falGenerateImage(
+              fullPrompt,
+              engine,
+              apiKeys.falApiKey,
+              referenceImageUrls.length > 0 ? referenceImageUrls : undefined
+            );
+            updateScene(scene.id, {
+              frameUrl: result.url,
+              frameStatus: "frame_generated",
+              frameHistory: [result.url],
+              imageCostEstimate: result.costEstimate,
+              frameError: undefined,
+            });
+          } catch (e) {
+            updateScene(scene.id, {
+              frameStatus: "error",
+              frameError: e instanceof Error ? e.message : "Erreur inconnue",
+            });
+          }
       }
     );
     recalcTotalCost();

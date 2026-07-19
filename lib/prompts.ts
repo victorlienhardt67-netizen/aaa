@@ -258,24 +258,42 @@ export function buildScenePositivePrompt(
  * l'image de référence AVANT doit être passée comme image_url supplémentaire
  * lors de la génération pour garantir que c'est bien le même visage.
  */
+/**
+ * Gabarit fixe de la fiche casting — 5 panneaux labellisés côte à côte,
+ * identique à chaque génération (mêmes labels, même disposition, même
+ * réglet de taille) pour que les fiches de personnages différents restent
+ * visuellement comparables entre elles d'un projet à l'autre.
+ */
+function characterSheetTemplateBlock(characterName: string): string {
+  return [
+    `Professional character turnaround model sheet, exactly 5 labeled panels side by side in a single horizontal row separated by thin black divider lines, plain light grey background, even flat studio lighting, no shadow on the background, identical character in every panel.`,
+    `Panel 1, labeled "FACE CLOSE UP" in small caps top-left: tight head-and-shoulders close-up of the face, neutral expression, looking straight at camera. Below this panel, printed text on separate lines, filled in (not left blank): "NAME: ${characterName}", "AGE:", "HEIGHT: X" (inches)", "WEIGHT:", "GENDER:" — each followed by a short plausible value consistent with the character.`,
+    `Panel 2, labeled "FRONT" top-left, with a vertical height-measurement ruler with tick marks along the right edge labeled 'X" (inches)': full body standing straight, facing camera, neutral pose, arms slightly away from the body, feet slightly apart.`,
+    `Panel 3, labeled "BACK" top-left, same ruler style: full body seen from directly behind, exact same pose and proportions as panel 2.`,
+    `Panel 4, labeled "LEFT PROFILE" top-left, same ruler style: full body seen from the left side, same pose.`,
+    `Panel 5, labeled "RIGHT PROFILE" top-left, same ruler style: full body seen from the right side, same pose.`,
+    `No other text, no watermark, no extra annotation anywhere else on the image.`,
+  ].join(" ");
+}
+
 export function buildCharacterSheetPrompt(
   characterName: string,
   style: StylePreset,
   variant?: "avant" | "après",
   physicalState?: string
 ): string {
-  const base = `Fiche casting complète de ${characterName}, corps entier visible, fond blanc ou gris neutre uni, personnage vu de face + trois-quarts + profil sur la même image, pose neutre, éclairage studio égal, aucun texte, aucun label, aucune annotation, style hyper-réaliste.`;
+  const template = characterSheetTemplateBlock(characterName);
   if (variant === "avant") {
-    return `${base} État AVANT transformation physique : ${
+    return `${template} État AVANT transformation physique : ${
       physicalState ?? "problème physique visible"
-    } — à montrer SANS FILTRE et sans adoucir, le problème doit être immédiatement et clairement lisible à l'écran, c'est ce contraste qui fait le message. Style visuel : ${style.positivePrompt}.`;
+    } — à montrer SANS FILTRE et sans adoucir, le problème doit être immédiatement et clairement lisible sur les 5 panneaux, c'est ce contraste qui fait le message. Style visuel du personnage : ${style.positivePrompt}.`;
   }
   if (variant === "après") {
-    return `${base} Même visage, même identité que la version AVANT de ce personnage (image de référence fournie), mais maintenant : ${
+    return `${template} Même visage, même identité que la version AVANT de ce personnage (image de référence fournie), mais maintenant : ${
       physicalState ?? "transformation physique visible"
-    } — la transformation doit être immédiatement et clairement lisible, sans changer les traits du visage ni l'identité. Style visuel : ${style.positivePrompt}.`;
+    } — la transformation doit être immédiatement et clairement lisible sur les 5 panneaux, sans changer les traits du visage ni l'identité. Style visuel du personnage : ${style.positivePrompt}.`;
   }
-  return `${base} Style visuel : ${style.positivePrompt}.`;
+  return `${template} Style visuel du personnage : ${style.positivePrompt}.`;
 }
 
 /**
