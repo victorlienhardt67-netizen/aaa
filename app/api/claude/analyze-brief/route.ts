@@ -32,6 +32,35 @@ const PRODUCTION_PLAN_TOOL = {
         enum: ["fr", "en"],
         description: "Langue détectée dans le brief.",
       },
+      hook: {
+        type: "object",
+        description: "Évaluation du hook (3-5 premières secondes) — toujours renseignée en premier.",
+        properties: {
+          texte: { type: "string", description: "Le texte des 3-5 premières secondes." },
+          evaluation: { type: "string", enum: ["fort", "moyen", "faible"] },
+          probleme: { type: "string", description: "Pourquoi le hook est moyen/faible — omettre si fort." },
+          alternatives: {
+            type: "array",
+            items: { type: "string" },
+            description: "2 alternatives concrètes si le hook est moyen/faible.",
+          },
+        },
+        required: ["texte", "evaluation"],
+      },
+      arcNarratif: {
+        type: "string",
+        description:
+          "Type d'arc narratif détecté : 'villain monologue', 'témoignage transformation', 'autorité médicale', 'storytelling', 'éducatif mécanisme', ou le plus proche.",
+      },
+      marqueDetectee: {
+        type: "string",
+        description: "Marque détectée dans le script si identifiable (ex: Lynae, Lyveen, T-MEN, Venalys, ou autre).",
+      },
+      pointsVigilance: {
+        type: "array",
+        items: { type: "string" },
+        description: "Risques détectés à surveiller (hook faible, transformation peu lisible, ambiguïté, durée irréaliste...) et comment les gérer.",
+      },
       scenes: {
         type: "array",
         items: {
@@ -46,6 +75,22 @@ const PRODUCTION_PLAN_TOOL = {
               type: "string",
               description:
                 "Nom du personnage récurrent si hasCharacter=true (ex: le prénom mentionné dans le brief, ou un descriptif court comme 'La cliente' si aucun nom n'est donné). Doit être identique pour toutes les scènes montrant le même personnage.",
+            },
+            characterVariant: {
+              type: "string",
+              enum: ["avant", "après"],
+              description:
+                "Uniquement si une transformation PHYSIQUE DURABLE (poids, silhouette, peau) est explicitement présente dans le script — jamais pour un état émotionnel passager. Indique quel état est montré dans cette frame.",
+            },
+            etatAvant: {
+              type: "string",
+              description:
+                "Description physique précise et SANS FILTRE de l'état avant transformation (ex: 'ventre visiblement gonflé, jambes lourdes, teint terne'). Une seule fois suffit par personnage — sur la première frame characterVariant='avant'.",
+            },
+            etatApres: {
+              type: "string",
+              description:
+                "Description physique précise de l'état après transformation. Une seule fois suffit par personnage — sur la première frame characterVariant='après'.",
             },
             needsFrame: { type: "boolean", description: "Une frame de départ (image) est-elle nécessaire ?" },
             imagePrompt: {

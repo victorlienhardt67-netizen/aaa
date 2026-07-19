@@ -68,6 +68,7 @@ export function BriefCoConstruction() {
         history: historyWithNewUserTurn.map((m) => ({ role: m.role, content: m.content })),
         apiKey: apiKeys.claudeApiKey,
         systemPromptOverride: advancedPrompts.coConstructionSystemPrompt,
+        styleName: style?.name,
       });
       const assistantMessage: CoConstructionMessage = {
         role: "assistant",

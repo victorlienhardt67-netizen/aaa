@@ -7,6 +7,7 @@ import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { CharacterReference } from "@/types";
+import { characterReferenceKey } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -29,7 +30,16 @@ interface ProposalSlot {
   error: boolean;
 }
 
-function CharacterCard({ refKey, reference }: { refKey: string; reference: CharacterReference }) {
+function CharacterCard({
+  refKey,
+  reference,
+  avantReference,
+}: {
+  refKey: string;
+  reference: CharacterReference;
+  /** Fiche AVANT validée du même personnage — fournie uniquement quand `reference.variant === "après"`, pour chaîner l'identité. */
+  avantReference?: CharacterReference;
+}) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const updateCharacterReference = useProjectStore((s) => s.updateCharacterReference);
   const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
@@ -45,7 +55,12 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
   const originalPhoto = brand?.characterPhotos.find((p) => p.id === reference.assetId);
   const isGenerating = reference.status === "generating";
   const isValidated = reference.status === "validated";
-  const displayName = reference.name;
+  const displayName = reference.variant ? `${reference.name} — ${reference.variant}` : reference.name;
+  // L'état "après" doit chaîner sur l'identité validée de l'état "avant" — jamais réinventer le visage.
+  const chainedReferenceUrls = [
+    originalPhoto?.url,
+    reference.variant === "après" && avantReference?.status === "validated" ? avantReference.sheetUrl : undefined,
+  ].filter((u): u is string => !!u);
 
   // Tant que la fenêtre de propositions est fermée, la base repart du prompt
   // persisté — une modification non validée (pas de clic "Choisir") est donc abandonnée.
@@ -55,7 +70,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
 
   async function runGeneration(prompt: string) {
     updateCharacterReference(refKey, { status: "generating" });
-    const referenceUrls = originalPhoto ? [originalPhoto.url] : undefined;
+    const referenceUrls = chainedReferenceUrls.length > 0 ? chainedReferenceUrls : undefined;
     const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey, referenceUrls);
     updateCharacterReference(refKey, {
       sheetUrl: result.url,
@@ -66,7 +81,7 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
 
   async function generateSlot(prompt: string, idx: number) {
     setProposals((prev) => prev.map((p, i) => (i === idx ? { ...p, loading: true, error: false } : p)));
-    const referenceUrls = originalPhoto ? [originalPhoto.url] : undefined;
+    const referenceUrls = chainedReferenceUrls.length > 0 ? chainedReferenceUrls : undefined;
     try {
       const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey, referenceUrls);
       setProposals((prev) => prev.map((p, i) => (i === idx ? { ...p, url: result.url, loading: false, error: false } : p)));
@@ -115,7 +130,12 @@ function CharacterCard({ refKey, reference }: { refKey: string; reference: Chara
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
         <span className="font-mono text-xs text-gold-light flex items-center gap-1.5">
-          <Users className="w-3.5 h-3.5" /> {displayName}
+          <Users className="w-3.5 h-3.5" /> {reference.name}
+          {reference.variant && (
+            <Badge tone={reference.variant === "avant" ? "danger" : "success"}>
+              {reference.variant === "avant" ? "AVANT" : "APRÈS"}
+            </Badge>
+          )}
         </span>
         <Badge tone={isValidated ? "success" : reference.status === "generated" ? "gold" : "neutral"}>
           {isValidated ? "Validé" : reference.status === "generated" ? "À valider" : isGenerating ? "Génération..." : "En attente"}
@@ -282,38 +302,52 @@ export function CharacterReferences() {
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
 
   const plan = currentProject?.plan;
-  // Un personnage récurrent = une seule identité visuelle fixe, jamais une entrée par état émotionnel.
-  const distinctAssetIds = Array.from(new Set((plan?.scenes ?? []).flatMap((s) => s.characters)));
+  // Un personnage récurrent = une seule identité fixe, sauf transformation
+  // physique durable détectée (variant "avant"/"après") — jamais plus de 2
+  // fiches, jamais pour un état émotionnel passager.
+  const distinctPairs = Array.from(
+    new Map(
+      (plan?.scenes ?? []).flatMap((s) =>
+        s.characters.map((assetId) => {
+          const key = characterReferenceKey(assetId, s.characterVariant);
+          return [key, { key, assetId, variant: s.characterVariant }] as const;
+        })
+      )
+    ).values()
+  );
 
   useEffect(() => {
-    if (!currentProject || distinctAssetIds.length === 0) return;
-    const missing = distinctAssetIds.filter((assetId) => !currentProject.characterReferences?.[assetId]);
+    if (!currentProject || distinctPairs.length === 0) return;
+    const missing = distinctPairs.filter((p) => !currentProject.characterReferences?.[p.key]);
     if (missing.length === 0) return;
-    const refs = missing.map((assetId) => {
+    const refs = missing.map(({ assetId, variant }) => {
       const photo = brand?.characterPhotos.find((p) => p.id === assetId);
       const name = photo?.name || plan?.characterNames?.[assetId] || "Personnage";
+      const profile = plan?.characterProfiles?.[assetId];
+      const physicalState = variant === "avant" ? profile?.etatAvant : variant === "après" ? profile?.etatApres : undefined;
       return {
         assetId,
         name,
-        prompt: buildCharacterSheetPrompt(name, style),
+        variant,
+        prompt: buildCharacterSheetPrompt(name, style, variant, physicalState),
         status: "pending" as const,
       };
     });
     initCharacterReferences(refs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProject?.id, distinctAssetIds.join(",")]);
+  }, [currentProject?.id, distinctPairs.map((p) => p.key).join(",")]);
 
   useEffect(() => {
-    if (currentProject && distinctAssetIds.length === 0) {
+    if (currentProject && distinctPairs.length === 0) {
       setStatus("frames");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProject?.id, distinctAssetIds.length]);
+  }, [currentProject?.id, distinctPairs.length]);
 
-  if (!currentProject || !plan || distinctAssetIds.length === 0) return null;
+  if (!currentProject || !plan || distinctPairs.length === 0) return null;
 
-  const references = distinctAssetIds
-    .map((assetId) => ({ key: assetId, ref: currentProject.characterReferences?.[assetId] }))
+  const references = distinctPairs
+    .map((p) => ({ key: p.key, ref: currentProject.characterReferences?.[p.key] }))
     .filter((r): r is { key: string; ref: CharacterReference } => !!r.ref);
   const allValidated = references.length > 0 && references.every((r) => r.ref.status === "validated");
 
@@ -329,9 +363,13 @@ export function CharacterReferences() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {references.map(({ key, ref }) => (
-          <CharacterCard key={key} refKey={key} reference={ref} />
-        ))}
+        {references.map(({ key, ref }) => {
+          const avantReference =
+            ref.variant === "après"
+              ? currentProject.characterReferences?.[characterReferenceKey(ref.assetId, "avant")]
+              : undefined;
+          return <CharacterCard key={key} refKey={key} reference={ref} avantReference={avantReference} />;
+        })}
       </div>
 
       <div className="flex justify-end pt-4 border-t border-border">

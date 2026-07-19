@@ -31,9 +31,10 @@ const VIDEO_ENGINE_OPTIONS = (Object.keys(VIDEO_ENGINE_LABELS) as VideoEngine[])
 }));
 
 /**
- * Le script est le SEUL input requis pour lancer l'analyse. Marque, style,
- * durée et moteurs sont des réglages optionnels avec des valeurs par défaut
- * automatiques — jamais bloquants avant l'étape d'analyse.
+ * Étape 0 — le style visuel est choisi AVANT toute saisie de script et
+ * verrouillé pour tout le projet. Claude ne pose ensuite jamais de question
+ * sur le style. Le script reste le seul autre input requis pour analyser —
+ * marque, durée et moteurs restent des réglages optionnels avec défauts auto.
  */
 export function BriefStep() {
   const brands = useBrandStore((s) => s.brands);
@@ -52,7 +53,8 @@ export function BriefStep() {
 
   const [brandId, setBrandId] = useState(activeBrandId ?? brands[0]?.id ?? "");
   const [lang, setLang] = useState<Lang>(settings.defaultLang);
-  const [styleId, setStyleId] = useState(settings.defaultStyleId ?? styles[0]?.id ?? "");
+  const [styleId, setStyleId] = useState("");
+  const [showAllStyles, setShowAllStyles] = useState(false);
   const [duration, setDuration] = useState(pendingTemplate?.recommendedDuration ?? 60);
   const [imageEngine, setImageEngine] = useState<ImageEngine>(settings.imageEngine);
   const [videoEngine, setVideoEngine] = useState<VideoEngine>(settings.videoEngine);
@@ -70,7 +72,7 @@ export function BriefStep() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // La réhydratation de Zustand (persist) est asynchrone : les marques/styles
+  // La réhydratation de Zustand (persist) est asynchrone : les marques
   // peuvent arriver après le premier rendu, donc on synchronise une fois disponibles.
   useEffect(() => {
     if (!brandId && (activeBrandId || brands.length > 0)) {
@@ -78,18 +80,10 @@ export function BriefStep() {
     }
   }, [brandId, activeBrandId, brands]);
 
-  useEffect(() => {
-    if (!styleId && styles.length > 0) {
-      setStyleId(settings.defaultStyleId ?? styles[0].id);
-    }
-  }, [styleId, styles, settings.defaultStyleId]);
-
   const brand = brands.find((b) => b.id === brandId);
-  const filteredStyles = [...styles].sort((a, b) => {
-    const aMatch = a.bestFor.includes(lang) ? 0 : 1;
-    const bMatch = b.bestFor.includes(lang) ? 0 : 1;
-    return aMatch - bMatch;
-  });
+  const featuredStyles = styles.filter((s) => s.featured);
+  const otherStyles = styles.filter((s) => !s.featured);
+  const selectedStyle = styles.find((s) => s.id === styleId);
   const frameTarget = estimateFrameCountForDuration(duration);
 
   async function handleGenerateHooks() {
@@ -112,10 +106,10 @@ export function BriefStep() {
   }
 
   async function handleAnalyze() {
-    if (!brief.trim()) return;
+    if (!brief.trim() || !selectedStyle) return;
     setAnalyzing(true);
 
-    const style = styles.find((s) => s.id === styleId) ?? styles[0];
+    const style = selectedStyle;
     const resolvedImageEngine =
       imageEngine === "auto" ? style.recommendedImageEngine ?? autoRouteImageEngine() : imageEngine;
     const resolvedVideoEngine =
@@ -172,11 +166,64 @@ export function BriefStep() {
     void project;
   }
 
+  // Étape 0 — le style doit être choisi avant tout le reste.
+  if (!selectedStyle) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 space-y-6">
+        <div>
+          <h1 className="font-display font-bold text-2xl text-ink mb-1">Choisis ton style visuel</h1>
+          <p className="text-sm text-ink-secondary">
+            Ce style s&apos;applique à tout le projet — il ne sera plus jamais redemandé après ce choix.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {featuredStyles.map((style) => (
+            <div key={style.id} onClick={() => setStyleId(style.id)} className="cursor-pointer">
+              <StyleCard style={style} />
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAllStyles((v) => !v)}
+          className="text-xs font-mono uppercase tracking-wide text-ink-secondary hover:text-ink flex items-center gap-1"
+        >
+          {showAllStyles ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          {showAllStyles ? "Masquer les autres styles" : "Voir plus de styles"}
+        </button>
+
+        {showAllStyles && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {otherStyles.map((style) => (
+              <div key={style.id} onClick={() => setStyleId(style.id)} className="cursor-pointer">
+                <StyleCard style={style} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-8 space-y-6">
       <div>
         <h1 className="font-display font-bold text-2xl text-ink mb-1">Nouveau projet</h1>
-        <p className="text-sm text-ink-secondary">
+        <div className="flex items-center gap-2 text-sm text-ink-secondary">
+          <span>
+            Style : <span className="text-gold-light">{selectedStyle.name}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setStyleId("")}
+            className="text-xs font-mono uppercase text-ink-secondary hover:text-gold-light underline"
+          >
+            Changer
+          </button>
+        </div>
+        <p className="text-sm text-ink-secondary mt-1">
           Colle ton script — c&apos;est le seul input nécessaire. Golddust Studio l&apos;analyse automatiquement :
           personnages, découpage en scènes, durées et cadrages sont détectés pour toi.
         </p>
@@ -256,21 +303,6 @@ export function BriefStep() {
                     { value: "en", label: "English" },
                   ]}
                 />
-              </div>
-            </div>
-
-            <div>
-              <Label>Style visuel</Label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {filteredStyles.map((style) => (
-                  <div
-                    key={style.id}
-                    onClick={() => setStyleId(style.id)}
-                    className={styleId === style.id ? "ring-2 ring-gold rounded-lg" : "rounded-lg"}
-                  >
-                    <StyleCard style={style} />
-                  </div>
-                ))}
               </div>
             </div>
 

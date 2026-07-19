@@ -5,18 +5,34 @@ import { StylePreset } from "@/types";
 export const DEFAULT_STYLES: StylePreset[] = [
   {
     id: "style_pixar_3d",
-    name: "Pixar 3D",
+    name: "Pixar 3D standard",
     icon: "Sparkles",
-    shortDescription:
-      "Animation 3D Pixar, couleurs vives, personnages expressifs, éclairage subsurface",
+    shortDescription: "Coloré, rond, familial — animation 3D Pixar classique",
     positivePrompt:
-      "3D animated Pixar-style render, expressive stylized characters, subsurface scattering skin shading, vibrant saturated color palette, soft global illumination, rounded friendly shapes, high-end animation studio quality, cinematic depth of field",
+      "Pixar-style 3D animation, high quality render, cinematic lighting, vibrant colors, expressive stylized characters, subsurface scattering skin shading, soft global illumination, rounded friendly shapes, high-end animation studio quality, cinematic depth of field",
     negativePrompt:
       "photorealistic, live-action, flat lighting, dull colors, low-poly, uncanny valley, harsh shadows",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "kling_3_0",
-    bestFor: ["en"],
+    bestFor: ["en", "fr"],
     isCustom: false,
+    featured: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "style_pixar_3d_mature",
+    name: "Pixar 3D mature",
+    icon: "UserRound",
+    shortDescription: "Soul/Luca — imperfections réalistes, personnages âgés avec vraies textures",
+    positivePrompt:
+      "Hyper-realistic Pixar CGI style, photorealistic skin textures, subtle claymation finish, matte surfaces, cinematic natural lighting — NOT cartoon, NOT toy-like, NOT exaggerated proportions, believable adult body proportions, natural imperfections",
+    negativePrompt:
+      "cartoonish, toy-like, exaggerated proportions, glossy plastic skin, childish design, uncanny valley",
+    recommendedImageEngine: "nano_banana",
+    recommendedVideoEngine: "kling_3_0",
+    bestFor: ["en", "fr"],
+    isCustom: false,
+    featured: true,
     createdAt: new Date().toISOString(),
   },
   {
@@ -91,30 +107,47 @@ export const DEFAULT_STYLES: StylePreset[] = [
   },
   {
     id: "style_hyperrealiste",
-    name: "Hyper-réaliste",
+    name: "Hyper-réaliste dramatique",
     icon: "Camera",
-    shortDescription: "CGI photoréaliste, éclairage cinéma, rendu 8K",
+    shortDescription: "Quasi-photographique, ambiance médicale/sombre",
     positivePrompt:
-      "hyperrealistic CGI render, photoreal skin and material shading, cinematic film lighting setup, 8K ultra-detailed texture, shallow depth of field, physically based rendering, commercial product photography quality",
+      "Hyper-realistic CGI render, photographic quality, dramatic cinematic lighting, ultra-detailed skin and fabric textures, NOT illustrated, NOT cartoon, 8K ultra-detailed texture, shallow depth of field, physically based rendering",
     negativePrompt: "cartoon, stylized, flat shading, low detail, illustration",
     recommendedImageEngine: "flux_pro",
     recommendedVideoEngine: "seedance_2_0",
     bestFor: ["en", "fr"],
     isCustom: false,
+    featured: true,
     createdAt: new Date().toISOString(),
   },
   {
     id: "style_ugc",
-    name: "UGC Authentique",
+    name: "UGC authentique",
     icon: "Smartphone",
-    shortDescription: "Tourné main, iPhone, lumière naturelle, no-filter",
+    shortDescription: "Style selfie, naturel, peu stylisé",
     positivePrompt:
-      "authentic user-generated content look, shot on iPhone handheld footage, natural available light, casual amateur framing, no color grading filter, real home or bathroom setting, candid unpolished aesthetic",
+      "Authentic UGC-style, handheld camera feel, natural daylight, real-life textures, slightly imperfect framing, shot on iPhone handheld footage, casual amateur framing, no color grading filter, real home or bathroom setting, candid unpolished aesthetic",
     negativePrompt: "studio lighting, professional cinematography, polished color grade, tripod-stable shot",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "grok_video",
     bestFor: ["fr", "en"],
     isCustom: false,
+    featured: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "style_scientifique_alternance",
+    name: "Alternance scientifique/réaliste",
+    icon: "FlaskConical",
+    shortDescription: "Anatomique + UGC — mécanisme scientifique alterné avec scènes réalistes",
+    positivePrompt:
+      "Authentic UGC-style live-action footage alternating with clean scientific/medical infographic illustrations, natural daylight for live scenes, precise anatomical diagram style for mechanism scenes, medical infographic style, photorealistic textures, cross-section diagram illustrations for internal mechanism shots — NOT realistic exposed human anatomy",
+    negativePrompt: "explicit anatomical exposure, realistic internal organs, NSFW, cartoon, low detail",
+    recommendedImageEngine: "flux_pro",
+    recommendedVideoEngine: "grok_video",
+    bestFor: ["fr", "en"],
+    isCustom: false,
+    featured: true,
     createdAt: new Date().toISOString(),
   },
   {

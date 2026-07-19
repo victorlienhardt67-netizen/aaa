@@ -88,6 +88,8 @@ export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
         duration: String(clamped),
         generate_audio: false,
         shot_type: "customize",
+        // kling3_0 n'hérite JAMAIS le ratio de la start_image — toujours l'imposer explicitement.
+        aspect_ratio: "9:16",
       };
     },
   },

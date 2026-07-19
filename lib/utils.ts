@@ -4,6 +4,16 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+/**
+ * Clé composite pour indexer une fiche casting par personnage + variante
+ * physique (avant/après). Contrainte au type "avant"|"après" — jamais une
+ * chaîne libre — pour empêcher toute dérive vers des variantes multiples
+ * (le bug corrigé précédemment venait d'un état émotionnel en texte libre).
+ */
+export function characterReferenceKey(assetId: string, variant?: "avant" | "après"): string {
+  return variant ? `${assetId}::${variant}` : assetId;
+}
+
 export function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString("fr-FR", {
@@ -59,6 +69,28 @@ export function estimateFrameCountForDuration(targetDurationSeconds: number): { 
   const min = Math.round(18 + (minutes - 1) * ((28 - 18) / (2 - 1)));
   const max = Math.round(22 + (minutes - 1) * ((35 - 22) / (2 - 1)));
   return { min: Math.max(4, min), max: Math.max(Math.max(4, min) + 1, max) };
+}
+
+/**
+ * Exécute `fn` sur chaque élément avec au maximum `limit` appels simultanés —
+ * évite de saturer la file d'attente fal.ai quand on génère beaucoup de
+ * frames en parallèle (ex: "Générer toutes les frames" sur un plan de 30 plans).
+ */
+export async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 let idCounter = 0;

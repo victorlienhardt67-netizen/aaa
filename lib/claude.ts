@@ -61,6 +61,12 @@ interface ClaudeScene {
   hasProduct: boolean;
   hasCharacter: boolean;
   characterName?: string;
+  /** Variante physique DURABLE montrée dans cette scène (jamais un état émotionnel passager). */
+  characterVariant?: "avant" | "après";
+  /** Description physique brute de l'état avant, sans filtre — retenue une seule fois par personnage (première occurrence). */
+  etatAvant?: string;
+  /** Description physique brute de l'état après — retenue une seule fois par personnage (première occurrence). */
+  etatApres?: string;
   needsFrame: boolean;
   imagePrompt: string;
   videoPrompt: string;
@@ -128,6 +134,7 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
   const characterPhoto = brand?.characterPhotos[0];
   const rawScenes: ClaudeScene[] = data.scenes ?? [];
   const characterNames: Record<string, string> = {};
+  const characterProfiles: Record<string, { etatAvant?: string; etatApres?: string }> = {};
 
   const scenes: Scene[] = rawScenes.map((s, i) => {
     let characters: string[] = [];
@@ -137,6 +144,10 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
       if (!characterNames[assetId]) {
         characterNames[assetId] = characterPhoto?.name || s.characterName || "Personnage principal";
       }
+      const profile = characterProfiles[assetId] ?? {};
+      if (!profile.etatAvant && s.etatAvant) profile.etatAvant = s.etatAvant;
+      if (!profile.etatApres && s.etatApres) profile.etatApres = s.etatApres;
+      if (profile.etatAvant || profile.etatApres) characterProfiles[assetId] = profile;
     }
     return {
       id: generateId("scene"),
@@ -147,6 +158,7 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
         ? s.cameraMovement
         : CAMERA_CYCLE[i % CAMERA_CYCLE.length]) as CameraMovement,
       characters,
+      characterVariant: s.hasCharacter ? s.characterVariant : undefined,
       hasProduct: s.hasProduct,
       productAssetId: s.hasProduct ? productPhoto?.id : undefined,
       needsFrame: s.needsFrame,
@@ -173,6 +185,11 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
     generatedAt: new Date().toISOString(),
     briefAnalysis: data.briefAnalysis,
     characterNames,
+    characterProfiles,
+    hook: data.hook,
+    arcNarratif: data.arcNarratif,
+    marqueDetectee: data.marqueDetectee,
+    pointsVigilance: data.pointsVigilance,
   };
 }
 
@@ -236,9 +253,23 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
   const characterNames: Record<string, string> = {
     [characterAssetId]: characterPhoto?.name || "Personnage principal",
   };
+  const characterProfiles: Record<string, { etatAvant?: string; etatApres?: string }> = {
+    [characterAssetId]:
+      lang === "fr"
+        ? {
+            etatAvant: "ventre visiblement gonflé, jambes lourdes avec rétention d'eau visible, teint terne, posture voûtée",
+            etatApres: "ventre plat, silhouette affinée, posture droite, teint lumineux",
+          }
+        : {
+            etatAvant: "visibly bloated belly, heavy legs with visible water retention, dull complexion, slouched posture",
+            etatApres: "flat belly, defined silhouette, upright posture, radiant complexion",
+          },
+  };
 
   const scenes: Scene[] = [];
   let globalIndex = 0;
+
+  const transformationBeatIdx = BEAT_TEMPLATES.findIndex((b) => b.labelFr === "Transformation");
 
   BEAT_TEMPLATES.forEach((beatTemplate, beatIdx) => {
     const count = frameCounts[beatIdx];
@@ -251,16 +282,17 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
       const framing = FRAMING_CYCLE[globalIndex % FRAMING_CYCLE.length];
       const hasProduct = isTransformationBeat ? false : globalIndex % 3 !== 1 && !!productPhoto;
       const hasCharacter = isTransformationBeat || globalIndex % 2 === 0;
-      const emotionalStateFr = isTransformationBeat
+      // Variante physique DURABLE (jamais un état émotionnel passager) — cohérente sur
+      // tout le script : avant la Transformation = "avant", pendant/après = "après".
+      const characterVariant: "avant" | "après" | undefined = !hasCharacter
+        ? undefined
+        : isTransformationBeat
         ? j < Math.ceil(count / 2)
-          ? "fatiguée, cernes"
-          : "rayonnante, sourire confiant"
-        : undefined;
-      const emotionalStateEn = isTransformationBeat
-        ? j < Math.ceil(count / 2)
-          ? "tired, dark circles"
-          : "radiant, confident smile"
-        : undefined;
+          ? "avant"
+          : "après"
+        : beatIdx < transformationBeatIdx
+        ? "avant"
+        : "après";
       const duration = Math.min(
         Math.max(beatTemplate.minDuration + (j % (beatTemplate.maxDuration - beatTemplate.minDuration + 1)), minDur),
         maxDur
@@ -271,10 +303,10 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
 
       const imagePromptFr = `${beatLabel}, ${framing === "wide" ? "plan large" : framing === "medium" ? "plan moyen" : "gros plan"} — cadrage vertical 9:16, ${
         hasProduct ? "produit visible dans le cadre, " : ""
-      }${hasCharacter ? `personnage en action dans la scène${emotionalStateFr ? `, expression ${emotionalStateFr}` : ""}, ` : ""}ambiance ${style.name.toLowerCase()}.`;
+      }${hasCharacter ? `personnage en action dans la scène${characterVariant ? `, état ${characterVariant}` : ""}, ` : ""}ambiance ${style.name.toLowerCase()}.`;
       const imagePromptEn = `${beatLabel}, ${framing.replace("_", " ")} — vertical 9:16 framing, ${
         hasProduct ? "product visible in frame, " : ""
-      }${hasCharacter ? `character in action within the scene${emotionalStateEn ? `, ${emotionalStateEn} expression` : ""}, ` : ""}${style.name.toLowerCase()} mood.`;
+      }${hasCharacter ? `character in action within the scene${characterVariant ? `, ${characterVariant === "avant" ? "before" : "after"} state` : ""}, ` : ""}${style.name.toLowerCase()} mood.`;
 
       const videoPromptFr = `${descriptionFr} Mouvement de caméra en ${camera.replace(
         /_/g,
@@ -292,6 +324,7 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
         durationSeconds: duration,
         cameraMovement: camera,
         characters: hasCharacter ? [characterAssetId] : [],
+        characterVariant: hasCharacter ? characterVariant : undefined,
         hasProduct,
         productAssetId: hasProduct ? productPhoto?.id : undefined,
         needsFrame: true,
@@ -320,12 +353,34 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
           brand ? ` adapted for ${brand.name}` : ""
         }. Each frame stays between ${minDur}s and ${maxDur}s (up to 10s when justified) to keep the video dynamic, with systematic framing alternation.`;
 
+  const hookText = scenes[0]?.description ?? (lang === "fr" ? "Accroche non détectée" : "Hook not detected");
+  const hook: ProductionPlan["hook"] = {
+    texte: hookText,
+    evaluation: "moyen",
+    probleme:
+      lang === "fr"
+        ? "Mode simulé : impossible d'évaluer réellement l'impact du hook sans clé Claude — vérifie-le manuellement."
+        : "Simulated mode: hook impact cannot be truly evaluated without a Claude key — check it manually.",
+    alternatives:
+      lang === "fr"
+        ? ["Ouvrir directement sur le résultat choc (après)", "Ouvrir sur une question qui interpelle la cible"]
+        : ["Open directly on the shocking result (after)", "Open on a question that calls out the target"],
+  };
+
   return {
     scenes,
     detectedLang,
     generatedAt: new Date().toISOString(),
     briefAnalysis,
     characterNames,
+    characterProfiles,
+    hook,
+    arcNarratif: lang === "fr" ? "témoignage transformation" : "transformation testimonial",
+    marqueDetectee: brand?.name,
+    pointsVigilance:
+      lang === "fr"
+        ? ["Mode simulé : relis le script toi-même pour détecter les ambiguïtés visuelles avant de lancer les frames."]
+        : ["Simulated mode: re-read the script yourself to catch visual ambiguities before launching frames."],
   };
 }
 
@@ -460,6 +515,7 @@ export async function coConstructBrief(params: {
   history: { role: "user" | "assistant"; content: string }[];
   apiKey: string;
   systemPromptOverride?: string;
+  styleName?: string;
 }): Promise<CoConstructionTurn> {
   const res = await fetch("/api/claude/co-construction", {
     method: "POST",
@@ -469,6 +525,7 @@ export async function coConstructBrief(params: {
       brief: params.brief,
       history: params.history,
       systemPromptOverride: params.systemPromptOverride,
+      styleName: params.styleName,
     }),
   });
   const data = await res.json();

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
-  const { apiKey, brief, history, systemPromptOverride } = body;
+  const { apiKey, brief, history, systemPromptOverride, styleName } = body;
 
   const system = systemPromptOverride?.trim() || DEFAULT_CO_CONSTRUCTION_SYSTEM_PROMPT;
   const conversationHistory: { role: "user" | "assistant"; content: string }[] = Array.isArray(history)
@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
 
   const userMessage =
     conversationHistory.length === 0
-      ? `Script à analyser pour démarrer la co-construction (Bloc 1) :\n"""\n${brief}\n"""`
+      ? `Style visuel déjà choisi par l'utilisateur (ne jamais le remettre en question ni le redemander) : ${
+          styleName ?? "non spécifié"
+        }\n\nScript à analyser pour démarrer la co-construction :\n"""\n${brief}\n"""`
       : "Continue la conversation avec ton prochain tour, en respectant strictement le bloc en cours et les règles du system prompt.";
 
   try {

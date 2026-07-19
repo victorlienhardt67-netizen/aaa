@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -277,6 +278,50 @@ export function ScenePlanEditor() {
             <h2 className="font-display font-bold text-sm text-ink">Analyse complète du brief</h2>
           </div>
           <p className="text-sm text-ink-secondary leading-relaxed">{plan.briefAnalysis}</p>
+          {(plan.arcNarratif || plan.marqueDetectee) && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {plan.marqueDetectee && <Badge tone="gold">Marque : {plan.marqueDetectee}</Badge>}
+              {plan.arcNarratif && <Badge tone="neutral">Arc : {plan.arcNarratif}</Badge>}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {plan.hook && (
+        <Card className={`p-5 ${plan.hook.evaluation !== "fort" ? "border-amber-500/40" : ""}`}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-display font-bold text-sm text-ink">Évaluation du hook</h2>
+            <Badge tone={plan.hook.evaluation === "fort" ? "success" : plan.hook.evaluation === "moyen" ? "gold" : "danger"}>
+              {plan.hook.evaluation === "fort" ? "Fort" : plan.hook.evaluation === "moyen" ? "Moyen" : "Faible"}
+            </Badge>
+          </div>
+          <p className="text-sm text-ink-secondary italic mb-2">&laquo;&nbsp;{plan.hook.texte}&nbsp;&raquo;</p>
+          {plan.hook.evaluation !== "fort" && (
+            <div className="space-y-2">
+              {plan.hook.probleme && <p className="text-xs text-amber-400">{plan.hook.probleme}</p>}
+              {plan.hook.alternatives && plan.hook.alternatives.length > 0 && (
+                <ul className="text-xs text-ink-secondary list-disc pl-4 space-y-1">
+                  {plan.hook.alternatives.map((alt, i) => (
+                    <li key={i}>{alt}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {plan.pointsVigilance && plan.pointsVigilance.length > 0 && (
+        <Card className="p-5 border-amber-500/40">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <h2 className="font-display font-bold text-sm text-ink">Points de vigilance</h2>
+          </div>
+          <ul className="text-sm text-ink-secondary list-disc pl-4 space-y-1">
+            {plan.pointsVigilance.map((point, i) => (
+              <li key={i}>{point}</li>
+            ))}
+          </ul>
         </Card>
       )}
 

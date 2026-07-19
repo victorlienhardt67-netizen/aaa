@@ -73,6 +73,8 @@ export interface StylePreset {
   bestFor: Lang[]; // "Best for FR" / "Best for EN"
   isCustom: boolean;
   createdAt: string;
+  /** Mis en avant dans le sélecteur de style Étape 0 (avant la saisie du script). */
+  featured?: boolean;
 }
 
 export type CameraMovement =
@@ -175,6 +177,13 @@ export interface Scene {
   durationSeconds: number;
   cameraMovement: CameraMovement;
   characters: string[]; // references to BrandAsset ids
+  /**
+   * Variante physique DURABLE (poids, silhouette, peau) montrée dans cette
+   * scène — jamais pour des états émotionnels passagers (fatigue, choc,
+   * joie...), qui se décrivent uniquement dans imagePrompt. Contrainte à
+   * exactement 2 valeurs pour éviter toute dérive vers des variantes multiples.
+   */
+  characterVariant?: "avant" | "après";
   hasProduct: boolean;
   productAssetId?: string;
   needsFrame: boolean;
@@ -202,6 +211,8 @@ export interface Scene {
   frameIsMock?: boolean;
   /** Message d'erreur si l'appel fal.ai réel a échoué (clé présente mais échec) — distinct du cas "pas de clé". */
   frameError?: string;
+  /** true si l'utilisateur a uploadé sa propre frame de départ — jamais régénérée automatiquement. */
+  frameProvided?: boolean;
 
   videoUrl?: string;
   videoStatus: SceneStatus;
@@ -223,6 +234,26 @@ export interface ProductionPlan {
   briefAnalysis?: string;
   /** Nom affiché de chaque personnage détecté, par assetId (y compris les personnages virtuels sans photo). */
   characterNames?: Record<string, string>;
+  /**
+   * Description physique brute (avant/après) par assetId, pour les personnages
+   * à transformation physique durable — première occurrence non vide retenue,
+   * jamais une exigence de répétition exacte (contrairement à l'ancien
+   * characterState en texte libre, source de dérive corrigée précédemment).
+   */
+  characterProfiles?: Record<string, { etatAvant?: string; etatApres?: string }>;
+  /** Évaluation du hook (3-5 premières secondes) — toujours vérifiée en premier. */
+  hook?: {
+    texte: string;
+    evaluation: "fort" | "moyen" | "faible";
+    probleme?: string;
+    alternatives?: string[];
+  };
+  /** Arc narratif détecté (ex: "témoignage transformation", "autorité médicale"). */
+  arcNarratif?: string;
+  /** Marque détectée dans le script parmi les marques connues, si identifiable. */
+  marqueDetectee?: string;
+  /** Risques identifiés par Claude à surveiller avant de lancer la génération. */
+  pointsVigilance?: string[];
 }
 
 export type ProjectStatus =
@@ -254,6 +285,8 @@ export type CharacterReferenceStatus = "pending" | "generating" | "generated" | 
 export interface CharacterReference {
   assetId: string; // id de la photo personnage de la marque (BrandAsset)
   name: string;
+  /** Uniquement "avant"/"après" pour une transformation physique durable — jamais un état émotionnel. */
+  variant?: "avant" | "après";
   prompt: string;
   sheetUrl?: string;
   status: CharacterReferenceStatus;

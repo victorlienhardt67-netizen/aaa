@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Check, KeyRound, RefreshCw, Sparkles, SplitSquareHorizontal } from "lucide-react";
+import { useRef, useState } from "react";
+import { AlertTriangle, Check, KeyRound, RefreshCw, Sparkles, SplitSquareHorizontal, UploadCloud } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { useBrandStore } from "@/store/brandStore";
 import { useStyleStore } from "@/store/styleStore";
@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { falGenerateImage } from "@/lib/fal";
 import { buildImagePrompt } from "@/lib/prompts";
-import { formatCost } from "@/lib/utils";
+import { characterReferenceKey, formatCost, mapWithConcurrency } from "@/lib/utils";
+import { fileToBase64 } from "@/lib/storage";
 import { Brand, CharacterReference, Project, Scene as SceneType } from "@/types";
 
 /**
@@ -24,12 +25,12 @@ import { Brand, CharacterReference, Project, Scene as SceneType } from "@/types"
  * réellement fournies (pour ne jamais affirmer une consigne qui ne s'applique pas).
  */
 function getReferenceImageInfo(
-  scene: Pick<SceneType, "characters" | "hasProduct" | "productAssetId">,
+  scene: Pick<SceneType, "characters" | "characterVariant" | "hasProduct" | "productAssetId">,
   currentProject: Pick<Project, "characterReferences"> | undefined,
   brand: Brand | undefined
 ): { urls: string[]; hasCharacterReference: boolean; hasProductReference: boolean } {
   const characterUrls = scene.characters
-    .map((id) => currentProject?.characterReferences?.[id])
+    .map((id) => currentProject?.characterReferences?.[characterReferenceKey(id, scene.characterVariant)])
     .filter((ref): ref is CharacterReference => ref?.status === "validated" && !!ref.sheetUrl)
     .map((ref) => ref.sheetUrl!);
   const productUrl =
@@ -56,6 +57,7 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareResults, setCompareResults] = useState<{ engine: string; url: string }[]>([]);
   const [comparing, setComparing] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
   const { urls: referenceImageUrls, hasCharacterReference, hasProductReference } = getReferenceImageInfo(
@@ -63,6 +65,18 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
     currentProject ?? undefined,
     brand
   );
+
+  async function handleUploadFrame(file: File) {
+    const base64 = await fileToBase64(file);
+    updateScene(scene.id, {
+      frameUrl: base64,
+      frameStatus: "frame_generated",
+      frameHistory: [...scene.frameHistory, base64],
+      frameProvided: true,
+      frameIsMock: false,
+      frameError: undefined,
+    });
+  }
 
   async function runGeneration(prompt: string) {
     updateScene(scene.id, { frameStatus: "frame_generating" });
@@ -124,7 +138,10 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-xs text-gold-light">Scène #{scene.index}</span>
+        <span className="font-mono text-xs text-gold-light flex items-center gap-1.5">
+          Scène #{scene.index}
+          {scene.frameProvided && <Badge tone="success">Frame fournie</Badge>}
+        </span>
         <Badge tone={isValidated ? "success" : scene.frameStatus === "frame_generated" ? "gold" : "neutral"}>
           {isValidated ? "Validée" : scene.frameStatus === "frame_generated" ? "À valider" : isGenerating ? "Génération..." : "En attente"}
         </Badge>
@@ -187,9 +204,25 @@ function SceneFrameCard({ scene }: { scene: Scene }) {
 
       <div className="flex flex-wrap gap-1.5 pt-1">
         {!scene.frameUrl && (
-          <Button size="sm" onClick={() => runGeneration(scene.imagePrompt)} disabled={isGenerating}>
-            <Sparkles className="w-3.5 h-3.5" /> Générer la frame
-          </Button>
+          <>
+            <Button size="sm" onClick={() => runGeneration(scene.imagePrompt)} disabled={isGenerating}>
+              <Sparkles className="w-3.5 h-3.5" /> Générer la frame
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => uploadInputRef.current?.click()} disabled={isGenerating}>
+              <UploadCloud className="w-3.5 h-3.5" /> J&apos;ai déjà une frame
+            </Button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleUploadFrame(file);
+                e.target.value = "";
+              }}
+            />
+          </>
         )}
         {scene.frameUrl && !isGenerating && (
           <>
@@ -266,10 +299,12 @@ export function FrameGenerator() {
   async function handleGenerateAll() {
     setGeneratingAll(true);
     const engine = currentProject?.imageEngine ?? "auto";
-    await Promise.all(
-      framedScenes
-        .filter((s) => !s.frameUrl)
-        .map(async (scene) => {
+    // Cap la concurrence pour ne pas saturer la file d'attente fal.ai sur un
+    // plan à beaucoup de frames (repli du "8 jobs simultanés max" côté client).
+    await mapWithConcurrency(
+      framedScenes.filter((s) => !s.frameUrl),
+      8,
+      async (scene) => {
           updateScene(scene.id, { frameStatus: "frame_generating" });
           const { urls: referenceImageUrls, hasCharacterReference, hasProductReference } = getReferenceImageInfo(
             scene,
@@ -295,7 +330,7 @@ export function FrameGenerator() {
             frameIsMock: result.isMock,
             frameError: result.errorMessage,
           });
-        })
+      }
     );
     recalcTotalCost();
     setGeneratingAll(false);
