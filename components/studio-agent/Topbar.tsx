@@ -1,10 +1,19 @@
 "use client";
 
-import { Check, Plus } from "lucide-react";
+import Link from "next/link";
+import { Building2, Check, FolderClock, LayoutTemplate, Palette, Plus, Settings } from "lucide-react";
 import { useBrandStore } from "@/store/brandStore";
 import { useProjectStore } from "@/store/projectStore";
 import { cn } from "@/lib/utils";
 import { AGENT_STEPS, agentStepIndex } from "./steps";
+
+const NAV_LINKS = [
+  { href: "/brands", label: "Marques", icon: Building2 },
+  { href: "/styles", label: "Styles", icon: Palette },
+  { href: "/projects", label: "Projets", icon: FolderClock },
+  { href: "/templates", label: "Templates", icon: LayoutTemplate },
+  { href: "/settings", label: "Paramètres", icon: Settings },
+];
 
 export function AgentTopbar({ onNewProduction }: { onNewProduction: () => void }) {
   const currentProject = useProjectStore((s) => s.currentProject);
@@ -54,6 +63,19 @@ export function AgentTopbar({ onNewProduction }: { onNewProduction: () => void }
           );
         })}
       </nav>
+
+      <div className="flex items-center gap-1 shrink-0">
+        {NAV_LINKS.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            title={label}
+            className="p-2 rounded-md text-agent-t2 hover:text-agent-t1 hover:bg-agent-s2 transition-colors"
+          >
+            <Icon className="w-4 h-4" />
+          </Link>
+        ))}
+      </div>
 
       <button
         type="button"
