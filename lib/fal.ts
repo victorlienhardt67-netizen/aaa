@@ -71,7 +71,7 @@ async function pollFalJob(submitData: FalSubmitData, apiKey: string): Promise<Re
  * personnage visuellement cohérent d'une frame à l'autre.
  *
  * `apiKey` est lu par l'appelant depuis le store de réglages à CHAQUE appel
- * (jamais mis en cache) — voir components/studio/FrameGenerator.tsx.
+ * (jamais mis en cache) — voir components/studio-agent/MediaCanvas.tsx.
  */
 export async function falGenerateImage(
   prompt: string,
