@@ -1,38 +1,27 @@
 import type { Metadata } from "next";
-import { Sora, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-
-const sora = Sora({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-sora",
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const jbmono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-jbmono",
-  display: "swap",
-});
+import { AppShell } from "@/components/shell/AppShell";
 
 export const metadata: Metadata = {
-  title: "Golddust Studio",
-  description: "Outil de production vidéo IA — Golddust Studio",
+  title: "GULDUST STUDIO",
+  description: "Studio de production d'ads IA — script → vidéo, scène par scène.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${sora.variable} ${inter.variable} ${jbmono.variable}`}>
-      <body className="font-body bg-background text-ink antialiased h-screen overflow-hidden">
-        {children}
+    <html lang="fr">
+      <head>
+        {/* Polices chargées côté client (pas via next/font pour rester build-safe hors-ligne).
+            Sur ta machine elles se chargeront normalement ; sinon fallback système. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
