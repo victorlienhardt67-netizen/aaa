@@ -1,0 +1,1816 @@
+"use client";
+
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  AlertTriangle,
+  Blocks,
+  Camera,
+  Check,
+  ChevronDown,
+  Download,
+  FileText,
+  Film,
+  Flame,
+  GripVertical,
+  Hand,
+  ImageIcon,
+  Leaf,
+  Library,
+  MapPin,
+  Mic,
+  Palette,
+  Pencil,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Shapes,
+  Smartphone,
+  Sparkles,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+  Tv,
+  User,
+  Users,
+  Wand2,
+  X,
+  Zap,
+  ZoomIn,
+  ZoomOut,
+  type LucideIcon,
+} from "lucide-react";
+import { useProjectStore } from "@/store/projectStore";
+import { useBrandStore } from "@/store/brandStore";
+import { useStyleStore } from "@/store/styleStore";
+import { useSettingsStore } from "@/store/settingsStore";
+import { useLearningStore } from "@/store/learningStore";
+import {
+  IMAGE_ENGINE_LABELS as FULL_IMAGE_ENGINE_LABELS,
+  ImageEngine,
+  Lang,
+  Scene,
+  StylePreset,
+  VIDEO_ENGINE_LABELS as FULL_VIDEO_ENGINE_LABELS,
+  VideoEngine,
+} from "@/types";
+import { analyzeBrief } from "@/lib/claude";
+import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage } from "@/lib/fal";
+import { buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
+import { downloadImage, estimateDurationFromWordCount, formatCost, mapWithConcurrency } from "@/lib/utils";
+import { fileToBase64 } from "@/lib/storage";
+import { cn } from "@/lib/utils";
+import { getReferenceImageInfo } from "@/lib/frameReferences";
+import { generateSceneVideo } from "@/lib/videoGeneration";
+
+const FEEDBACK_REASONS = [
+  { value: "mouvement_lent", label: "Mouvement trop lent" },
+  { value: "style_non_respecte", label: "Style pas respecté" },
+  { value: "personnage_incoherent", label: "Personnage incohérent" },
+  { value: "autre", label: "Autre" },
+];
+
+const CARD_WIDTH = 260;
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 2;
+const DURATION_OPTIONS = [4, 6, 8, 10];
+const IMAGE_ENGINE_LABELS: Record<string, string> = {
+  auto: "Auto",
+  nano_banana: "Nano Banana",
+  flux_pro: "Flux Pro",
+  ideogram_v3: "Ideogram V3",
+};
+const VIDEO_ENGINE_LABELS: Record<string, string> = {
+  auto: "Auto",
+  kling_3_0: "Kling",
+  grok_video: "Grok",
+  wan_2_6: "Wan",
+  seedance_2_0: "Seedance",
+};
+
+function clampZoom(z: number) {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+}
+
+const STYLE_ICON_MAP: Record<string, LucideIcon> = {
+  Sparkles,
+  Blocks,
+  User,
+  Hand,
+  Leaf,
+  Zap,
+  Camera,
+  Smartphone,
+  Tv,
+  Palette,
+  Film,
+  Shapes,
+  Wand2,
+  Star,
+  Flame,
+};
+const STYLE_ICON_OPTIONS = Object.keys(STYLE_ICON_MAP);
+const ENGINE_SELECT_CLASS = "bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10.5px] text-agent-t1";
+
+function StyleIcon({ name, className }: { name: string; className?: string }) {
+  const Icon = STYLE_ICON_MAP[name] ?? Sparkles;
+  return <Icon className={className} />;
+}
+
+/** Formulaire compact de création d'un style custom — mêmes champs que /styles, thème violet. */
+function StyleCreateForm({
+  onCancel,
+  onCreate,
+}: {
+  onCancel: () => void;
+  onCreate: (data: Omit<StylePreset, "id" | "isCustom" | "createdAt">) => void;
+}) {
+  const [name, setName] = useState("");
+  const [icon, setIcon] = useState("Sparkles");
+  const [shortDescription, setShortDescription] = useState("");
+  const [positivePrompt, setPositivePrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [imageEngine, setImageEngine] = useState<ImageEngine>("nano_banana");
+  const [videoEngine, setVideoEngine] = useState<VideoEngine>("kling_3_0");
+
+  return (
+    <div className="space-y-1.5">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Nom du style"
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[11px] text-agent-t1 placeholder:text-agent-t3"
+      />
+      <select value={icon} onChange={(e) => setIcon(e.target.value)} className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[11px] text-agent-t1">
+        {STYLE_ICON_OPTIONS.map((i) => (
+          <option key={i} value={i}>
+            {i}
+          </option>
+        ))}
+      </select>
+      <input
+        value={shortDescription}
+        onChange={(e) => setShortDescription(e.target.value)}
+        placeholder="Description courte"
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[11px] text-agent-t1 placeholder:text-agent-t3"
+      />
+      <textarea
+        rows={3}
+        value={positivePrompt}
+        onChange={(e) => setPositivePrompt(e.target.value)}
+        placeholder="Prompt positif système (injecté automatiquement)"
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 placeholder:text-agent-t3 resize-none"
+      />
+      <textarea
+        rows={2}
+        value={negativePrompt}
+        onChange={(e) => setNegativePrompt(e.target.value)}
+        placeholder="Prompt négatif système"
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 placeholder:text-agent-t3 resize-none"
+      />
+      <div className="grid grid-cols-2 gap-1.5">
+        <select value={imageEngine} onChange={(e) => setImageEngine(e.target.value as ImageEngine)} className={ENGINE_SELECT_CLASS}>
+          {Object.entries(FULL_IMAGE_ENGINE_LABELS)
+            .filter(([v]) => v !== "auto")
+            .map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+        </select>
+        <select value={videoEngine} onChange={(e) => setVideoEngine(e.target.value as VideoEngine)} className={ENGINE_SELECT_CLASS}>
+          {Object.entries(FULL_VIDEO_ENGINE_LABELS)
+            .filter(([v]) => v !== "auto")
+            .map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+        </select>
+      </div>
+      <div className="flex gap-1.5 pt-1">
+        <button onClick={onCancel} className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-s3 border border-agent-bd2 text-agent-t2">
+          Annuler
+        </button>
+        <button
+          onClick={() =>
+            name.trim() &&
+            onCreate({
+              name: name.trim(),
+              icon,
+              shortDescription,
+              positivePrompt,
+              negativePrompt,
+              recommendedImageEngine: imageEngine,
+              recommendedVideoEngine: videoEngine,
+              bestFor: ["fr", "en"],
+            })
+          }
+          disabled={!name.trim()}
+          className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+        >
+          Créer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Édition des prompts d'un style existant (custom ou de base) — même logique que /styles, thème violet. */
+function StyleEditForm({
+  style,
+  onCancel,
+  onSave,
+  onDelete,
+}: {
+  style: StylePreset;
+  onCancel: () => void;
+  onSave: (patch: Partial<StylePreset>) => void;
+  onDelete?: () => void;
+}) {
+  const [positivePrompt, setPositivePrompt] = useState(style.positivePrompt);
+  const [negativePrompt, setNegativePrompt] = useState(style.negativePrompt);
+  const [imageEngine, setImageEngine] = useState(style.recommendedImageEngine);
+  const [videoEngine, setVideoEngine] = useState(style.recommendedVideoEngine);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-agent-t1">
+        <StyleIcon name={style.icon} className="w-3.5 h-3.5 text-agent-acc" /> {style.name}
+      </div>
+      <p className="text-[10px] text-agent-t3">{style.shortDescription}</p>
+      <textarea
+        rows={3}
+        value={positivePrompt}
+        onChange={(e) => setPositivePrompt(e.target.value)}
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 resize-none"
+      />
+      <textarea
+        rows={2}
+        value={negativePrompt}
+        onChange={(e) => setNegativePrompt(e.target.value)}
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 resize-none"
+      />
+      <div className="grid grid-cols-2 gap-1.5">
+        <select value={imageEngine} onChange={(e) => setImageEngine(e.target.value as ImageEngine)} className={ENGINE_SELECT_CLASS}>
+          {Object.entries(FULL_IMAGE_ENGINE_LABELS)
+            .filter(([v]) => v !== "auto")
+            .map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+        </select>
+        <select value={videoEngine} onChange={(e) => setVideoEngine(e.target.value as VideoEngine)} className={ENGINE_SELECT_CLASS}>
+          {Object.entries(FULL_VIDEO_ENGINE_LABELS)
+            .filter(([v]) => v !== "auto")
+            .map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-1.5 pt-1">
+        {onDelete && (
+          <button onClick={onDelete} className="text-[10.5px] px-2 py-1.5 rounded bg-red-950/40 border border-red-900/50 text-red-400">
+            Supprimer
+          </button>
+        )}
+        <button onClick={onCancel} className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-s3 border border-agent-bd2 text-agent-t2">
+          Retour
+        </button>
+        <button
+          onClick={() =>
+            onSave({ positivePrompt, negativePrompt, recommendedImageEngine: imageEngine, recommendedVideoEngine: videoEngine })
+          }
+          className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
+        >
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Menu de sélection de style : liste + création + édition des prompts, remplace le simple <select>. */
+function StylePickerBlock({ styleId, onSelect }: { styleId: string; onSelect: (id: string) => void }) {
+  const styles = useStyleStore((s) => s.styles);
+  const addCustomStyle = useStyleStore((s) => s.addCustomStyle);
+  const updateStyle = useStyleStore((s) => s.updateStyle);
+  const deleteStyle = useStyleStore((s) => s.deleteStyle);
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"list" | "create" | string>("list");
+  const popRef = useRef<HTMLDivElement>(null);
+
+  const selected = styles.find((s) => s.id === styleId);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setMode("list");
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const editingStyle = mode !== "list" && mode !== "create" ? styles.find((s) => s.id === mode) : undefined;
+
+  return (
+    <div className="relative" ref={popRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-1.5 bg-agent-s3 border border-agent-bd rounded px-2 py-1.5 text-[11px] text-agent-t1"
+      >
+        <StyleIcon name={selected?.icon ?? "Sparkles"} className="w-3.5 h-3.5 text-agent-acc shrink-0" />
+        <span className="flex-1 min-w-0 text-left truncate">{selected?.name ?? "Choisir un style..."}</span>
+        <ChevronDown className="w-3 h-3 text-agent-t3 shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-[300px] bg-agent-s1 border border-agent-bd rounded-lg shadow-2xl p-2 max-h-[420px] overflow-y-auto">
+          {mode === "list" && (
+            <>
+              <div className="space-y-1 mb-2">
+                {styles.map((st) => (
+                  <div
+                    key={st.id}
+                    className={cn(
+                      "flex items-center gap-2 p-1.5 rounded cursor-pointer hover:bg-agent-s3",
+                      st.id === styleId && "bg-agent-accs border border-agent-acc/40"
+                    )}
+                    onClick={() => {
+                      onSelect(st.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <StyleIcon name={st.icon} className="w-4 h-4 text-agent-acc shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11.5px] text-agent-t1 truncate">{st.name}</div>
+                      <div className="text-[10px] text-agent-t3 truncate">{st.shortDescription}</div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMode(st.id);
+                      }}
+                      className="p-1 text-agent-t3 hover:text-agent-t1 shrink-0"
+                      title="Modifier les prompts"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setMode("create")}
+                className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-medium px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
+              >
+                <Plus className="w-3.5 h-3.5" /> Nouveau style
+              </button>
+            </>
+          )}
+
+          {mode === "create" && (
+            <StyleCreateForm
+              onCancel={() => setMode("list")}
+              onCreate={(data) => {
+                const created = addCustomStyle(data);
+                onSelect(created.id);
+                setMode("list");
+                setOpen(false);
+              }}
+            />
+          )}
+
+          {editingStyle && (
+            <StyleEditForm
+              style={editingStyle}
+              onCancel={() => setMode("list")}
+              onSave={(patch) => {
+                updateStyle(editingStyle.id, patch);
+                setMode("list");
+              }}
+              onDelete={
+                editingStyle.isCustom
+                  ? () => {
+                      deleteStyle(editingStyle.id);
+                      if (styleId === editingStyle.id) onSelect("");
+                      setMode("list");
+                    }
+                  : undefined
+              }
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function statusBorder(status: Scene["frameStatus"] | Scene["videoStatus"], selected: boolean): string {
+  if (selected) return "border-agent-acc shadow-[0_0_0_1px_rgba(168,85,247,0.4)]";
+  if (status === "frame_validated" || status === "video_validated") return "border-agent-grn/50";
+  if (status === "frame_generating" || status === "video_generating") return "border-agent-acc/60 animate-pulse";
+  if (status === "error") return "border-red-500/50";
+  if (status === "frame_generated" || status === "video_generated") return "border-agent-bd2";
+  return "border-agent-bd";
+}
+
+/** Ligne reliant l'emplacement d'origine d'une carte à sa position glissée. */
+function ConnectorLine({ from, to }: { from: { x: number; y: number }; to: { x: number; y: number } }) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+  return (
+    <div
+      className="absolute top-0 left-0 h-px bg-agent-acc/60 pointer-events-none z-20"
+      style={{ width: length, transform: `translate(${from.x}px, ${from.y}px) rotate(${angle}deg)`, transformOrigin: "0 0" }}
+    />
+  );
+}
+
+function FrameDrawer({ scene, onClose }: { scene: Scene; onClose: () => void }) {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const updateScene = useProjectStore((s) => s.updateScene);
+  const recalcTotalCost = useProjectStore((s) => s.recalcTotalCost);
+  const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
+  const styles = useStyleStore((s) => s.styles);
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const mandatoryImageRules = useSettingsStore((s) => s.advancedPrompts.mandatoryImageRules);
+  const [promptDraft, setPromptDraft] = useState(scene.imagePrompt);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
+  const isGenerating = scene.frameStatus === "frame_generating";
+
+  async function runGeneration(prompt: string) {
+    updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined });
+    const { urls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
+      scene,
+      currentProject ?? undefined,
+      brand
+    );
+    const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand, {
+      hasCharacterReference,
+      hasProductReference,
+      hasLocationReference,
+      customRules: mandatoryImageRules,
+    });
+    try {
+      const result = await falGenerateImage(fullPrompt, currentProject?.imageEngine ?? "auto", apiKeys.falApiKey, urls.length > 0 ? urls : undefined);
+      updateScene(scene.id, {
+        frameUrl: result.url,
+        frameStatus: "frame_generated",
+        frameHistory: [...scene.frameHistory, result.url],
+        imageCostEstimate: result.costEstimate,
+        imagePrompt: prompt,
+        frameError: undefined,
+      });
+      recalcTotalCost();
+    } catch (e) {
+      updateScene(scene.id, { frameStatus: "error", frameError: e instanceof Error ? e.message : "Erreur inconnue" });
+    }
+  }
+
+  async function handleUpload(file: File) {
+    const base64 = await fileToBase64(file);
+    updateScene(scene.id, {
+      frameUrl: base64,
+      frameStatus: "frame_generated",
+      frameHistory: [...scene.frameHistory, base64],
+      frameProvided: true,
+      frameError: undefined,
+    });
+  }
+
+  return (
+    <div className="absolute inset-0 z-40 flex">
+      <div className="flex-1 bg-black/60" onClick={onClose} />
+      <div className="w-[420px] shrink-0 bg-agent-s1 border-l border-agent-bd h-full overflow-y-auto p-5">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-[13px] font-medium text-agent-t1">Scène #{scene.index}</span>
+          <button onClick={onClose} className="text-agent-t3 hover:text-agent-t1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="aspect-[9/16] bg-agent-s2 border border-agent-bd rounded-lg overflow-hidden mb-3 flex items-center justify-center relative">
+          {isGenerating && <RefreshCw className="w-6 h-6 animate-spin text-agent-acc" />}
+          {!isGenerating && scene.frameUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={scene.frameUrl} alt="" className="w-full h-full object-cover" />
+          )}
+          {!isGenerating && !scene.frameUrl && <span className="text-[12px] text-agent-t3">Aucune frame</span>}
+          {scene.frameUrl && (
+            <button
+              onClick={() => downloadImage(scene.frameUrl!, `scene-${scene.index}-frame.jpg`)}
+              className="absolute top-2 right-2 p-1.5 rounded bg-black/50 text-white hover:bg-black/70"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {scene.frameError && (
+          <div className="flex items-start gap-1.5 bg-red-950/30 border border-red-900/50 rounded-md p-2.5 text-[11.5px] text-red-400 mb-3">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {scene.frameError}
+          </div>
+        )}
+
+        <textarea
+          rows={4}
+          value={promptDraft}
+          onChange={(e) => setPromptDraft(e.target.value)}
+          className="w-full bg-agent-s3 border border-agent-bd rounded-md p-2.5 text-[12px] text-agent-t1 focus:outline-none focus:border-agent-acc resize-none mb-3"
+        />
+
+        <div className="flex flex-wrap gap-1.5">
+          {!scene.frameUrl ? (
+            <>
+              <button
+                onClick={() => runGeneration(promptDraft)}
+                disabled={isGenerating}
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-md bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> {scene.frameError ? "Réessayer" : "Générer"}
+              </button>
+              <button
+                onClick={() => uploadRef.current?.click()}
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-md bg-agent-s3 border border-agent-bd2 text-agent-t1"
+              >
+                J&apos;ai déjà une frame
+              </button>
+              <input
+                ref={uploadRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleUpload(f);
+                  e.target.value = "";
+                }}
+              />
+            </>
+          ) : (
+            <>
+              {scene.frameStatus !== "frame_validated" ? (
+                <button
+                  onClick={() => updateScene(scene.id, { frameStatus: "frame_validated" })}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-md bg-agent-acc hover:bg-agent-acc2 text-white"
+                >
+                  <Check className="w-3.5 h-3.5" /> Valider
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[12px] text-agent-grn"><Check className="w-3.5 h-3.5" /> Validée</span>
+              )}
+              <button
+                onClick={() => runGeneration(promptDraft)}
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-md bg-agent-s3 border border-agent-bd2 text-agent-t1"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Régénérer
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Bloc "Script + cadrage" — première colonne du canvas, remplace l'ancien chat de brief. */
+function ScriptBlock() {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const brands = useBrandStore((s) => s.brands);
+  const activeBrandId = useBrandStore((s) => s.activeBrandId);
+  const touchLastUsed = useBrandStore((s) => s.touchLastUsed);
+  const styles = useStyleStore((s) => s.styles);
+  const settings = useSettingsStore((s) => s.generationDefaults);
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const advancedPrompts = useSettingsStore((s) => s.advancedPrompts);
+  const learningEntries = useLearningStore((s) => s.entries);
+  const initProject = useProjectStore((s) => s.initProject);
+  const updateCurrentProject = useProjectStore((s) => s.updateCurrentProject);
+  const setStatus = useProjectStore((s) => s.setStatus);
+
+  const [brandId, setBrandId] = useState(currentProject?.brandId ?? activeBrandId ?? brands[0]?.id ?? "");
+  const [lang, setLang] = useState<Lang>(currentProject?.lang ?? settings.defaultLang);
+  const [styleId, setStyleId] = useState(currentProject?.styleId ?? "");
+  const [brief, setBrief] = useState(currentProject?.brief ?? "");
+  const [analyzing, setAnalyzing] = useState(false);
+
+  useEffect(() => {
+    if (!brandId && (activeBrandId || brands.length > 0)) setBrandId(activeBrandId ?? brands[0].id);
+  }, [brandId, activeBrandId, brands]);
+
+  const selectedStyle = styles.find((s) => s.id === styleId);
+  const plan = currentProject?.plan;
+
+  async function handleAnalyze() {
+    if (!brief.trim() || !selectedStyle) return;
+    setAnalyzing(true);
+    const brand = brands.find((b) => b.id === brandId);
+    const resolvedImageEngine = currentProject?.imageEngine ?? (selectedStyle.recommendedImageEngine || autoRouteImageEngine());
+    const resolvedVideoEngine = currentProject?.videoEngine ?? (selectedStyle.recommendedVideoEngine || autoRouteVideoEngine(lang));
+
+    if (!currentProject) {
+      initProject({
+        name: `${brand?.name ?? "Projet"} — ${new Date().toLocaleDateString("fr-FR")}`,
+        brandId,
+        styleId: selectedStyle.id,
+        lang,
+        targetDuration: 60,
+        imageEngine: resolvedImageEngine as ImageEngine,
+        videoEngine: resolvedVideoEngine as VideoEngine,
+      });
+    } else {
+      updateCurrentProject({ brandId, styleId: selectedStyle.id, lang });
+    }
+    updateCurrentProject({ brief });
+    if (brandId) touchLastUsed(brandId);
+
+    setStatus("analyzing");
+    try {
+      const producedPlan = await analyzeBrief({
+        brief,
+        brand,
+        style: selectedStyle,
+        lang,
+        targetDuration: 60,
+        motionIntensity: settings.motionIntensity,
+        learningContext: buildLearningContext(learningEntries),
+        apiKey: apiKeys.claudeApiKey,
+        systemPromptOverride: advancedPrompts.analyzeBriefSystemPrompt,
+        minSceneDurationSeconds: advancedPrompts.minSceneDurationSeconds,
+        maxSceneDurationSeconds: advancedPrompts.maxSceneDurationSeconds,
+      });
+      updateCurrentProject({
+        plan: producedPlan,
+        imageEngine: resolvedImageEngine as ImageEngine,
+        videoEngine: resolvedVideoEngine as VideoEngine,
+        status: "characters",
+      });
+      setStatus("characters");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  const totalVoDuration = (plan?.scenes ?? []).reduce(
+    (sum, s) => sum + (s.voiceOver?.text ? estimateDurationFromWordCount(s.voiceOver.text) : 0),
+    0
+  );
+
+  return (
+    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+      <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <FileText className="w-3.5 h-3.5 text-agent-acc" /> Script + cadrage
+      </div>
+      <div className="mb-2">
+        <StylePickerBlock styleId={styleId} onSelect={setStyleId} />
+      </div>
+      <textarea
+        rows={6}
+        value={brief}
+        onChange={(e) => setBrief(e.target.value)}
+        placeholder="Colle ton script complet..."
+        className="w-full bg-agent-s3 border border-agent-bd rounded-md p-2 text-[11.5px] text-agent-t1 placeholder:text-agent-t3 focus:outline-none focus:border-agent-acc resize-none mb-2"
+      />
+      <div className="flex items-center gap-1.5 mb-2">
+        <select
+          value={brandId}
+          onChange={(e) => setBrandId(e.target.value)}
+          className="flex-1 min-w-0 bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[11px] text-agent-t1"
+        >
+          {brands.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+        <div className="flex bg-agent-s3 border border-agent-bd rounded overflow-hidden shrink-0">
+          {(["fr", "en"] as Lang[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              className={cn("px-2 py-1 text-[10.5px] uppercase", lang === l ? "bg-agent-acc text-white" : "text-agent-t2")}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+      {totalVoDuration > 0 && (
+        <div className="text-[10.5px] text-agent-grn flex items-center gap-1 mb-2">
+          <Check className="w-3 h-3" /> VO du script : {totalVoDuration.toFixed(1)}s
+        </div>
+      )}
+      <button
+        onClick={handleAnalyze}
+        disabled={!brief.trim() || !selectedStyle || analyzing}
+        className="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-md bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+      >
+        <Wand2 className="w-3.5 h-3.5" /> {analyzing ? "Analyse..." : plan ? "Réanalyser" : "Analyser"}
+      </button>
+
+      {plan?.briefAnalysis && (
+        <div className="mt-2.5 pt-2.5 border-t border-agent-bd space-y-2">
+          <p className="text-[10.5px] text-agent-t2">{plan.briefAnalysis}</p>
+          {plan.hook && (
+            <div className="bg-agent-s3 border border-agent-bd rounded p-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] uppercase tracking-wide text-agent-t3">Hook</span>
+                <span
+                  className={cn(
+                    "text-[9.5px] px-1.5 py-0.5 rounded",
+                    plan.hook.evaluation === "fort" && "bg-agent-grn/15 text-agent-grn",
+                    plan.hook.evaluation === "moyen" && "bg-agent-amb/15 text-agent-amb",
+                    plan.hook.evaluation === "faible" && "bg-red-500/15 text-red-400"
+                  )}
+                >
+                  {plan.hook.evaluation}
+                </span>
+              </div>
+              <p className="italic text-agent-t1 text-[10.5px]">« {plan.hook.texte} »</p>
+            </div>
+          )}
+          {plan.pointsVigilance && plan.pointsVigilance.length > 0 && (
+            <div className="bg-agent-amb/10 border border-agent-amb/30 rounded p-2">
+              <div className="flex items-center gap-1 text-agent-amb text-[9px] uppercase tracking-wide mb-1">
+                <AlertTriangle className="w-3 h-3" /> À surveiller
+              </div>
+              <ul className="list-disc pl-3.5 space-y-0.5 text-[10.5px] text-agent-t2">
+                {plan.pointsVigilance.map((p, i) => (
+                  <li key={i}>{p}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Bloc "Voix off" — liste des répliques détectées, une par frame. */
+function VoiceOverBlock() {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const plan = currentProject?.plan;
+  if (!plan) return null;
+  const lines = plan.scenes.filter((s) => s.voiceOver?.text?.trim());
+  if (lines.length === 0) return null;
+  const totalDuration = lines.reduce((sum, s) => sum + estimateDurationFromWordCount(s.voiceOver!.text), 0);
+
+  return (
+    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+      <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <Mic className="w-3.5 h-3.5 text-agent-acc" /> Voix off
+      </div>
+      <ol className="space-y-1.5 mb-2">
+        {lines.map((s, i) => (
+          <li key={s.id} className="text-[10.5px] text-agent-t2 flex gap-1.5">
+            <span className="text-agent-t3 font-mono shrink-0">{String(i + 1).padStart(2, "0")}</span>
+            <span className="line-clamp-2">{s.voiceOver!.text}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="text-[10.5px] text-agent-grn flex items-center gap-1">
+        <Check className="w-3 h-3" /> VO {totalDuration.toFixed(1)}s · durée calée
+      </div>
+    </div>
+  );
+}
+
+/** Bloc "Casting" — fiches de référence des personnages (ou objets anthropomorphisés) récurrents. */
+function CastingBlock() {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const setStatus = useProjectStore((s) => s.setStatus);
+  const initCharacterReferences = useProjectStore((s) => s.initCharacterReferences);
+  const updateCharacterReference = useProjectStore((s) => s.updateCharacterReference);
+  const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
+  const styles = useStyleStore((s) => s.styles);
+  const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const plan = currentProject?.plan;
+  const distinctAssetIds = Array.from(new Set((plan?.scenes ?? []).flatMap((s) => s.characters)));
+
+  useEffect(() => {
+    if (!currentProject || distinctAssetIds.length === 0) return;
+    const missing = distinctAssetIds.filter((assetId) => !currentProject.characterReferences?.[assetId]);
+    if (missing.length === 0) return;
+    const refs = missing.map((assetId) => {
+      const photo = brand?.characterPhotos.find((p) => p.id === assetId);
+      const name = photo?.name || plan?.characterNames?.[assetId] || "Personnage";
+      const physicalState = plan?.characterProfiles?.[assetId]?.physicalState;
+      return { assetId, name, prompt: buildCharacterSheetPrompt(name, style, physicalState), status: "pending" as const };
+    });
+    initCharacterReferences(refs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject?.id, distinctAssetIds.join(",")]);
+
+  const references = distinctAssetIds
+    .map((assetId) => ({ key: assetId, ref: currentProject?.characterReferences?.[assetId] }))
+    .filter((r): r is { key: string; ref: NonNullable<typeof r.ref> } => !!r.ref);
+  const allValidated = references.length > 0 && references.every((r) => r.ref.status === "validated");
+
+  useEffect(() => {
+    if (!allValidated) return;
+    const hasLocations = (plan?.scenes ?? []).some((s) => !!s.locationId);
+    setStatus(hasLocations ? "locations" : "frames");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allValidated]);
+
+  if (!currentProject || distinctAssetIds.length === 0) return null;
+
+  async function generate(key: string, prompt: string) {
+    updateCharacterReference(key, { status: "generating" });
+    setErrors((prev) => ({ ...prev, [key]: "" }));
+    try {
+      const originalPhoto = brand?.characterPhotos.find((p) => p.id === key);
+      const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey, originalPhoto?.url ? [originalPhoto.url] : undefined);
+      updateCharacterReference(key, { sheetUrl: result.url, status: "generated" });
+    } catch (e) {
+      updateCharacterReference(key, { status: "pending" });
+      setErrors((prev) => ({ ...prev, [key]: e instanceof Error ? e.message : "Erreur inconnue" }));
+    }
+  }
+
+  return (
+    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+      <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <Users className="w-3.5 h-3.5 text-agent-acc" /> Casting
+      </div>
+      <div className="space-y-2.5">
+        {references.map(({ key, ref }) => (
+          <div key={key} className="bg-agent-s3 border border-agent-bd rounded-md p-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11.5px] font-medium text-agent-t1">{ref.name}</span>
+              <span
+                className={cn(
+                  "text-[9.5px] px-1.5 py-0.5 rounded",
+                  ref.status === "validated" ? "bg-agent-grn/15 text-agent-grn" : "bg-agent-s2 text-agent-t2"
+                )}
+              >
+                {ref.status === "validated" ? "Validé" : ref.status === "generating" ? "..." : ref.status === "generated" ? "À valider" : "En attente"}
+              </span>
+            </div>
+            {ref.sheetUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={ref.sheetUrl} alt={ref.name} className="w-full rounded mb-1.5" />
+            )}
+            {errors[key] && <div className="text-[10px] text-red-400 mb-1.5">{errors[key]}</div>}
+            <div className="flex gap-1 flex-wrap">
+              {!ref.sheetUrl ? (
+                <button
+                  onClick={() => generate(key, ref.prompt)}
+                  disabled={ref.status === "generating"}
+                  className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+                >
+                  {errors[key] ? <RefreshCw className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />} {errors[key] ? "Réessayer" : "Générer"}
+                </button>
+              ) : ref.status !== "validated" ? (
+                <>
+                  <button
+                    onClick={() => updateCharacterReference(key, { status: "validated" })}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
+                  >
+                    <Check className="w-3 h-3" /> Valider
+                  </button>
+                  <button
+                    onClick={() => generate(key, ref.prompt)}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-s2 border border-agent-bd2 text-agent-t1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                  </button>
+                </>
+              ) : (
+                <span className="text-[10.5px] text-agent-grn flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Validé
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Bloc "Décors" — références de lieux récurrents (optionnel). */
+function DecorBlock() {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const setStatus = useProjectStore((s) => s.setStatus);
+  const initLocationReferences = useProjectStore((s) => s.initLocationReferences);
+  const updateLocationReference = useProjectStore((s) => s.updateLocationReference);
+  const styles = useStyleStore((s) => s.styles);
+  const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const plan = currentProject?.plan;
+  const distinctLocationIds = Array.from(new Set((plan?.scenes ?? []).map((s) => s.locationId).filter((id): id is string => !!id)));
+
+  useEffect(() => {
+    if (!currentProject || distinctLocationIds.length === 0) return;
+    const missing = distinctLocationIds.filter((id) => !currentProject.locationReferences?.[id]);
+    if (missing.length === 0) return;
+    const refs = missing.map((id) => {
+      const name = plan?.locationNames?.[id] || "Lieu";
+      return { id, name, prompt: buildLocationSheetPrompt(name, style), status: "pending" as const };
+    });
+    initLocationReferences(refs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject?.id, distinctLocationIds.join(",")]);
+
+  const references = distinctLocationIds
+    .map((id) => ({ id, ref: currentProject?.locationReferences?.[id] }))
+    .filter((r): r is { id: string; ref: NonNullable<typeof r.ref> } => !!r.ref);
+  const allValidated = references.length > 0 && references.every((r) => r.ref.status === "validated");
+
+  useEffect(() => {
+    if (allValidated) setStatus("frames");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allValidated]);
+
+  if (!currentProject || distinctLocationIds.length === 0) return null;
+
+  async function generate(id: string, prompt: string) {
+    updateLocationReference(id, { status: "generating" });
+    setErrors((prev) => ({ ...prev, [id]: "" }));
+    try {
+      const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey);
+      updateLocationReference(id, { sheetUrl: result.url, status: "generated" });
+    } catch (e) {
+      updateLocationReference(id, { status: "pending" });
+      setErrors((prev) => ({ ...prev, [id]: e instanceof Error ? e.message : "Erreur inconnue" }));
+    }
+  }
+
+  return (
+    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+      <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <MapPin className="w-3.5 h-3.5 text-agent-acc" /> Décors
+      </div>
+      <div className="space-y-2.5">
+        {references.map(({ id, ref }) => (
+          <div key={id} className="bg-agent-s3 border border-agent-bd rounded-md p-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11.5px] font-medium text-agent-t1">{ref.name}</span>
+              <span
+                className={cn(
+                  "text-[9.5px] px-1.5 py-0.5 rounded",
+                  ref.status === "validated" ? "bg-agent-grn/15 text-agent-grn" : "bg-agent-s2 text-agent-t2"
+                )}
+              >
+                {ref.status === "validated" ? "Validé" : ref.status === "generating" ? "..." : ref.status === "generated" ? "À valider" : "En attente"}
+              </span>
+            </div>
+            {ref.sheetUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={ref.sheetUrl} alt={ref.name} className="w-full rounded mb-1.5" />
+            )}
+            {errors[id] && <div className="text-[10px] text-red-400 mb-1.5">{errors[id]}</div>}
+            <div className="flex gap-1 flex-wrap">
+              {!ref.sheetUrl ? (
+                <button
+                  onClick={() => generate(id, ref.prompt)}
+                  disabled={ref.status === "generating"}
+                  className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+                >
+                  {errors[id] ? <RefreshCw className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />} {errors[id] ? "Réessayer" : "Générer"}
+                </button>
+              ) : ref.status !== "validated" ? (
+                <>
+                  <button
+                    onClick={() => updateLocationReference(id, { status: "validated" })}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
+                  >
+                    <Check className="w-3 h-3" /> Valider
+                  </button>
+                  <button
+                    onClick={() => generate(id, ref.prompt)}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-s2 border border-agent-bd2 text-agent-t1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                  </button>
+                </>
+              ) : (
+                <span className="text-[10.5px] text-agent-grn flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Validé
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Première colonne du canvas : script, voix off, casting et décors, empilés — pas de chat séparé. */
+function FirstColumn() {
+  return (
+    <div className="flex flex-col shrink-0" style={{ width: CARD_WIDTH }}>
+      <ScriptBlock />
+      <VoiceOverBlock />
+      <CastingBlock />
+      <DecorBlock />
+    </div>
+  );
+}
+
+function ImageCard({
+  scene,
+  offset,
+  active,
+  imageEngine,
+  characters,
+  onOpenDrawer,
+  onDragStart,
+}: {
+  scene: Scene;
+  offset: { x: number; y: number };
+  active: boolean;
+  imageEngine: string;
+  characters: { key: string; name: string; sheetUrl?: string }[];
+  onOpenDrawer: () => void;
+  onDragStart: (e: ReactPointerEvent) => void;
+}) {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
+  const updateScene = useProjectStore((s) => s.updateScene);
+  const recalcTotalCost = useProjectStore((s) => s.recalcTotalCost);
+  const styles = useStyleStore((s) => s.styles);
+  const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const mandatoryImageRules = useSettingsStore((s) => s.advancedPrompts.mandatoryImageRules);
+  const [visionDraft, setVisionDraft] = useState(scene.customVision ?? "");
+
+  const isGenerating = scene.frameStatus === "frame_generating";
+  const isValidated = scene.frameStatus === "frame_validated";
+  const selectedCharacterKey = scene.characters[0] ?? "";
+  const selectedCharacter = characters.find((c) => c.key === selectedCharacterKey);
+
+  async function regenerate() {
+    updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined, customVision: visionDraft.trim() || undefined });
+    const { urls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
+      scene,
+      currentProject ?? undefined,
+      brand
+    );
+    const productRoleNote = scene.hasProduct && scene.productRole
+      ? scene.productRole === "hero"
+        ? "Le produit est l'élément central de la composition, mis en avant au premier plan, net et bien éclairé."
+        : "Le produit est visible mais discret, en arrière-plan, jamais au centre de l'attention."
+      : "";
+    const imagePromptWithVision = [scene.imagePrompt, productRoleNote, visionDraft.trim() && `Vision personnalisée du client : ${visionDraft.trim()}`]
+      .filter(Boolean)
+      .join("\n\n");
+    const fullPrompt = buildImagePrompt({ imagePrompt: imagePromptWithVision }, style, brand, {
+      hasCharacterReference,
+      hasProductReference,
+      hasLocationReference,
+      customRules: mandatoryImageRules,
+    });
+    try {
+      const result = await falGenerateImage(fullPrompt, currentProject?.imageEngine ?? "auto", apiKeys.falApiKey, urls.length > 0 ? urls : undefined);
+      updateScene(scene.id, {
+        frameUrl: result.url,
+        frameStatus: "frame_generated",
+        frameHistory: [...scene.frameHistory, result.url],
+        imageCostEstimate: result.costEstimate,
+        frameError: undefined,
+      });
+      recalcTotalCost();
+    } catch (e) {
+      updateScene(scene.id, { frameStatus: "error", frameError: e instanceof Error ? e.message : "Erreur inconnue" });
+    }
+  }
+
+  return (
+    <div
+      data-card
+      className={cn(
+        "bg-agent-s2 border rounded-lg overflow-hidden relative flex flex-col shrink-0",
+        statusBorder(scene.frameStatus, false),
+        active && "z-30 shadow-xl"
+      )}
+      style={{ width: CARD_WIDTH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+    >
+      <button
+        onPointerDown={onDragStart}
+        title="Déplacer"
+        className="absolute top-1.5 left-1.5 z-10 p-1 rounded bg-black/50 text-white/80 hover:text-white cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+
+      <div className="flex items-center justify-between px-2.5 pt-2.5 pb-1.5">
+        <span className="text-[11px] font-medium text-agent-t1">Scène {scene.index}</span>
+        <span className="text-[10px] text-agent-t3">{IMAGE_ENGINE_LABELS[imageEngine] ?? imageEngine}</span>
+      </div>
+
+      {scene.beatLabel && (
+        <div className="flex items-center gap-1 px-2.5 pb-1.5 flex-wrap">
+          <span className="text-[9px] font-semibold uppercase tracking-wide bg-agent-acc/15 text-agent-acc px-1.5 py-0.5 rounded">
+            {scene.beatLabel}
+          </span>
+          {scene.framing && (
+            <span className="text-[9px] uppercase tracking-wide bg-agent-s3 text-agent-t3 px-1.5 py-0.5 rounded">
+              {scene.framing.replace("_", " ")}
+            </span>
+          )}
+        </div>
+      )}
+
+      {scene.voiceOver?.text && <p className="px-2.5 pb-1.5 text-[10.5px] italic text-agent-t2 line-clamp-3">« {scene.voiceOver.text} »</p>}
+
+      <button onClick={onOpenDrawer} className="aspect-[9/16] flex items-center justify-center relative">
+        {isGenerating && <RefreshCw className="w-4 h-4 animate-spin text-agent-acc" />}
+        {!isGenerating && scene.frameUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={scene.frameUrl} alt="" className="w-full h-full object-cover" />
+        )}
+        {!isGenerating && !scene.frameUrl && <ImageIcon className="w-5 h-5 text-agent-t3" />}
+        <span className="absolute top-1.5 left-1.5 text-[9px] font-mono bg-black/50 text-white px-1 rounded">
+          SC-{String(scene.index).padStart(2, "0")}
+        </span>
+        {isValidated && (
+          <span className="absolute top-1.5 right-1.5 bg-agent-grn text-white rounded-full p-0.5">
+            <Check className="w-3 h-3" />
+          </span>
+        )}
+      </button>
+
+      <div className="p-2.5 space-y-2">
+        <div>
+          <label className="flex items-center gap-1 text-[9.5px] uppercase tracking-wide text-agent-t3 mb-1">
+            <User className="w-3 h-3" /> Ton personnage
+          </label>
+          <div className="flex items-center gap-1.5">
+            {selectedCharacter?.sheetUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={selectedCharacter.sheetUrl} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
+            )}
+            <select
+              value={selectedCharacterKey}
+              onChange={(e) => updateScene(scene.id, { characters: e.target.value ? [e.target.value] : [] })}
+              className="flex-1 min-w-0 bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10.5px] text-agent-t1"
+            >
+              <option value="">Aucun</option>
+              {characters.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-1.5 text-[10.5px] text-agent-t2">
+          <input
+            type="checkbox"
+            checked={scene.hasProduct}
+            onChange={(e) =>
+              updateScene(scene.id, {
+                hasProduct: e.target.checked,
+                productAssetId: e.target.checked ? brand?.productPhotos[0]?.id : undefined,
+                productRole: e.target.checked ? scene.productRole ?? "hero" : undefined,
+              })
+            }
+          />
+          Afficher le produit dans la scène
+        </label>
+
+        {scene.hasProduct && (
+          <div className="flex gap-1">
+            <button
+              onClick={() => updateScene(scene.id, { productRole: "hero" })}
+              className={cn(
+                "flex-1 text-[9.5px] px-1.5 py-1 rounded border",
+                scene.productRole === "hero" ? "bg-agent-acc/15 border-agent-acc text-agent-acc" : "border-agent-bd text-agent-t3"
+              )}
+            >
+              ⭐ Star du plan
+            </button>
+            <button
+              onClick={() => updateScene(scene.id, { productRole: "background" })}
+              className={cn(
+                "flex-1 text-[9.5px] px-1.5 py-1 rounded border",
+                scene.productRole === "background" ? "bg-agent-acc/15 border-agent-acc text-agent-acc" : "border-agent-bd text-agent-t3"
+              )}
+            >
+              🎬 En fond
+            </button>
+          </div>
+        )}
+
+        <textarea
+          rows={2}
+          value={visionDraft}
+          onChange={(e) => setVisionDraft(e.target.value)}
+          placeholder="Ta vision / prompt custom (optionnel)"
+          className="w-full bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10.5px] text-agent-t1 placeholder:text-agent-t3 focus:outline-none focus:border-agent-acc resize-none"
+        />
+
+        {scene.frameError && (
+          <div className="flex items-start gap-1 text-[9.5px] text-red-400">
+            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {scene.frameError}
+          </div>
+        )}
+
+        <button
+          onClick={regenerate}
+          disabled={isGenerating}
+          className="w-full inline-flex items-center justify-center gap-1.5 text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+        >
+          <RefreshCw className="w-3 h-3" /> {scene.frameUrl ? "Régénérer avec ma vision" : "Générer"}
+        </button>
+
+        {scene.frameUrl && scene.frameStatus !== "frame_validated" && (
+          <button
+            onClick={() => updateScene(scene.id, { frameStatus: "frame_validated" })}
+            className="w-full text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-s3 border border-agent-bd2 text-agent-t1"
+          >
+            Valider
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VideoCard({
+  scene,
+  style,
+  engine,
+  lang,
+  offset,
+  active,
+  onDragStart,
+}: {
+  scene: Scene;
+  style: StylePreset;
+  engine: VideoEngine;
+  lang: "fr" | "en";
+  offset: { x: number; y: number };
+  active: boolean;
+  onDragStart: (e: ReactPointerEvent) => void;
+}) {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const updateScene = useProjectStore((s) => s.updateScene);
+  const recalcTotalCost = useProjectStore((s) => s.recalcTotalCost);
+  const addLearningEntry = useLearningStore((s) => s.addEntry);
+  const learningEntries = useLearningStore((s) => s.entries);
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const motionIntensity = useSettingsStore((s) => s.generationDefaults.motionIntensity);
+  const mandatoryVideoRules = useSettingsStore((s) => s.advancedPrompts.mandatoryVideoRules);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackReason, setFeedbackReason] = useState(FEEDBACK_REASONS[0].value);
+  const [videoVisionDraft, setVideoVisionDraft] = useState(scene.customVideoVision ?? "");
+
+  const isGenerating = scene.videoStatus === "video_generating";
+  const isValidated = scene.videoStatus === "video_validated";
+
+  async function runGeneration() {
+    updateScene(scene.id, { customVideoVision: videoVisionDraft.trim() || undefined });
+    const promptWithVision = [scene.videoPrompt, videoVisionDraft.trim() && `Direction additionnelle du client : ${videoVisionDraft.trim()}`]
+      .filter(Boolean)
+      .join("\n\n");
+    await generateSceneVideo({
+      scene,
+      prompt: promptWithVision,
+      style,
+      engine,
+      lang,
+      motionIntensity,
+      mandatoryVideoRules,
+      characterNames: currentProject?.plan?.characterNames,
+      learningEntries,
+      apiKey: apiKeys.falApiKey,
+      updateScene,
+      recalcTotalCost,
+    });
+  }
+
+  return (
+    <div
+      data-card
+      className={cn(
+        "bg-agent-s2 border rounded-lg overflow-hidden relative flex flex-col shrink-0",
+        statusBorder(scene.videoStatus, false),
+        active && "z-30 shadow-xl"
+      )}
+      style={{ width: CARD_WIDTH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+    >
+      <button
+        onPointerDown={onDragStart}
+        title="Déplacer"
+        className="absolute top-1.5 left-1.5 z-10 p-1 rounded bg-black/50 text-white/80 hover:text-white cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+
+      <div className="flex items-center justify-between px-2.5 pt-2.5 pb-1.5">
+        <span className="text-[11px] font-medium text-agent-t1">Vidéo · SC-{String(scene.index).padStart(2, "0")}</span>
+        <span className="text-[10px] text-agent-t3">
+          {VIDEO_ENGINE_LABELS[engine] ?? engine} · {scene.durationSeconds}s
+        </span>
+      </div>
+
+      <div className="px-2.5 pb-1.5">
+        <textarea
+          rows={2}
+          value={videoVisionDraft}
+          onChange={(e) => setVideoVisionDraft(e.target.value)}
+          placeholder="Ta vision pour la vidéo (optionnel) — action, caméra, ambiance, transition... sinon AUTO"
+          className="w-full bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10px] text-agent-t1 placeholder:text-agent-t3 resize-none focus:outline-none focus:border-agent-acc"
+        />
+      </div>
+
+      <div className="aspect-[9/16] relative flex items-center justify-center bg-black">
+        {scene.videoUrl && !isGenerating ? (
+          <video src={scene.videoUrl} controls className="w-full h-full object-cover" />
+        ) : isGenerating ? (
+          <RefreshCw className="w-4 h-4 animate-spin text-agent-acc" />
+        ) : (
+          <Film className="w-5 h-5 text-agent-t3" />
+        )}
+        {isValidated && (
+          <span className="absolute top-1.5 right-1.5 bg-agent-grn text-white rounded-full p-0.5">
+            <Check className="w-3 h-3" />
+          </span>
+        )}
+        {scene.videoUrl && (
+          <button
+            onClick={() => downloadImage(scene.videoUrl!, `scene-${scene.index}.mp4`)}
+            className="absolute bottom-1.5 right-1.5 p-1 rounded bg-black/50 text-white hover:bg-black/70"
+          >
+            <Download className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      <div className="p-2.5 space-y-2">
+        <div className="flex gap-1">
+          {DURATION_OPTIONS.map((d) => (
+            <button
+              key={d}
+              onClick={() => updateScene(scene.id, { durationSeconds: d })}
+              className={cn(
+                "flex-1 text-[10px] py-1 rounded border",
+                scene.durationSeconds === d ? "bg-agent-acc/15 border-agent-acc text-agent-acc" : "border-agent-bd text-agent-t3"
+              )}
+            >
+              {d}s
+            </button>
+          ))}
+        </div>
+
+        {scene.videoError && (
+          <div className="text-[9.5px] text-red-400 flex items-start gap-1">
+            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {scene.videoError}
+          </div>
+        )}
+
+        {!scene.videoUrl ? (
+          <button
+            onClick={runGeneration}
+            disabled={isGenerating}
+            className="w-full inline-flex items-center justify-center gap-1.5 text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+          >
+            <Sparkles className="w-3 h-3" /> {scene.videoError ? "Réessayer" : "Régénérer la vidéo"}
+          </button>
+        ) : !isValidated ? (
+          <div className="flex gap-1">
+            <button
+              onClick={() => updateScene(scene.id, { videoStatus: "video_validated" })}
+              className="flex-1 text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
+            >
+              Valider
+            </button>
+            <button
+              onClick={runGeneration}
+              className="flex-1 text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-s3 border border-agent-bd2 text-agent-t1"
+            >
+              Régénérer
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() =>
+                updateScene(scene.id, { feedback: { id: scene.id, sceneId: scene.id, rating: "up", engine, createdAt: new Date().toISOString() } })
+              }
+              className={cn("p-1 rounded", scene.feedback?.rating === "up" ? "text-agent-acc" : "text-agent-t3 hover:text-agent-t1")}
+            >
+              <ThumbsUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setFeedbackOpen(true)}
+              className={cn("p-1 rounded", scene.feedback?.rating === "down" ? "text-red-400" : "text-agent-t3 hover:text-agent-t1")}
+            >
+              <ThumbsDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {feedbackOpen && (
+        <div className="absolute z-40 left-0 right-0 top-full mt-1 bg-agent-s2 border border-agent-bd rounded-md p-2 shadow-lg">
+          <select
+            value={feedbackReason}
+            onChange={(e) => setFeedbackReason(e.target.value)}
+            className="bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10.5px] text-agent-t1 mb-1.5 w-full"
+          >
+            {FEEDBACK_REASONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-1">
+            <button
+              onClick={() => {
+                updateScene(scene.id, {
+                  feedback: { id: scene.id, sceneId: scene.id, rating: "down", reason: feedbackReason, engine, createdAt: new Date().toISOString() },
+                });
+                addLearningEntry({ engine, reason: FEEDBACK_REASONS.find((r) => r.value === feedbackReason)?.label ?? feedbackReason });
+                setFeedbackOpen(false);
+              }}
+              className="text-[10px] px-1.5 py-1 rounded bg-agent-acc text-white"
+            >
+              Envoyer
+            </button>
+            <button onClick={() => setFeedbackOpen(false)} className="text-[10px] px-1.5 py-1 rounded bg-agent-s3 text-agent-t2">
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibrary: () => void; onOpenProjectBrain: () => void }) {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const setStatus = useProjectStore((s) => s.setStatus);
+  const updateScene = useProjectStore((s) => s.updateScene);
+  const recalcTotalCost = useProjectStore((s) => s.recalcTotalCost);
+  const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
+  const styles = useStyleStore((s) => s.styles);
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const mandatoryImageRules = useSettingsStore((s) => s.advancedPrompts.mandatoryImageRules);
+  const mandatoryVideoRules = useSettingsStore((s) => s.advancedPrompts.mandatoryVideoRules);
+  const motionIntensity = useSettingsStore((s) => s.generationDefaults.motionIntensity);
+  const learningEntries = useLearningStore((s) => s.entries);
+
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [generatingAllFrames, setGeneratingAllFrames] = useState(false);
+  const [generatingAllVideos, setGeneratingAllVideos] = useState(false);
+  const [resuming, setResuming] = useState(false);
+  const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
+  const [cardOffsets, setCardOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+
+  const plan = currentProject?.plan;
+  const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
+
+  const wheelCleanupRef = useRef<(() => void) | null>(null);
+  const boardWrapCallbackRef = (el: HTMLDivElement | null) => {
+    wheelCleanupRef.current?.();
+    wheelCleanupRef.current = null;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      const rect = el!.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      setCanvasView((prev) => {
+        const factor = Math.exp(-e.deltaY * 0.0015);
+        const newZoom = clampZoom(prev.zoom * factor);
+        const ratio = newZoom / prev.zoom;
+        return { zoom: newZoom, pan: { x: cx - (cx - prev.pan.x) * ratio, y: cy - (cy - prev.pan.y) * ratio } };
+      });
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    wheelCleanupRef.current = () => el.removeEventListener("wheel", onWheel);
+  };
+
+  const framedScenes = plan?.scenes.filter((s) => s.needsFrame) ?? [];
+  const validatedFrames = framedScenes.filter((s) => s.frameStatus === "frame_validated").length;
+  const validatedVideos = plan?.scenes.filter((s) => s.videoStatus === "video_validated").length ?? 0;
+  const allFramesValidated = framedScenes.length > 0 && validatedFrames === framedScenes.length;
+  const allVideosValidated = !!plan && plan.scenes.length > 0 && validatedVideos === plan.scenes.length;
+  const isGeneratingAny = !!plan && plan.scenes.some((s) => s.frameStatus === "frame_generating" || s.videoStatus === "video_generating");
+  const selectedScene = plan?.scenes.find((s) => s.id === selectedSceneId);
+  const engine = currentProject?.videoEngine ?? "auto";
+  const lang = currentProject?.lang ?? "fr";
+  const characterList = Object.entries(currentProject?.characterReferences ?? {}).map(([key, ref]) => ({
+    key,
+    name: ref.name,
+    sheetUrl: ref.sheetUrl,
+  }));
+  const hasVoice = !!plan?.scenes.some((s) => s.voiceType === "voiceover" || s.voiceType === "lipsync");
+  const hasFailed = framedScenes.some((s) => s.frameStatus === "error") || !!plan?.scenes.some((s) => s.videoStatus === "error");
+
+  function handleCardDragStart(cardId: string, e: ReactPointerEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    setActiveCardId(cardId);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startOffset = cardOffsets[cardId] ?? { x: 0, y: 0 };
+    const zoomNow = canvasView.zoom;
+    function onMove(ev: PointerEvent) {
+      const dx = (ev.clientX - startX) / zoomNow;
+      const dy = (ev.clientY - startY) / zoomNow;
+      setCardOffsets((prev) => ({ ...prev, [cardId]: { x: startOffset.x + dx, y: startOffset.y + dy } }));
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setActiveCardId(null);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function handleBoardPointerDown(e: ReactPointerEvent) {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("[data-card]")) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPan = canvasView.pan;
+    function onMove(ev: PointerEvent) {
+      setCanvasView((v) => ({ ...v, pan: { x: startPan.x + (ev.clientX - startX), y: startPan.y + (ev.clientY - startY) } }));
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function zoomBy(factor: number) {
+    setCanvasView((v) => ({ ...v, zoom: clampZoom(v.zoom * factor) }));
+  }
+
+  function resetView() {
+    setCanvasView({ zoom: 1, pan: { x: 0, y: 0 } });
+  }
+
+  async function generateFrame(scene: Scene) {
+    updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined });
+    const { urls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
+      scene,
+      currentProject ?? undefined,
+      brand
+    );
+    const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand, {
+      hasCharacterReference,
+      hasProductReference,
+      hasLocationReference,
+      customRules: mandatoryImageRules,
+    });
+    try {
+      const result = await falGenerateImage(fullPrompt, currentProject!.imageEngine ?? "auto", apiKeys.falApiKey, urls.length > 0 ? urls : undefined);
+      updateScene(scene.id, {
+        frameUrl: result.url,
+        frameStatus: "frame_generated",
+        frameHistory: [...scene.frameHistory, result.url],
+        imageCostEstimate: result.costEstimate,
+        frameError: undefined,
+      });
+    } catch (e) {
+      updateScene(scene.id, { frameStatus: "error", frameError: e instanceof Error ? e.message : "Erreur inconnue" });
+    }
+  }
+
+  async function generateVideo(scene: Scene) {
+    await generateSceneVideo({
+      scene,
+      prompt: scene.videoPrompt,
+      style,
+      engine,
+      lang,
+      motionIntensity,
+      mandatoryVideoRules,
+      characterNames: plan!.characterNames,
+      learningEntries,
+      apiKey: apiKeys.falApiKey,
+      updateScene,
+      recalcTotalCost,
+    });
+  }
+
+  async function handleGenerateAllFrames() {
+    if (!plan) return;
+    setGeneratingAllFrames(true);
+    await mapWithConcurrency(framedScenes.filter((s) => !s.frameUrl), 8, generateFrame);
+    recalcTotalCost();
+    setGeneratingAllFrames(false);
+  }
+
+  async function handleGenerateAllVideos() {
+    if (!plan) return;
+    setGeneratingAllVideos(true);
+    await mapWithConcurrency(plan.scenes.filter((s) => s.frameUrl && !s.videoUrl), 4, generateVideo);
+    setGeneratingAllVideos(false);
+  }
+
+  async function handleResume() {
+    if (!plan) return;
+    setResuming(true);
+    await mapWithConcurrency(framedScenes.filter((s) => s.frameStatus === "error"), 8, generateFrame);
+    await mapWithConcurrency(plan.scenes.filter((s) => s.videoStatus === "error"), 4, generateVideo);
+    recalcTotalCost();
+    setResuming(false);
+  }
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0 bg-agent-bg relative">
+      {plan && (
+        <div className="shrink-0 border-b border-agent-bd flex items-center flex-wrap gap-2 px-4 py-2">
+          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-agent-t2 bg-agent-s2 border border-agent-bd rounded-md px-2.5 py-1">
+            <User className="w-3.5 h-3.5" />
+            {characterList.length > 0 ? characterList.map((c) => c.name).join(", ") : "Aucun personnage"}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-agent-t2 bg-agent-s2 border border-agent-bd rounded-md px-2.5 py-1">
+            <Wand2 className="w-3.5 h-3.5" /> {style?.name ?? "Style"}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-agent-t2 bg-agent-s2 border border-agent-bd rounded-md px-2.5 py-1">
+            <Mic className="w-3.5 h-3.5" /> {hasVoice ? `Voix ${lang.toUpperCase()}` : "Sans voix"}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-agent-t2 bg-agent-s2 border border-agent-bd rounded-md px-2.5 py-1">
+            <Film className="w-3.5 h-3.5" /> {engine}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-agent-t2 bg-agent-s2 border border-agent-bd rounded-md px-2.5 py-1">
+            9:16
+          </span>
+          <span className="text-[11.5px] text-agent-t3">
+            {validatedFrames}/{framedScenes.length} frames · {validatedVideos}/{plan.scenes.length} vidéos
+          </span>
+
+          {isGeneratingAny && (
+            <span className="flex items-center gap-1.5 text-[11px] text-agent-acc">
+              <RefreshCw className="w-3 h-3 animate-spin" /> Génération en cours...
+            </span>
+          )}
+
+          <div className="ml-auto flex items-center gap-1.5">
+            {hasFailed && (
+              <button
+                onClick={handleResume}
+                disabled={resuming}
+                className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1.5 rounded-md bg-agent-amb/15 border border-agent-amb/40 text-agent-amb disabled:opacity-40"
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", resuming && "animate-spin")} /> Reprendre
+              </button>
+            )}
+            <button
+              onClick={handleGenerateAllFrames}
+              disabled={generatingAllFrames}
+              className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1.5 rounded-md bg-agent-s2 border border-agent-bd2 text-agent-t1 disabled:opacity-40"
+            >
+              <ImageIcon className="w-3.5 h-3.5" /> {generatingAllFrames ? "Génération..." : "Tout générer"}
+            </button>
+            <button
+              onClick={handleGenerateAllVideos}
+              disabled={generatingAllVideos}
+              className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1.5 rounded-md bg-agent-s2 border border-agent-bd2 text-agent-t1 disabled:opacity-40"
+            >
+              <Film className="w-3.5 h-3.5" /> {generatingAllVideos ? "Animation..." : "Tout animer"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div
+        ref={boardWrapCallbackRef}
+        onPointerDown={handleBoardPointerDown}
+        className="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing"
+      >
+        <div
+          className="absolute top-0 left-0 origin-top-left"
+          style={{ transform: `translate(${canvasView.pan.x}px, ${canvasView.pan.y}px) scale(${canvasView.zoom})` }}
+        >
+          <div className="flex gap-8 p-10 items-start">
+            <FirstColumn />
+            {plan?.scenes.map((scene) => {
+              const imgOffset = cardOffsets[`img-${scene.id}`] ?? { x: 0, y: 0 };
+              const vidOffset = cardOffsets[`vid-${scene.id}`] ?? { x: 0, y: 0 };
+              const showLine = Math.abs(vidOffset.x) > 4 || Math.abs(vidOffset.y) > 4;
+              const imageCardApproxHeight = (CARD_WIDTH * 16) / 9 + 260;
+              const videoBaseY = imageCardApproxHeight + 24;
+              return (
+                <div key={scene.id} className="relative shrink-0" style={{ width: CARD_WIDTH }}>
+                  {showLine && (
+                    <ConnectorLine
+                      from={{ x: CARD_WIDTH / 2, y: videoBaseY }}
+                      to={{ x: CARD_WIDTH / 2 + vidOffset.x, y: videoBaseY + vidOffset.y }}
+                    />
+                  )}
+                  {scene.needsFrame ? (
+                    <ImageCard
+                      scene={scene}
+                      offset={imgOffset}
+                      active={activeCardId === `img-${scene.id}`}
+                      imageEngine={currentProject?.imageEngine ?? "auto"}
+                      characters={characterList}
+                      onOpenDrawer={() => setSelectedSceneId(scene.id)}
+                      onDragStart={(e) => handleCardDragStart(`img-${scene.id}`, e)}
+                    />
+                  ) : (
+                    <div style={{ width: CARD_WIDTH }} className="aspect-[9/16] rounded-lg border border-dashed border-agent-bd flex items-center justify-center text-[10px] text-agent-t3">
+                      Pas de frame
+                    </div>
+                  )}
+                  <div className="h-6 flex items-center justify-center">
+                    <div className="w-px h-full bg-agent-bd2" />
+                  </div>
+                  <VideoCard
+                    scene={scene}
+                    style={style}
+                    engine={engine}
+                    lang={lang}
+                    offset={vidOffset}
+                    active={activeCardId === `vid-${scene.id}`}
+                    onDragStart={(e) => handleCardDragStart(`vid-${scene.id}`, e)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-agent-s2 border border-agent-bd rounded-md p-1">
+          <button onClick={() => zoomBy(0.85)} className="p-1.5 text-agent-t2 hover:text-agent-t1">
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[10.5px] text-agent-t3 w-9 text-center font-mono">{Math.round(canvasView.zoom * 100)}%</span>
+          <button onClick={() => zoomBy(1 / 0.85)} className="p-1.5 text-agent-t2 hover:text-agent-t1">
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={resetView} title="Réinitialiser la vue" className="p-1.5 text-agent-t2 hover:text-agent-t1">
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="absolute bottom-3 left-3 text-[10.5px] text-agent-t3 pointer-events-none">
+          Molette = zoom · glisse le fond = déplacer la vue · glisse une carte = la repositionner
+        </div>
+      </div>
+
+      {plan && (
+        <div className="h-14 shrink-0 border-t border-agent-bd flex items-center px-4 gap-4">
+          <div className="flex-1 flex items-center gap-2">
+            <span className="text-[10.5px] text-agent-t3 w-14">Frames</span>
+            <div className="flex-1 h-1.5 bg-agent-s3 rounded-full overflow-hidden">
+              <div className="h-full bg-agent-acc transition-all" style={{ width: `${framedScenes.length ? (validatedFrames / framedScenes.length) * 100 : 0}%` }} />
+            </div>
+            <span className="text-[10.5px] text-agent-t2 font-mono">{validatedFrames}/{framedScenes.length}</span>
+          </div>
+          <div className="flex-1 flex items-center gap-2">
+            <span className="text-[10.5px] text-agent-t3 w-14">Vidéos</span>
+            <div className="flex-1 h-1.5 bg-agent-s3 rounded-full overflow-hidden">
+              <div className="h-full bg-agent-grn transition-all" style={{ width: `${plan.scenes.length ? (validatedVideos / plan.scenes.length) * 100 : 0}%` }} />
+            </div>
+            <span className="text-[10.5px] text-agent-t2 font-mono">{validatedVideos}/{plan.scenes.length}</span>
+          </div>
+          <button onClick={onOpenProjectBrain} className="flex items-center gap-1.5 text-[12px] text-agent-t2 hover:text-agent-t1 px-2.5 py-1.5 rounded-md border border-agent-bd">
+            Project Brain
+          </button>
+          <button onClick={onOpenLibrary} className="flex items-center gap-1.5 text-[12px] text-agent-t2 hover:text-agent-t1 px-2.5 py-1.5 rounded-md border border-agent-bd">
+            <Library className="w-3.5 h-3.5" /> Bibliothèque
+          </button>
+          {currentProject!.status === "videos" && allVideosValidated ? (
+            <button
+              onClick={() => setStatus("export")}
+              className="text-[12.5px] font-medium px-3.5 py-2 rounded-md bg-agent-grn hover:opacity-90 text-white"
+            >
+              Finaliser
+            </button>
+          ) : (
+            <button
+              onClick={() => setStatus("videos")}
+              disabled={!allFramesValidated || currentProject!.status === "videos"}
+              className="text-[12.5px] font-medium px-3.5 py-2 rounded-md bg-agent-acc hover:bg-agent-acc2 disabled:opacity-40 text-white"
+            >
+              Lancer les vidéos
+            </button>
+          )}
+        </div>
+      )}
+
+      {selectedScene && <FrameDrawer scene={selectedScene} onClose={() => setSelectedSceneId(null)} />}
+    </div>
+  );
+}
