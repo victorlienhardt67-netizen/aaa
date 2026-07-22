@@ -15,8 +15,15 @@ export function StyleCard({ style, onClick }: { style: StylePreset; onClick?: ()
       className="p-0 overflow-hidden cursor-pointer hover:border-gold/50 transition-colors group"
     >
       <div className="aspect-[16/10] bg-surface2 border-b border-border flex items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-gold/30 via-transparent to-transparent" />
-        <Icon className="w-9 h-9 text-gold group-hover:text-gold-light transition-colors" />
+        {style.illustrationImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={style.illustrationImageUrl} alt={style.name} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <>
+            <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-gold/30 via-transparent to-transparent" />
+            <Icon className="w-9 h-9 text-gold group-hover:text-gold-light transition-colors" />
+          </>
+        )}
         <div className="absolute top-2 right-2 flex gap-1">
           {style.bestFor.includes("fr") && <Badge tone="gold">Best FR</Badge>}
           {style.bestFor.includes("en") && <Badge tone="gold">Best EN</Badge>}

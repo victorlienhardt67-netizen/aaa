@@ -16,6 +16,7 @@ import {
   ImageIcon,
   Leaf,
   Library,
+  FlaskConical,
   MapPin,
   Mic,
   Package,
@@ -23,7 +24,9 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Rocket,
   RotateCcw,
+  Scissors,
   Shapes,
   Smartphone,
   Sparkles,
@@ -34,6 +37,7 @@ import {
   Tv,
   UploadCloud,
   User,
+  UserRound,
   Users,
   Wand2,
   X,
@@ -98,6 +102,7 @@ const STYLE_ICON_MAP: Record<string, LucideIcon> = {
   Sparkles,
   Blocks,
   User,
+  UserRound,
   Hand,
   Leaf,
   Zap,
@@ -110,6 +115,9 @@ const STYLE_ICON_MAP: Record<string, LucideIcon> = {
   Wand2,
   Star,
   Flame,
+  FlaskConical,
+  Scissors,
+  Rocket,
 };
 const STYLE_ICON_OPTIONS = Object.keys(STYLE_ICON_MAP);
 const ENGINE_SELECT_CLASS = "bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10.5px] text-agent-t1";
@@ -134,6 +142,8 @@ function StyleCreateForm({
   const [negativePrompt, setNegativePrompt] = useState("");
   const [imageEngine, setImageEngine] = useState<ImageEngine>("nano_banana");
   const [videoEngine, setVideoEngine] = useState<VideoEngine>("kling_3_0");
+  const [illustrationImageUrl, setIllustrationImageUrl] = useState<string | undefined>();
+  const illustrationInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-1.5">
@@ -150,6 +160,34 @@ function StyleCreateForm({
           </option>
         ))}
       </select>
+      {illustrationImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={illustrationImageUrl} alt="" className="w-full aspect-video object-cover rounded border border-agent-bd" />
+      ) : (
+        <button
+          onClick={() => illustrationInputRef.current?.click()}
+          className="w-full aspect-video flex flex-col items-center justify-center gap-1 rounded border border-dashed border-agent-bd text-agent-t3 hover:text-agent-t1"
+        >
+          <ImageIcon className="w-4 h-4" />
+          <span className="text-[10px]">Image d&apos;illustration (paysage)</span>
+        </button>
+      )}
+      {illustrationImageUrl && (
+        <button onClick={() => illustrationInputRef.current?.click()} className="w-full text-[10px] text-agent-t2 hover:text-agent-t1">
+          Changer l&apos;image
+        </button>
+      )}
+      <input
+        ref={illustrationInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (f) setIllustrationImageUrl(await fileToBase64(f));
+          e.target.value = "";
+        }}
+      />
       <input
         value={shortDescription}
         onChange={(e) => setShortDescription(e.target.value)}
@@ -206,6 +244,7 @@ function StyleCreateForm({
               recommendedImageEngine: imageEngine,
               recommendedVideoEngine: videoEngine,
               bestFor: ["fr", "en"],
+              illustrationImageUrl,
             })
           }
           disabled={!name.trim()}
@@ -234,6 +273,8 @@ function StyleEditForm({
   const [negativePrompt, setNegativePrompt] = useState(style.negativePrompt);
   const [imageEngine, setImageEngine] = useState(style.recommendedImageEngine);
   const [videoEngine, setVideoEngine] = useState(style.recommendedVideoEngine);
+  const [illustrationImageUrl, setIllustrationImageUrl] = useState(style.illustrationImageUrl);
+  const illustrationInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-1.5">
@@ -241,6 +282,34 @@ function StyleEditForm({
         <StyleIcon name={style.icon} className="w-3.5 h-3.5 text-agent-acc" /> {style.name}
       </div>
       <p className="text-[10px] text-agent-t3">{style.shortDescription}</p>
+      {illustrationImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={illustrationImageUrl} alt="" className="w-full aspect-video object-cover rounded border border-agent-bd" />
+      ) : (
+        <button
+          onClick={() => illustrationInputRef.current?.click()}
+          className="w-full aspect-video flex flex-col items-center justify-center gap-1 rounded border border-dashed border-agent-bd text-agent-t3 hover:text-agent-t1"
+        >
+          <ImageIcon className="w-4 h-4" />
+          <span className="text-[10px]">Image d&apos;illustration (paysage)</span>
+        </button>
+      )}
+      {illustrationImageUrl && (
+        <button onClick={() => illustrationInputRef.current?.click()} className="w-full text-[10px] text-agent-t2 hover:text-agent-t1">
+          Changer l&apos;image
+        </button>
+      )}
+      <input
+        ref={illustrationInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (f) setIllustrationImageUrl(await fileToBase64(f));
+          e.target.value = "";
+        }}
+      />
       <textarea
         rows={3}
         value={positivePrompt}
@@ -284,7 +353,13 @@ function StyleEditForm({
         </button>
         <button
           onClick={() =>
-            onSave({ positivePrompt, negativePrompt, recommendedImageEngine: imageEngine, recommendedVideoEngine: videoEngine })
+            onSave({
+              positivePrompt,
+              negativePrompt,
+              recommendedImageEngine: imageEngine,
+              recommendedVideoEngine: videoEngine,
+              illustrationImageUrl,
+            })
           }
           className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
         >
@@ -350,7 +425,12 @@ function StylePickerBlock({ styleId, onSelect }: { styleId: string; onSelect: (i
                       setOpen(false);
                     }}
                   >
-                    <StyleIcon name={st.icon} className="w-4 h-4 text-agent-acc shrink-0" />
+                    {st.illustrationImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={st.illustrationImageUrl} alt="" className="w-9 h-6 object-cover rounded shrink-0" />
+                    ) : (
+                      <StyleIcon name={st.icon} className="w-4 h-4 text-agent-acc shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="text-[11.5px] text-agent-t1 truncate">{st.name}</div>
                       <div className="text-[10px] text-agent-t3 truncate">{st.shortDescription}</div>

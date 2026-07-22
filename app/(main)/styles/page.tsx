@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ImagePlus, Plus, Save, Trash2 } from "lucide-react";
 import { useStyleStore } from "@/store/styleStore";
 import { ImageEngine, IMAGE_ENGINE_LABELS, StylePreset, VideoEngine, VIDEO_ENGINE_LABELS } from "@/types";
 import { StyleCard } from "@/components/styles/StyleCard";
@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { Label, Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { fileToBase64 } from "@/lib/storage";
 
 const IMAGE_ENGINE_OPTIONS = (Object.keys(IMAGE_ENGINE_LABELS) as ImageEngine[])
   .filter((e) => e !== "auto")
@@ -28,18 +29,21 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
   const [negativePrompt, setNegativePrompt] = useState(style.negativePrompt);
   const [recommendedImageEngine, setRecommendedImageEngine] = useState(style.recommendedImageEngine);
   const [recommendedVideoEngine, setRecommendedVideoEngine] = useState(style.recommendedVideoEngine);
+  const [illustrationImageUrl, setIllustrationImageUrl] = useState(style.illustrationImageUrl);
   const [saved, setSaved] = useState(false);
+  const illustrationInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPositivePrompt(style.positivePrompt);
     setNegativePrompt(style.negativePrompt);
     setRecommendedImageEngine(style.recommendedImageEngine);
     setRecommendedVideoEngine(style.recommendedVideoEngine);
+    setIllustrationImageUrl(style.illustrationImageUrl);
     setSaved(false);
   }, [style]);
 
   function handleSave() {
-    updateStyle(style.id, { positivePrompt, negativePrompt, recommendedImageEngine, recommendedVideoEngine });
+    updateStyle(style.id, { positivePrompt, negativePrompt, recommendedImageEngine, recommendedVideoEngine, illustrationImageUrl });
     setSaved(true);
   }
 
@@ -101,8 +105,44 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
         </div>
       </div>
 
-      <div className="aspect-[16/9] bg-surface2 border border-dashed border-border rounded flex items-center justify-center text-xs text-ink-secondary">
-        Exemple visuel — {style.name}
+      <div>
+        <Label>Image d&apos;illustration (paysage)</Label>
+        {illustrationImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={illustrationImageUrl} alt={style.name} className="w-full aspect-[16/9] object-cover rounded border border-border" />
+        ) : (
+          <button
+            type="button"
+            onClick={() => illustrationInputRef.current?.click()}
+            className="w-full aspect-[16/9] flex flex-col items-center justify-center gap-1.5 rounded border border-dashed border-border text-ink-secondary hover:text-ink transition-colors"
+          >
+            <ImagePlus className="w-5 h-5" />
+            <span className="text-xs">Exemple visuel — {style.name}</span>
+          </button>
+        )}
+        {illustrationImageUrl && (
+          <button
+            type="button"
+            onClick={() => illustrationInputRef.current?.click()}
+            className="mt-1.5 text-xs text-ink-secondary hover:text-ink"
+          >
+            Changer l&apos;image
+          </button>
+        )}
+        <input
+          ref={illustrationInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) {
+              setIllustrationImageUrl(await fileToBase64(f));
+              setSaved(false);
+            }
+            e.target.value = "";
+          }}
+        />
       </div>
 
       <div className="flex items-center justify-between pt-2 border-t border-border">

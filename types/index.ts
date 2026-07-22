@@ -75,6 +75,8 @@ export interface StylePreset {
   createdAt: string;
   /** Mis en avant dans le sélecteur de style Étape 0 (avant la saisie du script). */
   featured?: boolean;
+  /** Image d'illustration au format paysage (base64) montrant à quoi ressemble ce style — purement visuel, jamais envoyée aux moteurs de génération. */
+  illustrationImageUrl?: string;
 }
 
 export type CameraMovement =

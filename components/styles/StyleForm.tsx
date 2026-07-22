@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { ImagePlus } from "lucide-react";
 import { useStyleStore } from "@/store/styleStore";
 import { ImageEngine, IMAGE_ENGINE_LABELS, Lang, VideoEngine, VIDEO_ENGINE_LABELS } from "@/types";
 import { Input, Textarea, Label } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import { fileToBase64 } from "@/lib/storage";
 
 const ICON_OPTIONS = [
   "Sparkles", "Blocks", "User", "Hand", "Leaf", "Zap", "Camera", "Smartphone",
@@ -31,6 +33,8 @@ export function StyleForm({ onClose }: { onClose: () => void }) {
   const [recommendedImageEngine, setRecommendedImageEngine] = useState<ImageEngine>("nano_banana");
   const [recommendedVideoEngine, setRecommendedVideoEngine] = useState<VideoEngine>("kling_3_0");
   const [bestFor, setBestFor] = useState<Lang[]>(["fr", "en"]);
+  const [illustrationImageUrl, setIllustrationImageUrl] = useState<string | undefined>();
+  const illustrationInputRef = useRef<HTMLInputElement>(null);
 
   function toggleBestFor(lang: Lang) {
     setBestFor((prev) => (prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]));
@@ -47,6 +51,7 @@ export function StyleForm({ onClose }: { onClose: () => void }) {
       recommendedImageEngine,
       recommendedVideoEngine,
       bestFor,
+      illustrationImageUrl,
     });
     onClose();
   }
@@ -62,6 +67,43 @@ export function StyleForm({ onClose }: { onClose: () => void }) {
           <Label>Icône</Label>
           <Select value={icon} onChange={(e) => setIcon(e.target.value)} options={ICON_OPTIONS} />
         </div>
+      </div>
+
+      <div>
+        <Label>Image d&apos;illustration (paysage)</Label>
+        {illustrationImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={illustrationImageUrl} alt="" className="w-full aspect-[16/10] object-cover rounded border border-border" />
+        ) : (
+          <button
+            type="button"
+            onClick={() => illustrationInputRef.current?.click()}
+            className="w-full aspect-[16/10] flex flex-col items-center justify-center gap-1.5 rounded border border-dashed border-border text-ink-secondary hover:text-ink transition-colors"
+          >
+            <ImagePlus className="w-5 h-5" />
+            <span className="text-xs">Ajouter une image</span>
+          </button>
+        )}
+        {illustrationImageUrl && (
+          <button
+            type="button"
+            onClick={() => illustrationInputRef.current?.click()}
+            className="mt-1.5 text-xs text-ink-secondary hover:text-ink"
+          >
+            Changer l&apos;image
+          </button>
+        )}
+        <input
+          ref={illustrationInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) setIllustrationImageUrl(await fileToBase64(f));
+            e.target.value = "";
+          }}
+        />
       </div>
 
       <div>
