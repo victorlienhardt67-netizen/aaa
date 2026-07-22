@@ -1392,8 +1392,14 @@ function ImageCard({
 
   const isGenerating = scene.frameStatus === "frame_generating";
   const isValidated = scene.frameStatus === "frame_validated";
-  const selectedCharacterKey = scene.characters[0] ?? "";
-  const selectedCharacter = characters.find((c) => c.key === selectedCharacterKey);
+  const selectedCharacters = characters.filter((c) => scene.characters.includes(c.key));
+
+  function toggleCharacter(key: string) {
+    const next = scene.characters.includes(key)
+      ? scene.characters.filter((k) => k !== key)
+      : [...scene.characters, key];
+    updateScene(scene.id, { characters: next });
+  }
 
   async function regenerate() {
     updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined, customVision: visionDraft.trim() || undefined });
@@ -1490,26 +1496,37 @@ function ImageCard({
       <div className="p-2.5 space-y-2">
         <div>
           <label className="flex items-center gap-1 text-[9.5px] uppercase tracking-wide text-agent-t3 mb-1">
-            <User className="w-3 h-3" /> Ton personnage
+            <User className="w-3 h-3" /> Personnages ({selectedCharacters.length || "aucun"})
           </label>
-          <div className="flex items-center gap-1.5">
-            {selectedCharacter?.sheetUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={selectedCharacter.sheetUrl} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
-            )}
-            <select
-              value={selectedCharacterKey}
-              onChange={(e) => updateScene(scene.id, { characters: e.target.value ? [e.target.value] : [] })}
-              className="flex-1 min-w-0 bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10.5px] text-agent-t1"
-            >
-              <option value="">Aucun</option>
-              {characters.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {characters.length === 0 ? (
+            <p className="text-[10px] text-agent-t3">Aucun personnage détecté pour ce projet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {characters.map((c) => {
+                const isSelected = scene.characters.includes(c.key);
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => toggleCharacter(c.key)}
+                    className={cn(
+                      "flex items-center gap-1 px-1.5 py-1 rounded border text-[10px] transition-colors",
+                      isSelected
+                        ? "bg-agent-acc/15 border-agent-acc/50 text-agent-t1"
+                        : "border-agent-bd text-agent-t3 hover:text-agent-t1"
+                    )}
+                    title={c.name}
+                  >
+                    {c.sheetUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.sheetUrl} alt="" className="w-4 h-4 rounded object-cover shrink-0" />
+                    )}
+                    <span className="truncate max-w-[80px]">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <label className="flex items-center gap-1.5 text-[10.5px] text-agent-t2">

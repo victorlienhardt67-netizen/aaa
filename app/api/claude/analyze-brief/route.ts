@@ -70,16 +70,26 @@ const PRODUCTION_PLAN_TOOL = {
             durationSeconds: { type: "number", description: "Durée estimée du plan, en secondes." },
             cameraMovement: { type: "string", enum: CAMERA_MOVEMENTS },
             hasProduct: { type: "boolean", description: "Le produit de la marque apparaît-il dans ce plan ?" },
-            hasCharacter: { type: "boolean", description: "Un personnage récurrent apparaît-il dans ce plan ?" },
-            characterName: {
-              type: "string",
+            characters: {
+              type: "array",
               description:
-                "Nom du personnage récurrent si hasCharacter=true (ex: le prénom mentionné dans le brief, ou un descriptif court comme 'La cliente' si aucun nom n'est donné). Doit être identique pour toutes les scènes montrant le même personnage.",
-            },
-            characterPhysicalState: {
-              type: "string",
-              description:
-                "Trait physique du personnage explicitement mentionné dans le script (ex: 'corpulent, ventre proéminent', 'très mince', 'grand et athlétique') — c'est une CARACTÉRISTIQUE du personnage, pas une variante : une seule image de référence sera générée pour ce personnage avec ce trait intégré. Une seule fois suffit (première scène où il apparaît) ; omettre si aucun trait physique particulier n'est mentionné.",
+                "TOUS les personnages récurrents détectés automatiquement à la lecture du brief qui apparaissent SIMULTANÉMENT dans ce plan (0, 1, 2 ou plus) — aucun signalement explicite de l'utilisateur n'est nécessaire, à toi de les repérer toi-même (noms, descriptions physiques, rôles). Tableau vide si aucun personnage dans ce plan.",
+              items: {
+                type: "object",
+                properties: {
+                  name: {
+                    type: "string",
+                    description:
+                      "Nom du personnage récurrent (ex: le prénom mentionné dans le brief, ou un descriptif court comme 'La cliente' si aucun nom n'est donné). Doit être identique pour toutes les scènes montrant le même personnage.",
+                  },
+                  physicalState: {
+                    type: "string",
+                    description:
+                      "Tout trait pertinent pour la cohérence visuelle de ce personnage, rédigé librement (pas de checklist imposée) — c'est une CARACTÉRISTIQUE du personnage, pas une variante : une seule image de référence sera générée pour ce personnage avec ce trait intégré, jamais une entrée séparée. Une seule fois suffit (première scène où il apparaît) ; omettre si rien de particulier n'est mentionné.",
+                  },
+                },
+                required: ["name"],
+              },
             },
             locationName: {
               type: "string",
@@ -90,7 +100,7 @@ const PRODUCTION_PLAN_TOOL = {
             imagePrompt: {
               type: "string",
               description:
-                "Prompt détaillé pour générer l'image de départ (frame). Ne jamais y décrire l'apparence physique FIXE d'un personnage récurrent (hasCharacter=true) — visage, coiffure, morphologie, tenue de base restent définis une fois pour toutes par son image de référence validée. En revanche, décris librement son action, sa pose, son expression et son état émotionnel du moment (fatiguée, rayonnante, choquée...) : c'est ici, frame par frame, que les états visuels et émotionnels se gèrent, jamais via une entrée de personnage séparée.",
+                "Prompt détaillé pour générer l'image de départ (frame). Ne jamais y décrire l'apparence physique FIXE d'un personnage récurrent listé dans 'characters' — visage, coiffure, morphologie, tenue de base restent définis une fois pour toutes par son image de référence validée. En revanche, décris librement son action, sa pose, son expression et son état émotionnel du moment (fatiguée, rayonnante, choquée...) : c'est ici, frame par frame, que les états visuels et émotionnels se gèrent, jamais via une entrée de personnage séparée.",
             },
             videoPrompt: {
               type: "string",
@@ -131,7 +141,6 @@ const PRODUCTION_PLAN_TOOL = {
             "durationSeconds",
             "cameraMovement",
             "hasProduct",
-            "hasCharacter",
             "needsFrame",
             "imagePrompt",
             "videoPrompt",

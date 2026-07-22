@@ -54,15 +54,19 @@ interface AnalyzeBriefParams {
   maxSceneDurationSeconds?: number;
 }
 
+interface ClaudeSceneCharacter {
+  name: string;
+  /** Trait physique du personnage (ex: "corpulent", "très mince") si le script en mentionne un — retenu une seule fois par personnage (première occurrence), intégré dans sa fiche de référence unique. */
+  physicalState?: string;
+}
+
 interface ClaudeScene {
   description: string;
   durationSeconds: number;
   cameraMovement: string;
   hasProduct: boolean;
-  hasCharacter: boolean;
-  characterName?: string;
-  /** Trait physique du personnage (ex: "corpulent", "très mince") si le script en mentionne un — retenu une seule fois par personnage (première occurrence), intégré dans sa fiche de référence unique. */
-  characterPhysicalState?: string;
+  /** Tous les personnages récurrents détectés automatiquement, apparaissant simultanément dans ce plan (0, 1 ou plus). */
+  characters?: ClaudeSceneCharacter[];
   /** Nom du lieu où se déroule cette scène (ex: "Salle de bain", "Rue"), identique pour toutes les scènes au même endroit. */
   locationName?: string;
   needsFrame: boolean;
@@ -86,6 +90,13 @@ interface ClaudeScene {
 function resolveCharacterAssetId(characterName: string | undefined, characterPhotoId: string | undefined): string {
   if (characterPhotoId) return characterPhotoId;
   return `virtual_${slugify(characterName || "personnage_principal")}`;
+}
+
+/** Trouve la photo de marque correspondant à un nom de personnage détecté (comparaison insensible à la casse/accents via slugify). */
+function findCharacterPhotoByName(brand: Brand | undefined, name: string | undefined) {
+  if (!brand || !name) return undefined;
+  const target = slugify(name);
+  return brand.characterPhotos.find((p) => p.name && slugify(p.name) === target);
 }
 
 /** Identifiant stable de lieu dérivé du nom détecté par Claude — un lieu = une seule référence de décor. */
@@ -137,24 +148,23 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
   }
 
   const productPhoto = brand?.productPhotos[0];
-  const characterPhoto = brand?.characterPhotos[0];
   const rawScenes: ClaudeScene[] = data.scenes ?? [];
   const characterNames: Record<string, string> = {};
   const characterProfiles: Record<string, { physicalState?: string }> = {};
   const locationNames: Record<string, string> = {};
 
   const scenes: Scene[] = rawScenes.map((s, i) => {
-    let characters: string[] = [];
-    if (s.hasCharacter) {
-      const assetId = resolveCharacterAssetId(s.characterName, characterPhoto?.id);
-      characters = [assetId];
+    const characters: string[] = (s.characters ?? []).map((c) => {
+      const characterPhoto = findCharacterPhotoByName(brand, c.name);
+      const assetId = resolveCharacterAssetId(c.name, characterPhoto?.id);
       if (!characterNames[assetId]) {
-        characterNames[assetId] = characterPhoto?.name || s.characterName || "Personnage principal";
+        characterNames[assetId] = characterPhoto?.name || c.name || "Personnage principal";
       }
-      if (!characterProfiles[assetId]?.physicalState && s.characterPhysicalState) {
-        characterProfiles[assetId] = { physicalState: s.characterPhysicalState };
+      if (!characterProfiles[assetId]?.physicalState && c.physicalState) {
+        characterProfiles[assetId] = { physicalState: c.physicalState };
       }
-    }
+      return assetId;
+    });
     const locationId = resolveLocationId(s.locationName);
     if (locationId && !locationNames[locationId]) {
       locationNames[locationId] = s.locationName!;
