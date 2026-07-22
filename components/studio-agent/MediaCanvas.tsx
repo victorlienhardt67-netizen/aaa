@@ -60,7 +60,7 @@ import {
   VIDEO_ENGINE_LABELS as FULL_VIDEO_ENGINE_LABELS,
   VideoEngine,
 } from "@/types";
-import { analyzeBrief } from "@/lib/claude";
+import { analyzeBrief, refineCharacterPrompt } from "@/lib/claude";
 import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage } from "@/lib/fal";
 import { buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
 import { downloadImage, estimateDurationFromWordCount, formatCost, generateId, mapWithConcurrency } from "@/lib/utils";
@@ -856,13 +856,57 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
 }
 
 /** Bloc "Voix off" — liste des répliques détectées, une par frame. */
+/** Calage voix off — estimation (mots) par défaut, ou calée sur la durée réelle d'un fichier audio uploadé. */
 function VoiceOverBlock({ offset, active, onDragStart, measureRef }: DragHandleProps) {
   const currentProject = useProjectStore((s) => s.currentProject);
+  const updateCurrentProject = useProjectStore((s) => s.updateCurrentProject);
+  const updateScene = useProjectStore((s) => s.updateScene);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [applied, setApplied] = useState(false);
+
   const plan = currentProject?.plan;
-  if (!plan) return null;
-  const lines = plan.scenes.filter((s) => s.voiceOver?.text?.trim());
-  if (lines.length === 0) return null;
-  const totalDuration = lines.reduce((sum, s) => sum + estimateDurationFromWordCount(s.voiceOver!.text), 0);
+  const lines = (plan?.scenes ?? []).filter((s) => s.voiceOver?.text?.trim());
+  if (!plan || lines.length === 0) return null;
+
+  const wordCounts = lines.map((s) => Math.max(1, s.voiceOver!.text.trim().split(/\s+/).filter(Boolean).length));
+  const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+  const audioDuration = currentProject?.voiceOverAudioDurationSeconds;
+  const estimatedDuration = lines.reduce((sum, s) => sum + estimateDurationFromWordCount(s.voiceOver!.text), 0);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setError("");
+    setApplied(false);
+    try {
+      const base64 = await fileToBase64(file);
+      const duration = await new Promise<number>((resolve, reject) => {
+        const audio = new Audio();
+        audio.addEventListener("loadedmetadata", () => resolve(audio.duration));
+        audio.addEventListener("error", () => reject(new Error("Fichier audio illisible")));
+        audio.src = base64;
+      });
+      updateCurrentProject({ voiceOverAudioUrl: base64, voiceOverAudioDurationSeconds: duration });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function applyAudioDurations() {
+    if (!audioDuration) return;
+    lines.forEach((s, i) => {
+      const share = wordCounts[i] / totalWords;
+      const durationSeconds = Math.max(1, Math.round(share * audioDuration * 10) / 10);
+      updateScene(s.id, {
+        durationSeconds,
+        durationJustification: "Calé sur la durée réelle du fichier audio voix off (estimation proportionnelle au nombre de mots — pas un timestamp exact).",
+      });
+    });
+    setApplied(true);
+  }
 
   return (
     <div
@@ -885,9 +929,67 @@ function VoiceOverBlock({ offset, active, onDragStart, measureRef }: DragHandleP
           </li>
         ))}
       </ol>
-      <div className="text-[10.5px] text-agent-grn flex items-center gap-1">
-        <Check className="w-3 h-3" /> VO {totalDuration.toFixed(1)}s · durée calée
-      </div>
+
+      {!currentProject?.voiceOverAudioUrl ? (
+        <>
+          <div className="text-[10.5px] text-agent-t2 flex items-center gap-1 mb-2">
+            <Check className="w-3 h-3 text-agent-grn" /> Estimation mots : {estimatedDuration.toFixed(1)}s
+          </div>
+          <p className="text-[9.5px] text-agent-t3 mb-1.5">Tu as le fichier audio final (ex: export ElevenLabs) ? Cale les durées de scène dessus plutôt que sur l&apos;estimation.</p>
+          <button
+            onClick={() => uploadRef.current?.click()}
+            disabled={uploading}
+            className="w-full inline-flex items-center justify-center gap-1.5 text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-s2 border border-dashed border-agent-bd2 text-agent-t2 hover:text-agent-t1 disabled:opacity-40"
+          >
+            <UploadCloud className="w-3.5 h-3.5" /> {uploading ? "Lecture du fichier..." : "Uploader la voix off (MP3)"}
+          </button>
+          {error && <div className="text-[10px] text-red-400 mt-1">{error}</div>}
+          <input
+            ref={uploadRef}
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleUpload(f);
+              e.target.value = "";
+            }}
+          />
+        </>
+      ) : (
+        <div className="space-y-1.5">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <audio src={currentProject.voiceOverAudioUrl} controls className="w-full h-8" />
+          <div className="text-[10.5px] text-agent-t2">
+            Durée réelle : <span className="text-agent-t1 font-medium">{audioDuration?.toFixed(1)}s</span> — estimation mots : {estimatedDuration.toFixed(1)}s
+          </div>
+          <p className="text-[9.5px] text-agent-t3">
+            Durées par scène recalculées au prorata du nombre de mots de chaque fragment — c&apos;est une estimation, pas un timestamp exact. Ajuste ensuite manuellement si besoin.
+          </p>
+          <div className="flex gap-1.5">
+            <button
+              onClick={applyAudioDurations}
+              className="flex-1 inline-flex items-center justify-center gap-1 text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
+            >
+              <Check className="w-3 h-3" /> {applied ? "Ré-appliquer les durées" : "Appliquer ces durées"}
+            </button>
+            <button
+              onClick={() => {
+                updateCurrentProject({ voiceOverAudioUrl: undefined, voiceOverAudioDurationSeconds: undefined });
+                setApplied(false);
+              }}
+              className="text-[10.5px] px-2 py-1.5 rounded bg-agent-s2 border border-agent-bd2 text-agent-t2 hover:text-agent-t1"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+          {applied && (
+            <div className="text-[10.5px] text-agent-grn flex items-center gap-1">
+              <Check className="w-3 h-3" /> Durées de scène mises à jour
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -903,6 +1005,8 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
   const apiKeys = useSettingsStore((s) => s.apiKeys);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [modDrafts, setModDrafts] = useState<Record<string, string>>({});
+  const [refining, setRefining] = useState<Record<string, boolean>>({});
 
   const plan = currentProject?.plan;
   const distinctAssetIds = Array.from(new Set((plan?.scenes ?? []).flatMap((s) => s.characters)));
@@ -958,6 +1062,20 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
     } catch (e) {
       updateCharacterReference(key, { status: "pending" });
       setErrors((prev) => ({ ...prev, [key]: e instanceof Error ? e.message : "Erreur inconnue" }));
+    }
+  }
+
+  async function adjust(key: string, basePrompt: string) {
+    const modification = (modDrafts[key] ?? "").trim();
+    if (!modification) return;
+    setRefining((prev) => ({ ...prev, [key]: true }));
+    try {
+      const refinedPrompt = await refineCharacterPrompt(basePrompt, modification, apiKeys.claudeApiKey);
+      updateCharacterReference(key, { prompt: refinedPrompt });
+      setModDrafts((prev) => ({ ...prev, [key]: "" }));
+      await generate(key, refinedPrompt);
+    } finally {
+      setRefining((prev) => ({ ...prev, [key]: false }));
     }
   }
 
@@ -1023,6 +1141,27 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
                 </span>
               )}
             </div>
+            {ref.sheetUrl && ref.status !== "validated" && (
+              <div className="mt-1.5 pt-1.5 border-t border-agent-bd">
+                <p className="text-[10px] text-agent-t3 mb-1">Satisfait de ce personnage, ou tu veux ajuster quelque chose ?</p>
+                <div className="flex gap-1">
+                  <input
+                    value={modDrafts[key] ?? ""}
+                    onChange={(e) => setModDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder='ex : "trop vieille", "cheveux plus foncés"...'
+                    disabled={refining[key]}
+                    className="flex-1 min-w-0 bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[10.5px] text-agent-t1 placeholder:text-agent-t3"
+                  />
+                  <button
+                    onClick={() => adjust(key, ref.prompt)}
+                    disabled={refining[key] || !(modDrafts[key] ?? "").trim()}
+                    className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-s2 border border-agent-bd2 text-agent-t1 disabled:opacity-40 shrink-0"
+                  >
+                    {refining[key] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />} Ajuster
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

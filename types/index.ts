@@ -327,6 +327,10 @@ export interface Project {
   plan?: ProductionPlan;
   characterReferences?: Record<string, CharacterReference>;
   locationReferences?: Record<string, LocationReference>;
+  /** Fichier audio de voix off uploadé (ex: export ElevenLabs) — sert à caler les durées des scènes sur l'audio réel. */
+  voiceOverAudioUrl?: string;
+  /** Durée totale du fichier audio, en secondes — mesurée via l'API Audio du navigateur au moment de l'upload. */
+  voiceOverAudioDurationSeconds?: number;
   status: ProjectStatus;
   createdAt: string;
   updatedAt: string;
