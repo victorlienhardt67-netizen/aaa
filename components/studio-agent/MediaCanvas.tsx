@@ -18,6 +18,7 @@ import {
   Library,
   MapPin,
   Mic,
+  Package,
   Palette,
   Pencil,
   Plus,
@@ -29,7 +30,9 @@ import {
   Star,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   Tv,
+  UploadCloud,
   User,
   Users,
   Wand2,
@@ -56,7 +59,7 @@ import {
 import { analyzeBrief } from "@/lib/claude";
 import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage } from "@/lib/fal";
 import { buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
-import { downloadImage, estimateDurationFromWordCount, formatCost, mapWithConcurrency } from "@/lib/utils";
+import { downloadImage, estimateDurationFromWordCount, formatCost, generateId, mapWithConcurrency } from "@/lib/utils";
 import { fileToBase64 } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { getReferenceImageInfo } from "@/lib/frameReferences";
@@ -584,7 +587,14 @@ function FrameDrawer({ scene, onClose }: { scene: Scene; onClose: () => void }) 
 }
 
 /** Bloc "Script + cadrage" — première colonne du canvas, remplace l'ancien chat de brief. */
-function ScriptBlock() {
+type DragHandleProps = {
+  offset: { x: number; y: number };
+  active: boolean;
+  onDragStart: (e: ReactPointerEvent) => void;
+  measureRef: (el: HTMLDivElement | null) => void;
+};
+
+function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProps) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const brands = useBrandStore((s) => s.brands);
   const activeBrandId = useBrandStore((s) => s.activeBrandId);
@@ -667,8 +677,16 @@ function ScriptBlock() {
   );
 
   return (
-    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+    <div
+      ref={measureRef}
+      data-card
+      className={cn("relative bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4", active && "z-30 shadow-xl")}
+      style={{ width: CARD_WIDTH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+    >
       <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <button onPointerDown={onDragStart} title="Déplacer" className="cursor-grab active:cursor-grabbing text-agent-t3 hover:text-agent-t1 -ml-0.5">
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         <FileText className="w-3.5 h-3.5 text-agent-acc" /> Script + cadrage
       </div>
       <div className="mb-2">
@@ -758,7 +776,7 @@ function ScriptBlock() {
 }
 
 /** Bloc "Voix off" — liste des répliques détectées, une par frame. */
-function VoiceOverBlock() {
+function VoiceOverBlock({ offset, active, onDragStart, measureRef }: DragHandleProps) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const plan = currentProject?.plan;
   if (!plan) return null;
@@ -767,8 +785,16 @@ function VoiceOverBlock() {
   const totalDuration = lines.reduce((sum, s) => sum + estimateDurationFromWordCount(s.voiceOver!.text), 0);
 
   return (
-    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+    <div
+      ref={measureRef}
+      data-card
+      className={cn("relative bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4", active && "z-30 shadow-xl")}
+      style={{ width: CARD_WIDTH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+    >
       <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <button onPointerDown={onDragStart} title="Déplacer" className="cursor-grab active:cursor-grabbing text-agent-t3 hover:text-agent-t1 -ml-0.5">
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         <Mic className="w-3.5 h-3.5 text-agent-acc" /> Voix off
       </div>
       <ol className="space-y-1.5 mb-2">
@@ -787,7 +813,7 @@ function VoiceOverBlock() {
 }
 
 /** Bloc "Casting" — fiches de référence des personnages (ou objets anthropomorphisés) récurrents. */
-function CastingBlock() {
+function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandleProps) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const setStatus = useProjectStore((s) => s.setStatus);
   const initCharacterReferences = useProjectStore((s) => s.initCharacterReferences);
@@ -800,6 +826,8 @@ function CastingBlock() {
 
   const plan = currentProject?.plan;
   const distinctAssetIds = Array.from(new Set((plan?.scenes ?? []).flatMap((s) => s.characters)));
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
 
   useEffect(() => {
     if (!currentProject || distinctAssetIds.length === 0) return;
@@ -815,9 +843,10 @@ function CastingBlock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject?.id, distinctAssetIds.join(",")]);
 
-  const references = distinctAssetIds
-    .map((assetId) => ({ key: assetId, ref: currentProject?.characterReferences?.[assetId] }))
-    .filter((r): r is { key: string; ref: NonNullable<typeof r.ref> } => !!r.ref);
+  // Toutes les fiches existantes (détectées par Claude + ajoutées manuellement) —
+  // pas seulement celles référencées par une scène, pour que "Claude n'a pas
+  // détecté ce personnage" reste réparable ici sans dépendre du découpage.
+  const references = Object.entries(currentProject?.characterReferences ?? {}).map(([key, ref]) => ({ key, ref }));
   const allValidated = references.length > 0 && references.every((r) => r.ref.status === "validated");
 
   useEffect(() => {
@@ -827,7 +856,17 @@ function CastingBlock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allValidated]);
 
-  if (!currentProject || distinctAssetIds.length === 0) return null;
+  if (!currentProject || !plan) return null;
+
+  function handleManualAdd() {
+    const name = newName.trim();
+    if (!name) return;
+    initCharacterReferences([
+      { assetId: generateId("char"), name, prompt: buildCharacterSheetPrompt(name, style), status: "pending" },
+    ]);
+    setNewName("");
+    setAddOpen(false);
+  }
 
   async function generate(key: string, prompt: string) {
     updateCharacterReference(key, { status: "generating" });
@@ -843,8 +882,16 @@ function CastingBlock() {
   }
 
   return (
-    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+    <div
+      ref={measureRef}
+      data-card
+      className={cn("relative bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4", active && "z-30 shadow-xl")}
+      style={{ width: CARD_WIDTH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+    >
       <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <button onPointerDown={onDragStart} title="Déplacer" className="cursor-grab active:cursor-grabbing text-agent-t3 hover:text-agent-t1 -ml-0.5">
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         <Users className="w-3.5 h-3.5 text-agent-acc" /> Casting
       </div>
       <div className="space-y-2.5">
@@ -899,12 +946,128 @@ function CastingBlock() {
           </div>
         ))}
       </div>
+
+      <div className="mt-2.5 pt-2.5 border-t border-agent-bd">
+        {addOpen ? (
+          <div className="space-y-1.5">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Nom du personnage"
+              autoFocus
+              className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[11px] text-agent-t1 placeholder:text-agent-t3"
+            />
+            <div className="flex gap-1.5">
+              <button onClick={() => setAddOpen(false)} className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-s3 border border-agent-bd2 text-agent-t2">
+                Annuler
+              </button>
+              <button
+                onClick={handleManualAdd}
+                disabled={!newName.trim()}
+                className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+              >
+                Ajouter
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] text-agent-t2 hover:text-agent-t1 px-2 py-1.5 rounded border border-dashed border-agent-bd"
+          >
+            <Plus className="w-3.5 h-3.5" /> Claude a raté un personnage ? Ajouter
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Bloc "Produit" — la photo exacte du produit sert de référence visuelle dans les frames. */
+function ProductBlock({ offset, active, onDragStart, measureRef }: DragHandleProps) {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
+  const addProductPhoto = useBrandStore((s) => s.addProductPhoto);
+  const removeProductPhoto = useBrandStore((s) => s.removeProductPhoto);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  if (!currentProject || !brand) return null;
+  const photo = brand.productPhotos[0];
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    try {
+      const base64 = await fileToBase64(file);
+      addProductPhoto(brand!.id, { url: base64, name: brand!.name });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div
+      ref={measureRef}
+      data-card
+      className={cn("relative bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4", active && "z-30 shadow-xl")}
+      style={{ width: CARD_WIDTH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+    >
+      <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <button onPointerDown={onDragStart} title="Déplacer" className="cursor-grab active:cursor-grabbing text-agent-t3 hover:text-agent-t1 -ml-0.5">
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+        <Package className="w-3.5 h-3.5 text-agent-acc" /> Produit
+      </div>
+      <p className="text-[10px] text-agent-t3 mb-2">
+        La photo exacte du produit sert de référence visuelle — sans elle, l&apos;IA invente son propre packaging.
+      </p>
+      {photo ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photo.url} alt={brand.name} className="w-full rounded mb-2 border border-agent-bd" />
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => uploadRef.current?.click()}
+              disabled={uploading}
+              className="flex-1 text-[10.5px] px-2 py-1.5 rounded bg-agent-s3 border border-agent-bd2 text-agent-t1 disabled:opacity-40"
+            >
+              {uploading ? "Envoi..." : "Remplacer"}
+            </button>
+            <button
+              onClick={() => removeProductPhoto(brand.id, photo.id)}
+              className="p-1.5 rounded bg-red-950/40 border border-red-900/50 text-red-400"
+              title="Retirer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </>
+      ) : (
+        <button
+          onClick={() => uploadRef.current?.click()}
+          disabled={uploading}
+          className="w-full inline-flex items-center justify-center gap-1.5 text-[11.5px] font-medium px-2 py-1.5 rounded bg-agent-acc hover:bg-agent-acc2 text-white disabled:opacity-40"
+        >
+          <UploadCloud className="w-3.5 h-3.5" /> {uploading ? "Envoi..." : "Ajouter une photo produit"}
+        </button>
+      )}
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleUpload(f);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
 
 /** Bloc "Décors" — références de lieux récurrents (optionnel). */
-function DecorBlock() {
+function DecorBlock({ offset, active, onDragStart, measureRef }: DragHandleProps) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const setStatus = useProjectStore((s) => s.setStatus);
   const initLocationReferences = useProjectStore((s) => s.initLocationReferences);
@@ -954,8 +1117,16 @@ function DecorBlock() {
   }
 
   return (
-    <div data-card className="bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4" style={{ width: CARD_WIDTH }}>
+    <div
+      ref={measureRef}
+      data-card
+      className={cn("relative bg-agent-s1 border border-agent-bd rounded-lg p-3 mb-4", active && "z-30 shadow-xl")}
+      style={{ width: CARD_WIDTH, transform: `translate(${offset.x}px, ${offset.y}px)` }}
+    >
       <div className="flex items-center gap-1.5 mb-2 text-[12.5px] font-medium text-agent-t1">
+        <button onPointerDown={onDragStart} title="Déplacer" className="cursor-grab active:cursor-grabbing text-agent-t3 hover:text-agent-t1 -ml-0.5">
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         <MapPin className="w-3.5 h-3.5 text-agent-acc" /> Décors
       </div>
       <div className="space-y-2.5">
@@ -1014,14 +1185,98 @@ function DecorBlock() {
   );
 }
 
-/** Première colonne du canvas : script, voix off, casting et décors, empilés — pas de chat séparé. */
-function FirstColumn() {
+const COL1_GAP = 16; // = mb-4 sur chaque bloc
+
+/**
+ * Première colonne du canvas : script, voix off, casting et décors, empilés —
+ * pas de chat séparé. Chaque bloc est déplaçable comme les cartes de scène, et
+ * une ligne droite (toujours visible, jamais courbe) relie chaque bloc au
+ * suivant puis au premier plan, quelle que soit sa position glissée.
+ */
+function FirstColumn({
+  cardOffsets,
+  activeCardId,
+  onDragStart,
+  measuredHeights,
+  getMeasureRef,
+  firstSceneId,
+}: {
+  cardOffsets: Record<string, { x: number; y: number }>;
+  activeCardId: string | null;
+  onDragStart: (id: string, e: ReactPointerEvent) => void;
+  measuredHeights: Record<string, number>;
+  getMeasureRef: (id: string) => (el: HTMLDivElement | null) => void;
+  firstSceneId?: string;
+}) {
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const plan = currentProject?.plan;
+  const hasVoiceOver = !!plan?.scenes.some((s) => s.voiceOver?.text?.trim());
+  // Casting reste affiché dès qu'un plan existe (pas seulement si Claude a détecté un
+  // personnage) — c'est là qu'on ajoute manuellement un personnage raté par l'analyse.
+  const hasCasting = !!plan;
+  const hasDecor = !!plan && plan.scenes.some((s) => !!s.locationId);
+
+  // Produit : nécessite un projet (donc une marque) déjà créé, comme Casting/Décors.
+  const order = [
+    "script",
+    ...(hasCasting ? ["product"] : []),
+    ...(hasVoiceOver ? ["voiceover"] : []),
+    ...(hasCasting ? ["casting"] : []),
+    ...(hasDecor ? ["decor"] : []),
+  ];
+
+  let cursor = 0;
+  const anchors: Record<string, { top: number; height: number }> = {};
+  for (const key of order) {
+    const h = measuredHeights[key] ?? 140;
+    anchors[key] = { top: cursor, height: h };
+    cursor += h + COL1_GAP;
+  }
+
+  function off(id: string) {
+    return cardOffsets[id] ?? { x: 0, y: 0 };
+  }
+
+  function dragProps(id: string): DragHandleProps {
+    return { offset: off(id), active: activeCardId === id, onDragStart: (e) => onDragStart(id, e), measureRef: getMeasureRef(id) };
+  }
+
+  const sceneImgOffset = firstSceneId ? off(`img-${firstSceneId}`) : { x: 0, y: 0 };
+  const sceneImgHeight = firstSceneId ? measuredHeights[`img-${firstSceneId}`] ?? (CARD_WIDTH * 16) / 9 : 0;
+
   return (
-    <div className="flex flex-col shrink-0" style={{ width: CARD_WIDTH }}>
-      <ScriptBlock />
-      <VoiceOverBlock />
-      <CastingBlock />
-      <DecorBlock />
+    <div className="relative flex flex-col shrink-0" style={{ width: CARD_WIDTH }}>
+      <ScriptBlock {...dragProps("script")} />
+      {hasCasting && <ProductBlock {...dragProps("product")} />}
+      {hasVoiceOver && <VoiceOverBlock {...dragProps("voiceover")} />}
+      {hasCasting && <CastingBlock {...dragProps("casting")} />}
+      {hasDecor && <DecorBlock {...dragProps("decor")} />}
+
+      {order.slice(0, -1).map((key, i) => {
+        const nextKey = order[i + 1];
+        const fromOffset = off(key);
+        const toOffset = off(nextKey);
+        return (
+          <ConnectorLine
+            key={`${key}-${nextKey}`}
+            from={{ x: CARD_WIDTH / 2 + fromOffset.x, y: anchors[key].top + anchors[key].height + fromOffset.y }}
+            to={{ x: CARD_WIDTH / 2 + toOffset.x, y: anchors[nextKey].top + toOffset.y }}
+          />
+        );
+      })}
+
+      {firstSceneId &&
+        order.length > 0 &&
+        (() => {
+          const lastKey = order[order.length - 1];
+          const lastOffset = off(lastKey);
+          return (
+            <ConnectorLine
+              from={{ x: CARD_WIDTH + lastOffset.x, y: anchors[lastKey].top + anchors[lastKey].height / 2 + lastOffset.y }}
+              to={{ x: CARD_WIDTH + 32 + sceneImgOffset.x, y: sceneImgHeight / 2 + sceneImgOffset.y }}
+            />
+          );
+        })()}
     </div>
   );
 }
@@ -1034,6 +1289,7 @@ function ImageCard({
   characters,
   onOpenDrawer,
   onDragStart,
+  measureRef,
 }: {
   scene: Scene;
   offset: { x: number; y: number };
@@ -1042,6 +1298,7 @@ function ImageCard({
   characters: { key: string; name: string; sheetUrl?: string }[];
   onOpenDrawer: () => void;
   onDragStart: (e: ReactPointerEvent) => void;
+  measureRef: (el: HTMLDivElement | null) => void;
 }) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
@@ -1096,6 +1353,7 @@ function ImageCard({
 
   return (
     <div
+      ref={measureRef}
       data-card
       className={cn(
         "bg-agent-s2 border rounded-lg overflow-hidden relative flex flex-col shrink-0",
@@ -1479,9 +1737,32 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
   const [canvasView, setCanvasView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   const [cardOffsets, setCardOffsets] = useState<Record<string, { x: number; y: number }>>({});
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
 
   const plan = currentProject?.plan;
   const style = styles.find((s) => s.id === currentProject?.styleId) ?? styles[0];
+
+  // Mesure la hauteur réelle de chaque bloc/carte (ResizeObserver, non affectée par
+  // le transform pan/zoom du canvas) pour empiler/relier les blocs avec des lignes
+  // toujours justes, même quand leur contenu change de taille (texte, images...).
+  const resizeObserversRef = useRef<Map<string, ResizeObserver>>(new Map());
+  const measureRefCacheRef = useRef<Record<string, (el: HTMLDivElement | null) => void>>({});
+  function getMeasureRef(id: string) {
+    if (!measureRefCacheRef.current[id]) {
+      measureRefCacheRef.current[id] = (el: HTMLDivElement | null) => {
+        resizeObserversRef.current.get(id)?.disconnect();
+        resizeObserversRef.current.delete(id);
+        if (!el) return;
+        const ro = new ResizeObserver((entries) => {
+          const h = entries[0]?.contentRect.height;
+          if (h != null) setMeasuredHeights((prev) => (prev[id] === h ? prev : { ...prev, [id]: h }));
+        });
+        ro.observe(el);
+        resizeObserversRef.current.set(id, ro);
+      };
+    }
+    return measureRefCacheRef.current[id];
+  }
 
   const wheelCleanupRef = useRef<(() => void) | null>(null);
   const boardWrapCallbackRef = (el: HTMLDivElement | null) => {
@@ -1704,21 +1985,25 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
           style={{ transform: `translate(${canvasView.pan.x}px, ${canvasView.pan.y}px) scale(${canvasView.zoom})` }}
         >
           <div className="flex gap-8 p-10 items-start">
-            <FirstColumn />
+            <FirstColumn
+              cardOffsets={cardOffsets}
+              activeCardId={activeCardId}
+              onDragStart={handleCardDragStart}
+              measuredHeights={measuredHeights}
+              getMeasureRef={getMeasureRef}
+              firstSceneId={plan?.scenes[0]?.id}
+            />
             {plan?.scenes.map((scene) => {
               const imgOffset = cardOffsets[`img-${scene.id}`] ?? { x: 0, y: 0 };
               const vidOffset = cardOffsets[`vid-${scene.id}`] ?? { x: 0, y: 0 };
-              const showLine = Math.abs(vidOffset.x) > 4 || Math.abs(vidOffset.y) > 4;
-              const imageCardApproxHeight = (CARD_WIDTH * 16) / 9 + 260;
-              const videoBaseY = imageCardApproxHeight + 24;
+              const imageHeight = measuredHeights[`img-${scene.id}`] ?? (CARD_WIDTH * 16) / 9 + 260;
+              const videoBaseY = imageHeight + 24;
               return (
                 <div key={scene.id} className="relative shrink-0" style={{ width: CARD_WIDTH }}>
-                  {showLine && (
-                    <ConnectorLine
-                      from={{ x: CARD_WIDTH / 2, y: videoBaseY }}
-                      to={{ x: CARD_WIDTH / 2 + vidOffset.x, y: videoBaseY + vidOffset.y }}
-                    />
-                  )}
+                  <ConnectorLine
+                    from={{ x: CARD_WIDTH / 2 + imgOffset.x, y: videoBaseY + imgOffset.y }}
+                    to={{ x: CARD_WIDTH / 2 + vidOffset.x, y: videoBaseY + vidOffset.y }}
+                  />
                   {scene.needsFrame ? (
                     <ImageCard
                       scene={scene}
@@ -1728,6 +2013,7 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
                       characters={characterList}
                       onOpenDrawer={() => setSelectedSceneId(scene.id)}
                       onDragStart={(e) => handleCardDragStart(`img-${scene.id}`, e)}
+                      measureRef={getMeasureRef(`img-${scene.id}`)}
                     />
                   ) : (
                     <div style={{ width: CARD_WIDTH }} className="aspect-[9/16] rounded-lg border border-dashed border-agent-bd flex items-center justify-center text-[10px] text-agent-t3">
