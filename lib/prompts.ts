@@ -116,7 +116,13 @@ RÈGLES OBLIGATOIRES DE PRODUCTION (toutes les frames) :
 - Jamais de vidéo statique
 - DÉTECTION AUTOMATIQUE DES PERSONNAGES (multi-personnages par scène) : repère dans le champ "characters" de chaque frame TOUS les personnages récurrents qui y apparaissent simultanément — 0, 1, 2 ou plus (ex : une cliente ET un médecin dans le même plan) — sans jamais te limiter à un seul si le script en décrit plusieurs ensemble. Détecte-les automatiquement à la lecture du script (noms, descriptions, rôles), même si aucune photo de référence n'a été fournie (leur apparence sera ensuite proposée par génération d'image, à valider avant les frames). Donne à chacun un nom cohérent et identique sur toutes les frames où il apparaît (son prénom s'il est donné, sinon un descriptif court comme "La cliente").
 - RÈGLE CRITIQUE PERSONNAGES : un personnage récurrent = UNE seule fiche de référence visuelle pour tout le script, JAMAIS plusieurs variantes (pas de "avant/après", pas de version alternative). Si le script mentionne un trait physique particulier pour ce personnage (corpulent, très mince, grand, petit...), renseigne-le une seule fois (première scène où il apparaît) — ce trait sera intégré directement dans le prompt de sa fiche unique, comme une caractéristique du personnage, pas comme un état à part.
-- IMPORTANT : pour un personnage déjà référencé, ne redécris JAMAIS son apparence physique FIXE (visage, coiffure, tenue de base) dans imagePrompt — une image de référence validée unique sera injectée pour garder son identité visuelle exacte sur toutes les frames. Décris en revanche librement son action, sa pose, son expression, son état émotionnel du moment, et — si le script montre une transformation avant/après — l'état physique du moment (posture, allure générale) directement dans imagePrompt de cette scène précise, sans jamais changer son nom ni créer de fiche supplémentaire.
+- IMPORTANT : pour un personnage déjà référencé, ne redécris JAMAIS son apparence physique FIXE (visage, coiffure, tenue de base) dans imagePrompt — une image de référence validée unique est injectée automatiquement pour garder son identité visuelle exacte sur toutes les frames, tu n'as rien à faire pour ça. Ce que TU dois systématiquement ajouter par-dessus cette référence : l'état physique ET émotionnel EXACT de ce personnage à CE moment précis du script (jamais un état générique repris d'une frame à l'autre). Exemples concrets : scène avant-produit → "heavily bloated stomach and ankles, tired expression, slouched posture" ; scène après-produit → "slim legs and ankles, radiant smile, upright confident posture". Cet état est déduit par toi-même depuis le brief, jamais demandé à l'utilisateur. Ne jamais changer son nom ni créer de fiche supplémentaire pour représenter un état différent.
+
+AVANT D'ÉCRIRE imagePrompt POUR CHAQUE FRAME, RÉPONDS-TOI (mentalement) À CES 4 QUESTIONS — le prompt final découle de ces réponses, jamais d'une paraphrase brute du script :
+1. État physique/émotionnel : où en est le personnage à CE moment précis (gonflée, fatiguée, soulagée, confiante...) ? → à intégrer par-dessus sa référence (voir règle ci-dessus).
+2. Justification produit : le produit est-il montré/tenu/utilisé/révélé explicitement dans cette phrase précise ? Si non → hasProduct=false, il n'apparaît pas dans cette frame.
+3. Message unique : quelle EST L'UNE chose que cette frame doit communiquer en une seconde ? Tout le reste est supprimé du prompt — pas de surcharge d'éléments qui diluent le message.
+4. Cohérence stylistique : le style visuel décrit reste-t-il identique au reste de la vidéo (pas de dérive de rendu d'une frame à l'autre) ?
 - imagePrompt : c'est à toi, directeur créatif, de décider ce qui rend chaque frame percutante — cadrage, action, décor, ambiance lumineuse. Aucune checklist à cocher : appuie-toi sur ton expertise pour que chaque frame serve précisément le message de son fragment de script (voir règle phrase ↔ visuel), avec un décor qui renforce l'émotion plutôt qu'un fond neutre par défaut. Une bonne frame repose sur : un sujet principal clair et immédiatement identifiable, une émotion lisible en une seconde, une composition qui guide l'œil vers ce qui compte, rien de superflu. Tu ne génères pas ce qui est simplement "logique" par rapport au texte du script — tu génères ce qui va frapper visuellement. Aucun élément n'est placé sans raison.
 - SPLIT-SCREEN / MULTI-PANEL — outil narratif, JAMAIS un format par défaut : n'utilise un split-screen ou une composition multi-panel que lorsque la narration l'exige explicitement (comparaison avant/après, démonstration parallèle, confrontation de deux éléments). Dans tous les autres cas, un cadre unique avec une composition forte est toujours préférable.
 - Pour toute scène de mécanisme scientifique interne (digestion, circulation, drainage...) : décrire UNIQUEMENT comme overlay graphique ou illustration médicale intégrée au décor (ex: "cross-section diagram illustration floating beside the character, medical infographic style") — ne JAMAIS décrire de corps humain nu, semi-transparent ou anatomique réaliste, pour éviter tout déclenchement de filtre de contenu.
@@ -129,6 +135,8 @@ RÈGLES OBLIGATOIRES DE PRODUCTION (toutes les frames) :
 - Chaque frame doit indiquer si une frame de départ (image) est nécessaire (oui par défaut)
 
 TOUJOURS PROPOSER, JAMAIS DÉCIDER SILENCIEUSEMENT : si le script est ambigu ou muet sur un point (état avant/après imprécis, décor non décrit, personnage flou), tu peux et dois combler ce vide par une proposition créative cohérente — mais signale-le explicitement dans pointsVigilance pour que l'utilisateur puisse valider ou corriger, plutôt que de trancher en silence comme si le script l'avait précisé.
+
+RÈGLE GLOBALE — AUCUNE MODIFICATION SANS ACCORD EXPLICITE : tu ne modifies, ne reformules, ni ne remplaces jamais un élément du brief fourni par l'utilisateur (texte, structure, personnage, message) sans l'avoir présenté comme une proposition distincte et signalée. Tu peux proposer, conseiller, suggérer — jamais imposer silencieusement un changement comme s'il faisait partie du script d'origine.
 
 ANALYSE GLOBALE (en plus du découpage en frames) :
 - arcNarratif : classe le script parmi ces types (ou le plus proche) : "villain monologue", "témoignage transformation", "autorité médicale", "storytelling", "éducatif mécanisme"
@@ -153,6 +161,8 @@ export const DEFAULT_GENERATE_HOOKS_SYSTEM_PROMPT = `Tu es un rédacteur publici
 export const DEFAULT_CO_CONSTRUCTION_SYSTEM_PROMPT = `Tu es un directeur artistique senior expert en VSL et publicités vidéo IA, spécialisé notamment dans les marques de compléments alimentaires — quelqu'un qui a produit des centaines d'ads performantes, qui connaît les codes du storytelling publicitaire, les biais cognitifs, les patterns de conversion, et les contraintes techniques de la génération IA.
 
 Ton rôle : réduire à zéro la marge d'ambiguïté avant de lancer la production. La discussion dure le temps nécessaire selon la complexité du brief — pas de limite au nombre d'échanges ni de questions, du moment que chaque question est pertinente et NON DÉDUCTIBLE. Tu ne génères RIEN (aucune image, vidéo, ou plan) pendant cette phase — uniquement de la conversation.
+
+RÈGLE GLOBALE — AUCUNE MODIFICATION SANS ACCORD EXPLICITE : tu ne modifies, ne reformules, ni ne remplaces jamais un élément du brief de l'utilisateur sans le lui avoir présenté comme une proposition distincte et avoir reçu sa validation explicite. Tu peux proposer, conseiller, suggérer de ta propre initiative — jamais imposer silencieusement.
 
 CONNAISSANCE CONTEXTE MARQUES (applique la logique avant/après précise si l'une d'elles est détectée) :
 - LYNAE → rétention d'eau / drainage lymphatique. AVANT : ventre VISUELLEMENT très gonflé, jambes enflées, visage bouffi, teint terne. APRÈS : ventre plat, visage défini, légèreté visible. Erreur critique : une femme mince en AVANT rend le message incompréhensible.
@@ -436,30 +446,55 @@ export function buildImagePrompt(
   style: StylePreset,
   brand: Brand | undefined,
   opts: {
-    hasCharacterReference?: boolean;
+    /** Nombre d'images de référence personnage réellement passées en premier dans image_urls (0 si aucune). */
+    characterReferenceCount?: number;
     hasProductReference?: boolean;
     hasLocationReference?: boolean;
     customRules?: string;
   } = {}
 ): string {
   const brandNote = brand ? `Produit : ${brand.name}. ${brand.generationNotes || ""}`.trim() : "";
-  const referenceNotes = [
-    opts.hasCharacterReference &&
-      "Reference image provided for the main character — same character, unchanged appearance, do not alter face, hair or identity, describe only action/expression/posture for this shot.",
-    opts.hasProductReference &&
-      "Reference image provided for the product — reproduce this exact bottle/packaging's shape, cap and label design faithfully, do not redesign or reinvent its identity. If the visual style is not photorealistic (paper-cut, claymation, 3D cartoon...), render the product's material/texture in that same style rather than as a plain photo pasted onto a stylized scene.",
-    opts.hasLocationReference &&
-      "Reference image provided for the background location — reproduce this exact location/setting faithfully, same layout, same key visual elements, do not redesign the background.",
-  ]
-    .filter(Boolean)
-    .join(" ");
+
+  // Les images de référence sont toujours passées dans cet ordre exact
+  // (voir getReferenceImageInfo) : personnages, puis décor, puis produit.
+  // Les numéroter explicitement évite au modèle de deviner laquelle est
+  // laquelle quand plusieurs références sont fournies dans le même appel —
+  // sans ça, le produit (souvent la dernière image, la plus petite/discrète)
+  // est fréquemment ignoré au profit des références personnage/décor.
+  const charCount = opts.characterReferenceCount ?? 0;
+  let nextIndex = 1;
+  const referenceNotes: string[] = [];
+  if (charCount === 1) {
+    referenceNotes.push(
+      `Reference image ${nextIndex}: the main character — same character, unchanged appearance, do not alter face, hair or identity, describe only action/expression/posture for this shot.`
+    );
+    nextIndex += 1;
+  } else if (charCount > 1) {
+    referenceNotes.push(
+      `Reference images ${nextIndex}-${nextIndex + charCount - 1}: the characters appearing in this scene, each in their own reference image — keep each character's own exact identity as shown, unchanged appearance, do not alter faces, hair or identities, do not merge or swap them, describe only action/expression/posture for this shot.`
+    );
+    nextIndex += charCount;
+  }
+  if (opts.hasLocationReference) {
+    referenceNotes.push(
+      `Reference image ${nextIndex}: the background location — reproduce this exact location/setting faithfully, same layout, same key visual elements, do not redesign the background.`
+    );
+    nextIndex += 1;
+  }
+  if (opts.hasProductReference) {
+    referenceNotes.push(
+      `Reference image ${nextIndex}: the product — this image MUST be reflected in the frame, reproduce this exact bottle/packaging's shape, cap and label design faithfully, do not redesign, reinvent or omit it. If the visual style is not photorealistic (paper-cut, claymation, 3D cartoon...), render the product's material/texture in that same style rather than as a plain photo pasted onto a stylized scene.`
+    );
+    nextIndex += 1;
+  }
+  const referenceNotesText = referenceNotes.join(" ");
 
   return [
     `${style.positivePrompt},`, // BLOC 1 — ancre de style
     "FULL SCREEN vertical 9:16, no black bars, no borders, no letterbox,", // BLOC 2 — format
     scene.imagePrompt, // BLOC 3-5 — personnage/cadrage/action/décor/ambiance
     brandNote,
-    referenceNotes, // BLOC 6 — éléments supplémentaires
+    referenceNotesText, // BLOC 6 — éléments supplémentaires
     `${pickCameraGear(scene.imagePrompt)}. High-end health and wellness advertisement, professional editorial quality.`, // matériel photo + contexte d'usage
     `Règles obligatoires :\n${buildMandatoryImageRules(opts.customRules)}`, // BLOC 7 — négatifs
     `À éviter absolument : ${style.negativePrompt}.`,

@@ -27,10 +27,12 @@ export async function generateSceneVideo(params: {
   characterNames: Record<string, string> | undefined;
   learningEntries: LearningEntry[];
   apiKey: string;
+  /** true si le projet a un fichier audio voix off calé (VoiceOverBlock) — la durée de scène vient alors de ce calage réel, jamais de l'estimation mots. */
+  audioCalibrated?: boolean;
   updateScene: (sceneId: string, patch: Partial<Scene>) => void;
   recalcTotalCost: () => void;
 }) {
-  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, learningEntries, apiKey, updateScene, recalcTotalCost } = params;
+  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, learningEntries, apiKey, audioCalibrated, updateScene, recalcTotalCost } = params;
   updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
   const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
   const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType);
@@ -48,12 +50,14 @@ export async function generateSceneVideo(params: {
   ]
     .filter(Boolean)
     .join(" ");
-  // Règle Grok FR : la durée est toujours calculée et fixée explicitement
-  // depuis le nombre de mots du dialogue (÷2,5) — jamais laissée à Grok.
+  // Règle Grok FR : à défaut de calage audio réel, la durée est calculée et
+  // fixée depuis le nombre de mots du dialogue (÷2,5) — jamais laissée à
+  // Grok. Si un fichier audio voix off a été calé (VoiceOverBlock), sa
+  // durée réelle est plus fiable que cette estimation : ne jamais l'écraser.
   const hasSpeech =
     (scene.voiceType === "voiceover" || scene.voiceType === "lipsync") && !!scene.voiceOver?.text?.trim();
   const durationSeconds =
-    lang === "fr" && engine === "grok_video" && hasSpeech
+    lang === "fr" && engine === "grok_video" && hasSpeech && !audioCalibrated
       ? estimateDurationFromWordCount(scene.voiceOver!.text)
       : scene.durationSeconds;
   if (durationSeconds !== scene.durationSeconds) {

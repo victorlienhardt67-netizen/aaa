@@ -533,13 +533,13 @@ function FrameDrawer({ scene, onClose }: { scene: Scene; onClose: () => void }) 
 
   async function runGeneration(prompt: string) {
     updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined });
-    const { urls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
+    const { urls, characterReferenceCount, hasProductReference, hasLocationReference } = await getReferenceImageInfo(
       scene,
       currentProject ?? undefined,
       brand
     );
     const fullPrompt = buildImagePrompt({ imagePrompt: prompt }, style, brand, {
-      hasCharacterReference,
+      characterReferenceCount,
       hasProductReference,
       hasLocationReference,
       customRules: mandatoryImageRules,
@@ -1542,7 +1542,7 @@ function ImageCard({
 
   async function regenerate() {
     updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined, customVision: visionDraft.trim() || undefined });
-    const { urls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
+    const { urls, characterReferenceCount, hasProductReference, hasLocationReference } = await getReferenceImageInfo(
       scene,
       currentProject ?? undefined,
       brand
@@ -1556,7 +1556,7 @@ function ImageCard({
       .filter(Boolean)
       .join("\n\n");
     const fullPrompt = buildImagePrompt({ imagePrompt: imagePromptWithVision }, style, brand, {
-      hasCharacterReference,
+      characterReferenceCount,
       hasProductReference,
       hasLocationReference,
       customRules: mandatoryImageRules,
@@ -1789,6 +1789,7 @@ function VideoCard({
       characterNames: currentProject?.plan?.characterNames,
       learningEntries,
       apiKey: apiKeys.falApiKey,
+      audioCalibrated: !!currentProject?.voiceOverAudioUrl,
       updateScene,
       recalcTotalCost,
     });
@@ -2087,13 +2088,13 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
 
   async function generateFrame(scene: Scene) {
     updateScene(scene.id, { frameStatus: "frame_generating", frameError: undefined });
-    const { urls, hasCharacterReference, hasProductReference, hasLocationReference } = getReferenceImageInfo(
+    const { urls, characterReferenceCount, hasProductReference, hasLocationReference } = await getReferenceImageInfo(
       scene,
       currentProject ?? undefined,
       brand
     );
     const fullPrompt = buildImagePrompt({ imagePrompt: scene.imagePrompt }, style, brand, {
-      hasCharacterReference,
+      characterReferenceCount,
       hasProductReference,
       hasLocationReference,
       customRules: mandatoryImageRules,
@@ -2124,6 +2125,7 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
       characterNames: plan!.characterNames,
       learningEntries,
       apiKey: apiKeys.falApiKey,
+      audioCalibrated: !!currentProject?.voiceOverAudioUrl,
       updateScene,
       recalcTotalCost,
     });
