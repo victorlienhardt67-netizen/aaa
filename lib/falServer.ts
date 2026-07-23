@@ -129,6 +129,25 @@ export function buildNanoBananaInput(params: { prompt: string }) {
 }
 
 /**
+ * Wizper = Whisper v3 optimisé par fal.ai (même modèle, inférence plus
+ * rapide) — utilisé pour transcrire la voix off uploadée avec des timestamps
+ * mot par mot (chunk_level: "word"), afin de caler chaque scène sur sa durée
+ * réelle exacte plutôt qu'une estimation par nombre de mots.
+ * Schéma vérifié via la documentation fal.ai (2026) : audio_url, task,
+ * chunk_level, language ; sortie = { text, chunks: [{ text, timestamp: [start, end] }] }.
+ */
+export const WIZPER_MODEL_ID = "fal-ai/wizper";
+
+export function buildWizperInput(params: { audioUrl: string }) {
+  return {
+    audio_url: params.audioUrl,
+    task: "transcribe",
+    chunk_level: "word",
+    language: null,
+  };
+}
+
+/**
  * Variante "edit" standard de Nano Banana (jamais la version pro) — prend des
  * images de référence (image_urls) en plus du prompt, pour garder un
  * personnage visuellement cohérent d'une frame à l'autre.

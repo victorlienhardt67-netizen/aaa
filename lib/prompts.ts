@@ -35,8 +35,10 @@ export function buildVoiceDirective(
 
   if (voiceType === "lipsync" && hasText) {
     const text = lang === "fr" ? applyFrenchPhoneticTransform(voiceOver!.text.trim()) : voiceOver!.text.trim();
-    const voiceLabel = lang === "fr" ? "French" : "English";
-    return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. Clear ${voiceLabel} voice: "${text}".`;
+    if (lang === "fr") {
+      return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. The character must speak in correct, natural, fluent Parisian French — proper French pronunciation and intonation, not an approximate or accented reading: "${text}".`;
+    }
+    return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. Clear English voice: "${text}".`;
   }
 
   if ((voiceType === "voiceover" || voiceType === undefined) && lang === "fr" && hasText) {

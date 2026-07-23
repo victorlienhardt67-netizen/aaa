@@ -61,9 +61,16 @@ import {
   VideoEngine,
 } from "@/types";
 import { analyzeBrief, refineCharacterPrompt } from "@/lib/claude";
-import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage } from "@/lib/fal";
+import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage, falTranscribeAudio, type FalTranscriptWord } from "@/lib/fal";
 import { buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
-import { downloadImage, estimateDurationFromWordCount, formatCost, generateId, mapWithConcurrency } from "@/lib/utils";
+import {
+  alignScenesToTranscriptWords,
+  downloadImage,
+  estimateDurationFromWordCount,
+  formatCost,
+  generateId,
+  mapWithConcurrency,
+} from "@/lib/utils";
 import { fileToBase64 } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { getReferenceImageInfo } from "@/lib/frameReferences";
@@ -694,6 +701,33 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
   const [brief, setBrief] = useState(currentProject?.brief ?? "");
   const [analyzing, setAnalyzing] = useState(false);
 
+  // Même course de réhydratation que pour brandId ci-dessous : au tout premier
+  // rendu (juste après un rechargement de page), le store zustand persist n'a
+  // pas encore fini de relire localStorage — brief/lang/styleId se figaient
+  // alors sur des valeurs vides au lieu du projet réellement en cours, faisant
+  // croire à une perte de projet alors que la donnée réelle était intacte
+  // (juste jamais réaffichée). Ces refs empêchent la resynchronisation dès que
+  // l'utilisateur modifie lui-même le champ concerné.
+  const briefTouchedRef = useRef(false);
+  const langTouchedRef = useRef(false);
+  const styleTouchedRef = useRef(false);
+
+  useEffect(() => {
+    if (briefTouchedRef.current) return;
+    if (currentProject?.brief !== undefined && currentProject.brief !== brief) setBrief(currentProject.brief);
+  }, [brief, currentProject?.brief]);
+
+  useEffect(() => {
+    if (langTouchedRef.current) return;
+    const resolved = currentProject?.lang ?? settings.defaultLang;
+    if (resolved && resolved !== lang) setLang(resolved);
+  }, [lang, currentProject?.lang, settings.defaultLang]);
+
+  useEffect(() => {
+    if (styleTouchedRef.current) return;
+    if (currentProject?.styleId && currentProject.styleId !== styleId) setStyleId(currentProject.styleId);
+  }, [styleId, currentProject?.styleId]);
+
   // Voix off optionnelle fournie dès le brief (avant même l'analyse) : sa
   // durée réelle sert à caler le nombre de frames et le rythme de la vidéo,
   // au lieu de la durée cible fixe de 60s utilisée par défaut.
@@ -701,6 +735,22 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
   const [voAudioDuration, setVoAudioDuration] = useState<number | undefined>(currentProject?.voiceOverAudioDurationSeconds);
   const [voAudioUploading, setVoAudioUploading] = useState(false);
   const [voAudioError, setVoAudioError] = useState("");
+  const voAudioTouchedRef = useRef(false);
+
+  useEffect(() => {
+    if (voAudioTouchedRef.current) return;
+    if (currentProject?.voiceOverAudioUrl && currentProject.voiceOverAudioUrl !== voAudioUrl) {
+      setVoAudioUrl(currentProject.voiceOverAudioUrl);
+      setVoAudioDuration(currentProject.voiceOverAudioDurationSeconds);
+    }
+  }, [voAudioUrl, currentProject?.voiceOverAudioUrl, currentProject?.voiceOverAudioDurationSeconds]);
+  // Transcription Whisper (mot par mot) — permet de caler chaque scène sur sa
+  // durée réelle exacte plutôt qu'une estimation par nombre de mots. Optionnelle :
+  // si elle échoue (pas de clé fal.ai, modèle indisponible...), on retombe sur
+  // l'estimation par mots sans bloquer l'upload de l'audio lui-même.
+  const [voTranscriptWords, setVoTranscriptWords] = useState<FalTranscriptWord[] | undefined>(undefined);
+  const [voTranscribing, setVoTranscribing] = useState(false);
+  const [voTranscriptError, setVoTranscriptError] = useState("");
   const voAudioInputRef = useRef<HTMLInputElement>(null);
 
   // Type de narration : par défaut Claude détecte scène par scène (gère déjà
@@ -709,8 +759,11 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
   const [narrationType, setNarrationType] = useState<"auto" | "voiceover" | "lipsync" | "hybrid">("auto");
 
   async function handleVoAudioUpload(file: File) {
+    voAudioTouchedRef.current = true;
     setVoAudioUploading(true);
     setVoAudioError("");
+    setVoTranscriptWords(undefined);
+    setVoTranscriptError("");
     try {
       const base64 = await fileToBase64(file);
       const duration = await new Promise<number>((resolve, reject) => {
@@ -722,6 +775,20 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
       setVoAudioUrl(base64);
       setVoAudioDuration(duration);
       if (currentProject) updateCurrentProject({ voiceOverAudioUrl: base64, voiceOverAudioDurationSeconds: duration });
+
+      setVoTranscribing(true);
+      try {
+        const transcription = await falTranscribeAudio(base64, apiKeys.falApiKey);
+        setVoTranscriptWords(transcription.words);
+      } catch (transcriptionError) {
+        setVoTranscriptError(
+          transcriptionError instanceof Error
+            ? transcriptionError.message
+            : "Transcription Whisper indisponible"
+        );
+      } finally {
+        setVoTranscribing(false);
+      }
     } catch (e) {
       setVoAudioError(e instanceof Error ? e.message : "Erreur inconnue");
     } finally {
@@ -801,8 +868,20 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
       // Calage automatique des durées de scène sur la voix off fournie au
       // brief — même calcul que le bouton "Appliquer ces durées" du bloc Voix
       // off, mais appliqué d'emblée pour ne pas obliger à ré-uploader le
-      // fichier une seconde fois une fois le plan généré.
-      if (voAudioDuration) {
+      // fichier une seconde fois une fois le plan généré. Priorité à
+      // l'alignement Whisper mot par mot (timestamps réels) quand disponible,
+      // sinon repli sur l'estimation proportionnelle au nombre de mots.
+      if (voTranscriptWords && voTranscriptWords.length > 0) {
+        const aligned = alignScenesToTranscriptWords(producedPlan.scenes, voTranscriptWords);
+        aligned.forEach(({ sceneId, startSeconds, endSeconds }) => {
+          const durationSeconds = Math.max(1, Math.round((endSeconds - startSeconds) * 10) / 10);
+          updateScene(sceneId, {
+            durationSeconds,
+            durationJustification:
+              "Calé sur la transcription Whisper exacte du fichier audio (timestamps réels, alignement séquentiel mot à mot).",
+          });
+        });
+      } else if (voAudioDuration) {
         const linesWithVo = producedPlan.scenes.filter((s) => s.voiceOver?.text?.trim());
         if (linesWithVo.length > 0) {
           const wordCounts = linesWithVo.map((s) => Math.max(1, s.voiceOver!.text.trim().split(/\s+/).filter(Boolean).length));
@@ -843,12 +922,21 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
         <FileText className="w-3.5 h-3.5 text-agent-acc" /> Script + cadrage
       </div>
       <div className="mb-2">
-        <StylePickerBlock styleId={styleId} onSelect={setStyleId} />
+        <StylePickerBlock
+          styleId={styleId}
+          onSelect={(id) => {
+            styleTouchedRef.current = true;
+            setStyleId(id);
+          }}
+        />
       </div>
       <textarea
         rows={6}
         value={brief}
-        onChange={(e) => setBrief(e.target.value)}
+        onChange={(e) => {
+          briefTouchedRef.current = true;
+          setBrief(e.target.value);
+        }}
         placeholder="Colle ton script complet..."
         className="w-full bg-agent-s3 border border-agent-bd rounded-md p-2 text-[11.5px] text-agent-t1 placeholder:text-agent-t3 focus:outline-none focus:border-agent-acc resize-none mb-2"
       />
@@ -871,7 +959,10 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
           {(["fr", "en"] as Lang[]).map((l) => (
             <button
               key={l}
-              onClick={() => setLang(l)}
+              onClick={() => {
+                langTouchedRef.current = true;
+                setLang(l);
+              }}
               className={cn("px-2 py-1 text-[10.5px] uppercase", lang === l ? "bg-agent-acc text-white" : "text-agent-t2")}
             >
               {l}
@@ -905,21 +996,39 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
             />
           </>
         ) : (
-          <div className="flex items-center gap-1.5 text-[10.5px] text-agent-grn bg-agent-s3 border border-agent-bd rounded px-2 py-1.5">
-            <Check className="w-3 h-3 shrink-0" />
-            <span className="flex-1 min-w-0">
-              Audio fourni : {voAudioDuration?.toFixed(1)}s — nombre de frames et rythme calés dessus.
-            </span>
-            <button
-              onClick={() => {
-                setVoAudioUrl(undefined);
-                setVoAudioDuration(undefined);
-                if (currentProject) updateCurrentProject({ voiceOverAudioUrl: undefined, voiceOverAudioDurationSeconds: undefined });
-              }}
-              className="text-agent-t3 hover:text-agent-t1 shrink-0"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-[10.5px] text-agent-grn bg-agent-s3 border border-agent-bd rounded px-2 py-1.5">
+              <Check className="w-3 h-3 shrink-0" />
+              <span className="flex-1 min-w-0">
+                Audio fourni : {voAudioDuration?.toFixed(1)}s — nombre de frames et rythme calés dessus.
+              </span>
+              <button
+                onClick={() => {
+                  voAudioTouchedRef.current = true;
+                  setVoAudioUrl(undefined);
+                  setVoAudioDuration(undefined);
+                  setVoTranscriptWords(undefined);
+                  setVoTranscriptError("");
+                  if (currentProject) updateCurrentProject({ voiceOverAudioUrl: undefined, voiceOverAudioDurationSeconds: undefined });
+                }}
+                className="text-agent-t3 hover:text-agent-t1 shrink-0"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+            {voTranscribing && (
+              <p className="text-[9.5px] text-agent-t3">Transcription Whisper en cours (calage exact mot par mot)...</p>
+            )}
+            {!voTranscribing && voTranscriptWords && voTranscriptWords.length > 0 && (
+              <p className="text-[9.5px] text-agent-grn">
+                Transcription Whisper obtenue ({voTranscriptWords.length} mots) — les durées de scène seront calées sur les timestamps exacts.
+              </p>
+            )}
+            {!voTranscribing && voTranscriptError && (
+              <p className="text-[9.5px] text-agent-amb">
+                Transcription Whisper indisponible ({voTranscriptError}) — repli sur l&apos;estimation par nombre de mots.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -1907,6 +2016,9 @@ function VideoCard({
 
   const isGenerating = scene.videoStatus === "video_generating";
   const isValidated = scene.videoStatus === "video_validated";
+  // L'utilisateur peut forcer Kling ou Grok pour CETTE vidéo précise, en plus
+  // du routage automatique par langue — undefined = suit le routage par défaut.
+  const effectiveEngine = scene.videoEngineOverride ?? engine;
 
   async function runGeneration() {
     updateScene(scene.id, { customVideoVision: videoVisionDraft.trim() || undefined });
@@ -1917,7 +2029,7 @@ function VideoCard({
       scene,
       prompt: promptWithVision,
       style,
-      engine,
+      engine: effectiveEngine,
       lang,
       motionIntensity,
       mandatoryVideoRules,
@@ -1948,11 +2060,24 @@ function VideoCard({
         <GripVertical className="w-3.5 h-3.5" />
       </button>
 
-      <div className="flex items-center justify-between px-2.5 pt-2.5 pb-1.5">
-        <span className="text-[11px] font-medium text-agent-t1">Vidéo · SC-{String(scene.index).padStart(2, "0")}</span>
-        <span className="text-[10px] text-agent-t3">
-          {VIDEO_ENGINE_LABELS[engine] ?? engine} · {scene.durationSeconds}s
-        </span>
+      <div className="flex items-center justify-between px-2.5 pt-2.5 pb-1.5 gap-1.5">
+        <span className="text-[11px] font-medium text-agent-t1 shrink-0">Vidéo · SC-{String(scene.index).padStart(2, "0")}</span>
+        <div className="flex items-center gap-1">
+          <select
+            value={scene.videoEngineOverride ?? "auto"}
+            onChange={(e) => {
+              const v = e.target.value;
+              updateScene(scene.id, { videoEngineOverride: v === "auto" ? undefined : (v as VideoEngine) });
+            }}
+            title="Forcer le moteur vidéo pour cette scène précise"
+            className="text-[10px] bg-agent-s3 border border-agent-bd rounded px-1 py-0.5 text-agent-t2"
+          >
+            <option value="auto">Auto ({VIDEO_ENGINE_LABELS[engine] ?? engine})</option>
+            <option value="kling_3_0">Kling 3.0</option>
+            <option value="grok_video">Grok Video</option>
+          </select>
+          <span className="text-[10px] text-agent-t3 shrink-0">{scene.durationSeconds}s</span>
+        </div>
       </div>
 
       <div className="px-2.5 pb-1.5">
@@ -2253,7 +2378,7 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
       scene,
       prompt: scene.videoPrompt,
       style,
-      engine,
+      engine: scene.videoEngineOverride ?? engine,
       lang,
       motionIntensity,
       mandatoryVideoRules,

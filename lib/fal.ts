@@ -148,3 +148,42 @@ export function autoRouteVideoEngine(lang: "fr" | "en"): VideoEngine {
 export function autoRouteImageEngine(): ImageEngine {
   return "nano_banana";
 }
+
+export interface FalTranscriptWord {
+  text: string;
+  startSeconds: number;
+  endSeconds: number;
+}
+
+export interface FalTranscriptionResult {
+  text: string;
+  words: FalTranscriptWord[];
+}
+
+/**
+ * Transcrit un fichier audio (voix off) via Wizper (Whisper v3, fal.ai) avec
+ * un timestamp par mot — sert à caler la durée de chaque scène sur le rythme
+ * réel de la voix enregistrée (pauses, débit variable), plutôt qu'une
+ * estimation par nombre de mots ÷ débit moyen.
+ */
+export async function falTranscribeAudio(audioUrl: string, apiKey?: string): Promise<FalTranscriptionResult> {
+  if (!apiKey) {
+    throw new Error("Clé API fal.ai manquante — ajoute-la dans Réglages pour transcrire la voix off.");
+  }
+  const submitRes = await fetch("/api/fal/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ apiKey, kind: "audio", audioUrl }),
+  });
+  const submitData = await submitRes.json();
+  if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
+
+  const result = await pollFalJob(submitData, apiKey);
+  const rawChunks =
+    (result?.chunks as Array<{ text?: string; timestamp?: [number, number] }> | undefined) ?? [];
+  const words: FalTranscriptWord[] = rawChunks
+    .filter((c): c is { text: string; timestamp: [number, number] } => !!c.text?.trim() && Array.isArray(c.timestamp) && c.timestamp.length === 2)
+    .map((c) => ({ text: c.text.trim(), startSeconds: c.timestamp[0], endSeconds: c.timestamp[1] }));
+
+  return { text: (result?.text as string) ?? "", words };
+}

@@ -220,6 +220,8 @@ export interface Scene {
   imageCostEstimate?: number;
   /** Message d'erreur si le dernier appel fal.ai a échoué — jamais de vidéo simulée en remplacement. */
   videoError?: string;
+  /** Force le moteur vidéo pour CETTE scène précise, au lieu du routage automatique (langue) du projet — undefined = suit le routage par défaut. */
+  videoEngineOverride?: VideoEngine;
 
   feedback?: SceneFeedback;
 }

@@ -84,6 +84,38 @@ export function estimateDurationFromWordCount(text: string): number {
 }
 
 /**
+ * Aligne chaque scène ayant une voix off sur des timestamps mot-par-mot réels
+ * (transcription Whisper/Wizper du fichier audio), en supposant que les mots
+ * de chaque scène apparaissent dans le même ordre dans le fichier audio que
+ * dans le texte du script — hypothèse raisonnable puisque la voix off est
+ * censée être l'enregistrement de ce même script, mais qui reste une
+ * heuristique (pas un alignement sémantique) : une transcription imparfaite
+ * ou un texte de scène qui diverge du script réellement dit peut décaler
+ * légèrement l'alignement des scènes suivantes.
+ */
+export function alignScenesToTranscriptWords<T extends { id: string; voiceOver?: { text: string } }>(
+  scenes: T[],
+  words: { text: string; startSeconds: number; endSeconds: number }[]
+): { sceneId: string; startSeconds: number; endSeconds: number }[] {
+  const results: { sceneId: string; startSeconds: number; endSeconds: number }[] = [];
+  let cursor = 0;
+  for (const scene of scenes) {
+    const voText = scene.voiceOver?.text?.trim();
+    if (!voText) continue;
+    const sceneWordCount = voText.split(/\s+/).filter(Boolean).length;
+    const consumed = words.slice(cursor, cursor + sceneWordCount);
+    if (consumed.length === 0) continue;
+    results.push({
+      sceneId: scene.id,
+      startSeconds: consumed[0].startSeconds,
+      endSeconds: consumed[consumed.length - 1].endSeconds,
+    });
+    cursor += sceneWordCount;
+  }
+  return results;
+}
+
+/**
  * Exécute `fn` sur chaque élément avec au maximum `limit` appels simultanés —
  * évite de saturer la file d'attente fal.ai quand on génère beaucoup de
  * frames en parallèle (ex: "Générer toutes les frames" sur un plan de 30 plans).

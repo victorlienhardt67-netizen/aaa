@@ -29,8 +29,8 @@ export function AgentTopbar({ onNewProduction }: { onNewProduction: () => void }
   return (
     <header className="h-14 shrink-0 border-b border-agent-bd bg-agent-s1 flex items-center px-5 gap-5">
       <div className="flex items-center gap-2 shrink-0">
-        <span className="font-semibold text-[15px] tracking-tight text-agent-t1">Ad</span>
-        <span className="font-semibold text-[15px] tracking-tight text-agent-acc">Agent</span>
+        <span className="font-semibold text-[15px] tracking-tight text-agent-t1">Golddust</span>
+        <span className="font-semibold text-[15px] tracking-tight text-agent-acc">Studio</span>
       </div>
 
       {currentProject && (
