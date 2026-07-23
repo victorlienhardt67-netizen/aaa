@@ -74,8 +74,8 @@ interface VideoModelConfig {
 
 /**
  * Moteurs vidéo réellement branchés à un modèle fal.ai + leur mapping d'input.
- * Kling 3.0 et Grok Video sont câblés — Wan 2.6 et Seedance 2.0 restent
- * simulés tant que leur schéma exact n'est pas confirmé.
+ * Kling 3.0 et Grok Video sont câblés — Seedance 2.0 reste simulé tant
+ * que son schéma exact n'est pas confirmé.
  */
 export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
   kling_3_0: {

@@ -1,4 +1,4 @@
-// Client fal.ai — Kling 3.0, Grok Video, Wan 2.6, Seedance 2.0 (vidéo) + Nano Banana (image)
+// Client fal.ai — Kling 3.0, Grok Video, Seedance 2.0 (vidéo) + Nano Banana (image)
 // Kling 3.0, Grok Video et Nano Banana sont branchés sur la vraie API fal.ai
 // (voir /api/fal/*). Aucun repli simulé : sans clé, ou en cas d'échec réel,
 // l'appel lève une erreur affichée telle quelle dans l'UI (jamais de frame

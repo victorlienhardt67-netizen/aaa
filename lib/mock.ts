@@ -77,7 +77,6 @@ export function estimateVideoCost(engine: string, durationSeconds: number): numb
   const perSecond: Record<string, number> = {
     kling_3_0: 0.45,
     grok_video: 0.4,
-    wan_2_6: 0.35,
     seedance_2_0: 0.5,
     auto: 0.4,
   };

@@ -44,7 +44,7 @@ export interface Brand {
 }
 
 export type ImageEngine = "auto" | "nano_banana" | "flux_pro" | "ideogram_v3";
-export type VideoEngine = "auto" | "kling_3_0" | "grok_video" | "wan_2_6" | "seedance_2_0";
+export type VideoEngine = "auto" | "kling_3_0" | "grok_video" | "seedance_2_0";
 
 export const IMAGE_ENGINE_LABELS: Record<ImageEngine, string> = {
   auto: "Auto",
@@ -57,7 +57,6 @@ export const VIDEO_ENGINE_LABELS: Record<VideoEngine, string> = {
   auto: "Auto",
   kling_3_0: "Kling 3.0",
   grok_video: "Grok Video",
-  wan_2_6: "Wan 2.6",
   seedance_2_0: "Seedance 2.0",
 };
 

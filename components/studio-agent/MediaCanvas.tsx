@@ -90,7 +90,6 @@ const VIDEO_ENGINE_LABELS: Record<string, string> = {
   auto: "Auto",
   kling_3_0: "Kling",
   grok_video: "Grok",
-  wan_2_6: "Wan",
   seedance_2_0: "Seedance",
 };
 
