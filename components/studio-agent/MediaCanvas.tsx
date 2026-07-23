@@ -685,6 +685,7 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
   const learningEntries = useLearningStore((s) => s.entries);
   const initProject = useProjectStore((s) => s.initProject);
   const updateCurrentProject = useProjectStore((s) => s.updateCurrentProject);
+  const updateScene = useProjectStore((s) => s.updateScene);
   const setStatus = useProjectStore((s) => s.setStatus);
 
   const [brandId, setBrandId] = useState(currentProject?.brandId ?? activeBrandId ?? brands[0]?.id ?? "");
@@ -693,9 +694,55 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
   const [brief, setBrief] = useState(currentProject?.brief ?? "");
   const [analyzing, setAnalyzing] = useState(false);
 
+  // Voix off optionnelle fournie dès le brief (avant même l'analyse) : sa
+  // durée réelle sert à caler le nombre de frames et le rythme de la vidéo,
+  // au lieu de la durée cible fixe de 60s utilisée par défaut.
+  const [voAudioUrl, setVoAudioUrl] = useState<string | undefined>(currentProject?.voiceOverAudioUrl);
+  const [voAudioDuration, setVoAudioDuration] = useState<number | undefined>(currentProject?.voiceOverAudioDurationSeconds);
+  const [voAudioUploading, setVoAudioUploading] = useState(false);
+  const [voAudioError, setVoAudioError] = useState("");
+  const voAudioInputRef = useRef<HTMLInputElement>(null);
+
+  // Type de narration : par défaut Claude détecte scène par scène (gère déjà
+  // nativement les runs mixtes) — cette valeur ne force une contrainte que si
+  // l'utilisateur choisit explicitement autre chose que "auto".
+  const [narrationType, setNarrationType] = useState<"auto" | "voiceover" | "lipsync" | "hybrid">("auto");
+
+  async function handleVoAudioUpload(file: File) {
+    setVoAudioUploading(true);
+    setVoAudioError("");
+    try {
+      const base64 = await fileToBase64(file);
+      const duration = await new Promise<number>((resolve, reject) => {
+        const audio = new Audio();
+        audio.addEventListener("loadedmetadata", () => resolve(audio.duration));
+        audio.addEventListener("error", () => reject(new Error("Fichier audio illisible")));
+        audio.src = base64;
+      });
+      setVoAudioUrl(base64);
+      setVoAudioDuration(duration);
+      if (currentProject) updateCurrentProject({ voiceOverAudioUrl: base64, voiceOverAudioDurationSeconds: duration });
+    } catch (e) {
+      setVoAudioError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setVoAudioUploading(false);
+    }
+  }
+
+  // Au premier rendu, le store zustand (persist) n'a pas encore fini de
+  // réhydrater depuis localStorage : brandId ci-dessus se fige alors sur le
+  // premier brand du seed par défaut (ex: Lynae) au lieu de la marque
+  // réellement active de l'utilisateur, qui n'arrive qu'un instant après.
+  // Tant que l'utilisateur n'a pas lui-même touché le sélecteur, on continue
+  // à resynchroniser brandId avec la valeur persistée une fois disponible —
+  // sinon la marque (et donc sa photo produit) utilisée pour l'analyse et la
+  // génération peut silencieusement être la mauvaise.
+  const brandTouchedRef = useRef(false);
   useEffect(() => {
-    if (!brandId && (activeBrandId || brands.length > 0)) setBrandId(activeBrandId ?? brands[0].id);
-  }, [brandId, activeBrandId, brands]);
+    if (brandTouchedRef.current) return;
+    const resolved = currentProject?.brandId ?? activeBrandId ?? brands[0]?.id ?? "";
+    if (resolved && resolved !== brandId) setBrandId(resolved);
+  }, [brandId, currentProject?.brandId, activeBrandId, brands]);
 
   const selectedStyle = styles.find((s) => s.id === styleId);
   const plan = currentProject?.plan;
@@ -706,6 +753,9 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
     const brand = brands.find((b) => b.id === brandId);
     const resolvedImageEngine = currentProject?.imageEngine ?? (selectedStyle.recommendedImageEngine || autoRouteImageEngine());
     const resolvedVideoEngine = currentProject?.videoEngine ?? (selectedStyle.recommendedVideoEngine || autoRouteVideoEngine(lang));
+    // Si une voix off réelle a été fournie au brief, la durée cible de la vidéo
+    // (et donc le nombre de frames estimé) se cale dessus plutôt que sur 60s par défaut.
+    const resolvedTargetDuration = voAudioDuration ? Math.max(1, Math.round(voAudioDuration)) : 60;
 
     if (!currentProject) {
       initProject({
@@ -713,14 +763,17 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
         brandId,
         styleId: selectedStyle.id,
         lang,
-        targetDuration: 60,
+        targetDuration: resolvedTargetDuration,
         imageEngine: resolvedImageEngine as ImageEngine,
         videoEngine: resolvedVideoEngine as VideoEngine,
       });
     } else {
-      updateCurrentProject({ brandId, styleId: selectedStyle.id, lang });
+      updateCurrentProject({ brandId, styleId: selectedStyle.id, lang, targetDuration: resolvedTargetDuration });
     }
-    updateCurrentProject({ brief });
+    updateCurrentProject({
+      brief,
+      ...(voAudioUrl ? { voiceOverAudioUrl: voAudioUrl, voiceOverAudioDurationSeconds: voAudioDuration } : {}),
+    });
     if (brandId) touchLastUsed(brandId);
 
     setStatus("analyzing");
@@ -730,13 +783,14 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
         brand,
         style: selectedStyle,
         lang,
-        targetDuration: 60,
+        targetDuration: resolvedTargetDuration,
         motionIntensity: settings.motionIntensity,
         learningContext: buildLearningContext(learningEntries),
         apiKey: apiKeys.claudeApiKey,
         systemPromptOverride: advancedPrompts.analyzeBriefSystemPrompt,
         minSceneDurationSeconds: advancedPrompts.minSceneDurationSeconds,
         maxSceneDurationSeconds: advancedPrompts.maxSceneDurationSeconds,
+        narrationTypeOverride: narrationType === "auto" ? undefined : narrationType,
       });
       updateCurrentProject({
         plan: producedPlan,
@@ -744,6 +798,26 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
         videoEngine: resolvedVideoEngine as VideoEngine,
         status: "characters",
       });
+      // Calage automatique des durées de scène sur la voix off fournie au
+      // brief — même calcul que le bouton "Appliquer ces durées" du bloc Voix
+      // off, mais appliqué d'emblée pour ne pas obliger à ré-uploader le
+      // fichier une seconde fois une fois le plan généré.
+      if (voAudioDuration) {
+        const linesWithVo = producedPlan.scenes.filter((s) => s.voiceOver?.text?.trim());
+        if (linesWithVo.length > 0) {
+          const wordCounts = linesWithVo.map((s) => Math.max(1, s.voiceOver!.text.trim().split(/\s+/).filter(Boolean).length));
+          const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+          linesWithVo.forEach((s, i) => {
+            const share = wordCounts[i] / totalWords;
+            const durationSeconds = Math.max(1, Math.round(share * voAudioDuration * 10) / 10);
+            updateScene(s.id, {
+              durationSeconds,
+              durationJustification:
+                "Calé automatiquement sur la durée réelle du fichier audio voix off fourni au brief (estimation proportionnelle au nombre de mots).",
+            });
+          });
+        }
+      }
       setStatus("characters");
     } finally {
       setAnalyzing(false);
@@ -781,7 +855,10 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
       <div className="flex items-center gap-1.5 mb-2">
         <select
           value={brandId}
-          onChange={(e) => setBrandId(e.target.value)}
+          onChange={(e) => {
+            brandTouchedRef.current = true;
+            setBrandId(e.target.value);
+          }}
           className="flex-1 min-w-0 bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[11px] text-agent-t1"
         >
           {brands.map((b) => (
@@ -802,6 +879,65 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
           ))}
         </div>
       </div>
+
+      <div className="mb-2">
+        <p className="text-[10px] text-agent-t3 mb-1">As-tu un fichier MP3 de la voix off ? (optionnel)</p>
+        {!voAudioUrl ? (
+          <>
+            <button
+              onClick={() => voAudioInputRef.current?.click()}
+              disabled={voAudioUploading}
+              className="w-full inline-flex items-center justify-center gap-1.5 text-[10.5px] font-medium px-2 py-1.5 rounded bg-agent-s3 border border-dashed border-agent-bd2 text-agent-t2 hover:text-agent-t1 disabled:opacity-40"
+            >
+              <UploadCloud className="w-3.5 h-3.5" /> {voAudioUploading ? "Lecture du fichier..." : "Uploader la voix off (MP3)"}
+            </button>
+            {voAudioError && <div className="text-[10px] text-red-400 mt-1">{voAudioError}</div>}
+            <input
+              ref={voAudioInputRef}
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleVoAudioUpload(f);
+                e.target.value = "";
+              }}
+            />
+          </>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[10.5px] text-agent-grn bg-agent-s3 border border-agent-bd rounded px-2 py-1.5">
+            <Check className="w-3 h-3 shrink-0" />
+            <span className="flex-1 min-w-0">
+              Audio fourni : {voAudioDuration?.toFixed(1)}s — nombre de frames et rythme calés dessus.
+            </span>
+            <button
+              onClick={() => {
+                setVoAudioUrl(undefined);
+                setVoAudioDuration(undefined);
+                if (currentProject) updateCurrentProject({ voiceOverAudioUrl: undefined, voiceOverAudioDurationSeconds: undefined });
+              }}
+              className="text-agent-t3 hover:text-agent-t1 shrink-0"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-2">
+        <label className="text-[10px] text-agent-t3 mb-1 block">Voix des personnages (optionnel — laissé à Claude par défaut)</label>
+        <select
+          value={narrationType}
+          onChange={(e) => setNarrationType(e.target.value as typeof narrationType)}
+          className="w-full bg-agent-s3 border border-agent-bd rounded px-1.5 py-1 text-[11px] text-agent-t1"
+        >
+          <option value="auto">Auto (Claude détecte scène par scène)</option>
+          <option value="voiceover">Voix off partout (jamais de synchro labiale)</option>
+          <option value="lipsync">Personnages parlent partout (synchro labiale)</option>
+          <option value="hybrid">Mixte — détecter explicitement scène par scène</option>
+        </select>
+      </div>
+
       {totalVoDuration > 0 && (
         <div className="text-[10.5px] text-agent-grn flex items-center gap-1 mb-2">
           <Check className="w-3 h-3" /> VO du script : {totalVoDuration.toFixed(1)}s

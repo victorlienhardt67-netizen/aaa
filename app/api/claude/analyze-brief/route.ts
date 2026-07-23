@@ -175,12 +175,21 @@ export async function POST(req: NextRequest) {
     motionIntensity,
     learningContext,
     systemPromptOverride,
+    narrationTypeOverride,
   } = body;
 
   const basePrompt = systemPromptOverride?.trim() || DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT;
+  const narrationInstruction =
+    narrationTypeOverride === "voiceover"
+      ? "\nContrainte utilisateur sur le type de narration : TOUTES les scènes de ce run doivent utiliser voiceType=\"voiceover\" (narration hors-champ, aucune synchronisation labiale) — jamais \"lipsync\", quel que soit le script."
+      : narrationTypeOverride === "lipsync"
+        ? "\nContrainte utilisateur sur le type de narration : TOUTES les scènes de ce run comportant un dialogue doivent utiliser voiceType=\"lipsync\" (personnage qui parle face caméra, synchronisation labiale) plutôt que \"voiceover\", quel que soit le script."
+        : narrationTypeOverride === "hybrid"
+          ? "\nContrainte utilisateur sur le type de narration : ce run mélange volontairement voix off ET personnages qui parlent à l'écran — détermine explicitement pour CHAQUE scène si elle est \"voiceover\" ou \"lipsync\" en te basant sur le script, sans choisir un seul mode uniforme pour tout le run."
+          : "";
   const system = `${basePrompt}
 - Intensité de mouvement souhaitée : ${motionIntensity ?? "equilibre"}
-${learningContext ? `\nRetours qualité des générations précédentes à prendre en compte :\n${learningContext}` : ""}`;
+${learningContext ? `\nRetours qualité des générations précédentes à prendre en compte :\n${learningContext}` : ""}${narrationInstruction}`;
 
   const frameTarget = estimateFrameCountForDuration(Number(targetDuration) || 60);
 

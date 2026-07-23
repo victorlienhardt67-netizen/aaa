@@ -52,6 +52,8 @@ interface AnalyzeBriefParams {
   systemPromptOverride?: string;
   minSceneDurationSeconds?: number;
   maxSceneDurationSeconds?: number;
+  /** Force un type de narration pour tout le run plutôt que de laisser Claude détecter scène par scène. Absent/"auto" = détection automatique (comportement par défaut, gère déjà les runs mixtes scène par scène). */
+  narrationTypeOverride?: "voiceover" | "lipsync" | "hybrid";
 }
 
 interface ClaudeSceneCharacter {
@@ -120,8 +122,18 @@ export async function analyzeBrief(params: AnalyzeBriefParams): Promise<Producti
 }
 
 async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<ProductionPlan> {
-  const { brief, brand, style, lang, targetDuration, motionIntensity, learningContext, apiKey, systemPromptOverride } =
-    params;
+  const {
+    brief,
+    brand,
+    style,
+    lang,
+    targetDuration,
+    motionIntensity,
+    learningContext,
+    apiKey,
+    systemPromptOverride,
+    narrationTypeOverride,
+  } = params;
 
   const res = await fetch("/api/claude/analyze-brief", {
     method: "POST",
@@ -139,6 +151,7 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
       motionIntensity,
       learningContext,
       systemPromptOverride,
+      narrationTypeOverride,
     }),
   });
 
@@ -291,7 +304,8 @@ function distributeFrameCounts(total: number): number[] {
 
 /** Plan de production simulé — utilisé sans clé API ou en repli sur erreur. */
 async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionPlan> {
-  const { brief, brand, style, lang, targetDuration, minSceneDurationSeconds, maxSceneDurationSeconds } = params;
+  const { brief, brand, style, lang, targetDuration, minSceneDurationSeconds, maxSceneDurationSeconds, narrationTypeOverride } =
+    params;
   await simulatedDelay(1500, 3000);
 
   const { min: frameMin, max: frameMax } = estimateFrameCountForDuration(targetDuration);
@@ -337,6 +351,8 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
     const beatLabel = lang === "fr" ? beatTemplate.labelFr : beatTemplate.labelEn;
 
     const isProofBeat = beatTemplate.labelFr === "Preuve";
+    const isSolutionBeat = beatTemplate.labelFr === "Solution";
+    const isCtaBeat = beatTemplate.labelFr === "CTA";
     const locationName = BEAT_LOCATIONS[beatTemplate.labelFr]?.[lang] ?? (lang === "fr" ? "Décor neutre" : "Neutral setting");
     const locationId = `location_${slugify(locationName)}`;
     if (!locationNames[locationId]) locationNames[locationId] = locationName;
@@ -345,7 +361,10 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
     for (let j = 0; j < count; j++) {
       const camera = CAMERA_CYCLE[globalIndex % CAMERA_CYCLE.length];
       const framing = FRAMING_CYCLE[globalIndex % FRAMING_CYCLE.length];
-      const hasProduct = isProofBeat ? false : globalIndex % 3 !== 1 && !!productPhoto;
+      // Pertinence narrative stricte (même règle que le prompt réel) : le produit
+      // n'apparaît qu'au moment de sa révélation (dernier plan du bloc Solution)
+      // et dans le CTA explicite — jamais de façon systématique sur tout le script.
+      const hasProduct = !!productPhoto && (isCtaBeat || (isSolutionBeat && j === count - 1));
       const hasCharacter = isProofBeat || globalIndex % 2 === 0;
       const duration = Math.min(
         Math.max(beatTemplate.minDuration + (j % (beatTemplate.maxDuration - beatTemplate.minDuration + 1)), minDur),
@@ -386,7 +405,13 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
         imagePrompt: lang === "fr" ? imagePromptFr : imagePromptEn,
         videoPrompt: lang === "fr" ? videoPromptFr : videoPromptEn,
         dialogueLang: lang,
-        voiceType: voiceOverText ? "voiceover" : "none",
+        voiceType: !voiceOverText
+          ? "none"
+          : narrationTypeOverride === "lipsync"
+            ? "lipsync"
+            : narrationTypeOverride === "hybrid"
+              ? (globalIndex % 2 === 0 ? "voiceover" : "lipsync")
+              : "voiceover",
         voiceOver: voiceOverText ? { enabled: true, text: voiceOverText, lang } : undefined,
         framing,
         beatLabel,
