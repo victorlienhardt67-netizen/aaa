@@ -479,6 +479,15 @@ export function buildImagePrompt(
       `Reference image ${nextIndex}: the product — always use this exact product image as the visual reference, never invent or approximate the product's packaging, shape, colors, or design. Reproduce this exact bottle/packaging's shape, cap, label design and colors faithfully — the product must be visually faithful to this reference image, do not redesign, reinvent or omit it. It must still be rendered in the same visual style as the rest of the frame: if the style is not photorealistic (paper-cut, claymation, 3D cartoon...), render the product's material/texture in that same style rather than as a plain photo pasted onto a stylized scene.`
     );
     nextIndex += 1;
+  } else {
+    // Garde-fou explicite : cette scène n'a PAS été indiquée comme contenant le
+    // produit (case "Afficher le produit" décochée, ou aucune photo produit
+    // valide résolue) — sans cette consigne, un texte de plan mentionnant le
+    // produit en passant (hérité du script) peut suffire à en faire inventer un
+    // par le modèle, sans référence réelle, même quand ce n'était pas voulu.
+    referenceNotes.push(
+      `No product should appear in this frame — do not depict any bottle, packaging, box or branded product of any kind here, even if the broader script mentions the product elsewhere.`
+    );
   }
   const charCount = opts.characterReferenceCount ?? 0;
   if (charCount === 1) {

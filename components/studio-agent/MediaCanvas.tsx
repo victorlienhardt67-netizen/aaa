@@ -1927,6 +1927,37 @@ function ImageCard({
           Afficher le produit dans la scène
         </label>
 
+        {scene.hasProduct && !brand?.productPhotos.some((p) => p.id === scene.productAssetId) && (
+          <div className="flex items-start gap-1 text-[9.5px] text-agent-amb">
+            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+            Aucune photo produit trouvée pour cette marque — l&apos;IA va imaginer le produit sans référence réelle.
+            Ajoute une photo produit dans Marques pour qu&apos;il soit fidèle.
+          </div>
+        )}
+
+        {scene.hasProduct && (brand?.productPhotos.length ?? 0) > 1 && (
+          <div>
+            <label className="text-[9.5px] uppercase tracking-wide text-agent-t3 mb-1 block">Quelle photo produit ?</label>
+            <div className="flex flex-wrap gap-1">
+              {brand!.productPhotos.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => updateScene(scene.id, { productAssetId: p.id })}
+                  className={cn(
+                    "w-9 h-9 rounded border-2 overflow-hidden shrink-0",
+                    scene.productAssetId === p.id ? "border-agent-acc" : "border-agent-bd"
+                  )}
+                  title={p.name || "Photo produit"}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {scene.hasProduct && (
           <div className="flex gap-1">
             <button
