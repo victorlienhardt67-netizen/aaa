@@ -148,6 +148,56 @@ export function buildWizperInput(params: { audioUrl: string }) {
 }
 
 /**
+ * Upload un fichier (ex: le MP3 de voix off) vers le stockage fal.ai (CDN v3)
+ * pour obtenir une URL hébergée courte, utilisable comme `audio_url`/`image_url`
+ * par n'importe quel modèle fal.ai — indispensable pour l'audio : contrairement
+ * aux petites images, injecter un fichier audio de plusieurs Mo entier en
+ * base64 dans le corps JSON d'une requête dépasse vite la taille de requête
+ * acceptée (observé en pratique : erreur "Request Entity Too Large" sur un
+ * MP3 de ~3 minutes envoyé directement en `audio_url`).
+ * Flux en 2 temps recoupé sur plusieurs sources tierces (SDK officiel
+ * @fal-ai/client, documentation communautaire) — je n'ai pas pu le tester en
+ * direct depuis cet environnement (accès réseau à fal.ai bloqué ici) : si le
+ * nom exact d'un champ de réponse diffère, l'erreur renvoyée par fal.ai (avec
+ * le corps de la réponse tronqué) permettra d'ajuster précisément.
+ */
+export async function uploadFileToFalStorage(file: Blob, apiKey: string): Promise<string> {
+  const tokenRes = await fetch("https://rest.alpha.fal.ai/storage/auth/token?storage_type=fal-cdn-v3", {
+    method: "POST",
+    headers: { Authorization: `Key ${apiKey}` },
+  });
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text().catch(() => "");
+    throw new Error(`fal.ai storage auth error ${tokenRes.status}: ${text.slice(0, 300)}`);
+  }
+  const tokenData = await tokenRes.json();
+  const token = tokenData?.token as string | undefined;
+  const baseUrl = tokenData?.base_url as string | undefined;
+  if (!token || !baseUrl) {
+    throw new Error(`fal.ai storage auth: réponse inattendue (${JSON.stringify(tokenData).slice(0, 300)})`);
+  }
+
+  const uploadRes = await fetch(`${baseUrl}/files/upload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "content-type": file.type || "application/octet-stream",
+    },
+    body: file,
+  });
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text().catch(() => "");
+    throw new Error(`fal.ai storage upload error ${uploadRes.status}: ${text.slice(0, 300)}`);
+  }
+  const uploadData = await uploadRes.json();
+  const url = (uploadData?.access_url ?? uploadData?.url ?? uploadData?.file_url) as string | undefined;
+  if (!url) {
+    throw new Error(`fal.ai storage upload: URL introuvable dans la réponse (${JSON.stringify(uploadData).slice(0, 300)})`);
+  }
+  return url;
+}
+
+/**
  * Variante "edit" standard de Nano Banana (jamais la version pro) — prend des
  * images de référence (image_urls) en plus du prompt, pour garder un
  * personnage visuellement cohérent d'une frame à l'autre.

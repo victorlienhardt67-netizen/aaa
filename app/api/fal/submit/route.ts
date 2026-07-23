@@ -2,40 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   buildNanoBananaEditInput,
   buildNanoBananaInput,
-  buildWizperInput,
   NANO_BANANA_EDIT_MODEL_ID,
   submitFalJob,
   WIRED_IMAGE_MODELS,
   WIRED_VIDEO_MODELS,
-  WIZPER_MODEL_ID,
 } from "@/lib/falServer";
+
+// La transcription audio (kind="audio") passe par /api/fal/transcribe, pas par
+// cette route : un fichier audio est trop volumineux pour être envoyé en
+// base64 dans un corps JSON (voir uploadFileToFalStorage dans lib/falServer.ts).
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  if (!body?.apiKey || !body?.kind) {
-    return NextResponse.json({ error: "missing_params" }, { status: 400 });
-  }
-  if (body.kind !== "audio" && !body?.prompt) {
+  if (!body?.apiKey || !body?.kind || !body?.prompt) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
-  const { apiKey, engine, prompt, imageUrl, imageUrls, durationSeconds, kind, audioUrl } = body;
+  const { apiKey, engine, prompt, imageUrl, imageUrls, durationSeconds, kind } = body;
 
   try {
-    if (kind === "audio") {
-      if (!audioUrl) {
-        return NextResponse.json({ error: "missing_params" }, { status: 400 });
-      }
-      const input = buildWizperInput({ audioUrl });
-      const result = await submitFalJob(WIZPER_MODEL_ID, apiKey, input);
-      return NextResponse.json({
-        requestId: result.request_id,
-        modelId: WIZPER_MODEL_ID,
-        statusUrl: result.status_url,
-        resultUrl: result.response_url,
-      });
-    }
-
     if (kind === "video") {
       const model = WIRED_VIDEO_MODELS[engine];
       if (!model || !imageUrl) {

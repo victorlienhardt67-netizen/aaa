@@ -106,6 +106,15 @@ RÈGLES DE DURÉE PAR FRAME — CADENCE DYNAMIQUE :
   moyenne au-delà de 5s.
 - Jamais deux frames consécutives de plus de 6 secondes chacune — le changement de plan régulier est ce qui
   rend la vidéo dynamique, plus que la durée individuelle de chaque plan.
+- PRIORITÉ AU DÉBIT DE PAROLE — dès qu'une frame porte une voix (voiceType="voiceover" ou "lipsync" avec un
+  voiceOverText non vide), durationSeconds doit d'abord être calculé pour que CETTE phrase précise puisse être
+  dite à un débit naturel, ni précipitée ni traînante (repère : environ 2,5 mots par seconde à l'oral, plus les
+  éventuels silences/respirations que le texte appelle) — jamais une durée qui obligerait à débiter le texte
+  trop vite ou à laisser un blanc gênant après la phrase. Cette contrainte de débit de parole prime sur la
+  cible moyenne de 5s quand les deux entrent en conflit (une réplique plus longue justifie une frame plus
+  longue, même au-delà de 7s si nécessaire — compense alors ailleurs sur une frame sans voix ou plus courte
+  pour que la moyenne globale du script reste proche de 5s). Remplis durationJustification dès que la durée
+  est étendue pour cette seule raison.
 
 RÈGLE DE CADRAGE OBLIGATOIRE (framing) :
 Indique un framing ("wide" = plan large, "medium" = plan moyen, "close_up" = gros plan) pour CHAQUE frame.
@@ -467,7 +476,7 @@ export function buildImagePrompt(
   const referenceNotes: string[] = [];
   if (opts.hasProductReference) {
     referenceNotes.push(
-      `Reference image ${nextIndex}: the product — this image MUST be reflected in the frame, reproduce this exact bottle/packaging's shape, cap and label design faithfully, do not redesign, reinvent or omit it. If the visual style is not photorealistic (paper-cut, claymation, 3D cartoon...), render the product's material/texture in that same style rather than as a plain photo pasted onto a stylized scene.`
+      `Reference image ${nextIndex}: the product — always use this exact product image as the visual reference, never invent or approximate the product's packaging, shape, colors, or design. Reproduce this exact bottle/packaging's shape, cap, label design and colors faithfully — the product must be visually faithful to this reference image, do not redesign, reinvent or omit it. It must still be rendered in the same visual style as the rest of the frame: if the style is not photorealistic (paper-cut, claymation, 3D cartoon...), render the product's material/texture in that same style rather than as a plain photo pasted onto a stylized scene.`
     );
     nextIndex += 1;
   }

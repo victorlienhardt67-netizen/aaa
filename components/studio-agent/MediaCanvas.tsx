@@ -778,7 +778,7 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
 
       setVoTranscribing(true);
       try {
-        const transcription = await falTranscribeAudio(base64, apiKeys.falApiKey);
+        const transcription = await falTranscribeAudio(file, apiKeys.falApiKey);
         setVoTranscriptWords(transcription.words);
       } catch (transcriptionError) {
         setVoTranscriptError(

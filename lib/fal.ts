@@ -165,15 +165,22 @@ export interface FalTranscriptionResult {
  * un timestamp par mot — sert à caler la durée de chaque scène sur le rythme
  * réel de la voix enregistrée (pauses, débit variable), plutôt qu'une
  * estimation par nombre de mots ÷ débit moyen.
+ *
+ * Le fichier est envoyé en multipart/form-data (jamais en base64 dans un
+ * corps JSON) : un MP3 de plusieurs minutes dépasse vite la taille de requête
+ * acceptée une fois encodé en base64 (~+33% de volume), ce qui provoquait une
+ * erreur "Request Entity Too Large" avant ce correctif.
  */
-export async function falTranscribeAudio(audioUrl: string, apiKey?: string): Promise<FalTranscriptionResult> {
+export async function falTranscribeAudio(audioFile: File, apiKey?: string): Promise<FalTranscriptionResult> {
   if (!apiKey) {
     throw new Error("Clé API fal.ai manquante — ajoute-la dans Réglages pour transcrire la voix off.");
   }
-  const submitRes = await fetch("/api/fal/submit", {
+  const formData = new FormData();
+  formData.append("apiKey", apiKey);
+  formData.append("audio", audioFile);
+  const submitRes = await fetch("/api/fal/transcribe", {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ apiKey, kind: "audio", audioUrl }),
+    body: formData,
   });
   const submitData = await submitRes.json();
   if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);

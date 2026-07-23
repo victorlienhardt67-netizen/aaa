@@ -50,16 +50,19 @@ export async function generateSceneVideo(params: {
   ]
     .filter(Boolean)
     .join(" ");
-  // Règle Grok FR : à défaut de calage audio réel, la durée est calculée et
-  // fixée depuis le nombre de mots du dialogue (÷2,5) — jamais laissée à
-  // Grok. Si un fichier audio voix off a été calé (VoiceOverBlock), sa
+  // Filet de sécurité débit de parole : Claude est censé déjà caler
+  // durationSeconds sur le débit naturel de la réplique (voir system prompt),
+  // mais si une frame porte une voix (voiceover ou lipsync, quel que soit le
+  // moteur/la langue) et que sa durée reste trop courte pour ce texte, on la
+  // relève au minimum requis (÷2,5 mots/seconde) — jamais en dessous, pour ne
+  // jamais forcer une réplique à être précipitée. On ne redescend jamais une
+  // durée déjà plus longue que ce minimum (Claude a pu l'étendre à dessein).
+  // Si un fichier audio voix off a été calé (VoiceOverBlock ou Whisper), sa
   // durée réelle est plus fiable que cette estimation : ne jamais l'écraser.
   const hasSpeech =
     (scene.voiceType === "voiceover" || scene.voiceType === "lipsync") && !!scene.voiceOver?.text?.trim();
-  const durationSeconds =
-    lang === "fr" && engine === "grok_video" && hasSpeech && !audioCalibrated
-      ? estimateDurationFromWordCount(scene.voiceOver!.text)
-      : scene.durationSeconds;
+  const minDurationForSpeech = hasSpeech && !audioCalibrated ? estimateDurationFromWordCount(scene.voiceOver!.text) : 0;
+  const durationSeconds = Math.max(scene.durationSeconds, minDurationForSpeech);
   if (durationSeconds !== scene.durationSeconds) {
     updateScene(scene.id, { durationSeconds });
   }
