@@ -47,7 +47,11 @@ export async function getReferenceImageInfo(
       ? brand?.productPhotos.find((p) => p.id === scene.productAssetId)?.url
       : undefined;
   return {
-    urls: [...characterUrls, ...(locationUrl ? [locationUrl] : []), ...(productUrl ? [productUrl] : [])],
+    // Le produit est envoyé EN PREMIER : les modèles d'édition multi-images
+    // tendent à privilégier les premières images d'une série — le mettre en
+    // tête limite le risque qu'il soit dilué/ignoré face aux références
+    // personnage/décor quand plusieurs images sont fournies au même appel.
+    urls: [...(productUrl ? [productUrl] : []), ...characterUrls, ...(locationUrl ? [locationUrl] : [])],
     hasCharacterReference: characterUrls.length > 0,
     characterReferenceCount: characterUrls.length,
     hasProductReference: !!productUrl,

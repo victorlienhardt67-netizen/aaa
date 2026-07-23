@@ -59,13 +59,13 @@ export function initials(name: string): string {
 
 /**
  * Cible de nombre de frames total pour la vidéo, calculée pour obtenir une
- * cadence moyenne d'une nouvelle frame toutes les ~6 secondes (c'est ce
+ * cadence moyenne d'une nouvelle frame toutes les ~5 secondes (c'est ce
  * changement de plan régulier qui rend la vidéo dynamique). Sert de guide
  * pour le mode simulé et l'indicateur affiché à l'utilisateur — Claude vise
  * directement cette fourchette en mode API réel.
  */
 export function estimateFrameCountForDuration(targetDurationSeconds: number): { min: number; max: number } {
-  const target = targetDurationSeconds / 6;
+  const target = targetDurationSeconds / 5;
   const min = Math.max(4, Math.round(target * 0.85));
   const max = Math.max(min + 1, Math.round(target * 1.15));
   return { min, max };

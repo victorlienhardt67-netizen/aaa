@@ -79,17 +79,19 @@ interface VideoModelConfig {
  */
 export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
   kling_3_0: {
-    modelId: "fal-ai/kling-video/o3/pro/image-to-video",
+    // Schéma confirmé via la doc officielle fal.ai (2026) : le champ image
+    // s'appelle `start_image_url` (pas `image_url`), et ce endpoint n'a
+    // PAS de paramètre `aspect_ratio` — l'ancien modelId "o3/pro" et les
+    // champs "image_url"/"aspect_ratio" faisaient échouer chaque appel.
+    modelId: "fal-ai/kling-video/v3/standard/image-to-video",
     buildInput: ({ prompt, imageUrl, durationSeconds }) => {
       const clamped = Math.min(15, Math.max(3, Math.round(durationSeconds)));
       return {
         prompt,
-        image_url: imageUrl,
+        start_image_url: imageUrl,
         duration: String(clamped),
         generate_audio: false,
         shot_type: "customize",
-        // kling3_0 n'hérite JAMAIS le ratio de la start_image — toujours l'imposer explicitement.
-        aspect_ratio: "9:16",
       };
     },
   },

@@ -53,7 +53,7 @@ export function buildVoiceDirective(
   return "No sound, no voiceover, no music, no lip sync, mouths do not move.";
 }
 
-export const DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT = `Tu es un directeur créatif expert en vidéos publicitaires IA, avec 10 ans d'expérience — spécialisé notamment dans les marques de compléments alimentaires. Ta mission : analyser un script en profondeur et le découper en un plan de production détaillé, frame par frame — chaque frame correspond à un plan (shot) unique de 3 à 8 secondes qui deviendra une image de départ puis un clip vidéo, avec une CADENCE MOYENNE D'UNE NOUVELLE FRAME TOUTES LES 6 SECONDES : c'est ce changement de plan régulier qui rend la vidéo dynamique, plus que la durée individuelle de chaque plan. Tu extrais TOUTES les informations déductibles du script sans jamais rien inventer d'arbitraire.
+export const DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT = `Tu es un directeur créatif expert en vidéos publicitaires IA, avec 10 ans d'expérience — spécialisé notamment dans les marques de compléments alimentaires. Ta mission : analyser un script en profondeur et le découper en un plan de production détaillé, frame par frame — chaque frame correspond à un plan (shot) unique de 3 à 7 secondes qui deviendra une image de départ puis un clip vidéo, avec une CADENCE MOYENNE D'UNE NOUVELLE FRAME TOUTES LES 5 SECONDES : c'est ce changement de plan régulier qui rend la vidéo dynamique, plus que la durée individuelle de chaque plan. Tu extrais TOUTES les informations déductibles du script sans jamais rien inventer d'arbitraire.
 
 TU ES DIRECTEUR CRÉATIF, PAS EXÉCUTANT D'UN TEMPLATE : c'est toi qui rédiges 100% du contenu visuel (imagePrompt, videoPrompt) de chaque frame. Tu connais le produit, le brief, le personnage, le contexte émotionnel de la scène, et tu sais exactement quelle image va fonctionner pour illustrer ce moment précis — sans checklist imposée ni structure mécanique à cocher. Tu penses, tu décides, tu écris. Le seul input mécanique que tu injectes : ne jamais redécrire l'apparence fixe d'un personnage/produit déjà référencé (voir règles plus bas) — pour tout le reste, ton jugement d'expert prime.
 
@@ -75,13 +75,13 @@ Découpe TOUJOURS le script selon cette structure publicitaire en 6 blocs succes
 très court dans le script reste à 1-2 frames plutôt que d'être supprimé). Utilise le libellé français ou
 anglais selon la langue détectée du script :
 - "Hook" (accroche, 0-5s) → 2 à 3 frames, 3-4s chacune, cuts rapides — capte l'attention immédiatement
-- "Problème" / "Problem" → 2 à 3 frames, 4-5s chacune — expose le problème/symptôme concret vécu par la cible
-- "Agitation" / "Agitate" → 2 à 3 frames, 5-6s chacune — amplifie la douleur/frustration (conséquences, échecs
+- "Problème" / "Problem" → 2 à 3 frames, 3-4s chacune — expose le problème/symptôme concret vécu par la cible
+- "Agitation" / "Agitate" → 2 à 3 frames, 4-5s chacune — amplifie la douleur/frustration (conséquences, échecs
   passés, urgence) AVANT d'apporter la solution ; ne saute jamais directement de Problème à Solution
-- "Solution" → 2 à 3 frames, 5-6s chacune — introduit le produit comme réponse claire au problème
-- "Preuve" / "Proof" → 2 à 3 frames dont au moins 1 frame choc sur le résultat, 6-8s chacune — preuve sociale/
+- "Solution" → 2 à 3 frames, 4-5s chacune — introduit le produit comme réponse claire au problème
+- "Preuve" / "Proof" → 2 à 3 frames dont au moins 1 frame choc sur le résultat, 5-7s chacune — preuve sociale/
   crédibilité (témoignage, résultat visible, avant-après, autorité médicale, chiffres)
-- "CTA" → 1 à 2 frames maximum, 4-5s chacune — appel à l'action final
+- "CTA" → 1 à 2 frames maximum, 3-4s chacune — appel à l'action final
 Répartis le nombre total de frames entre ces 6 blocs au prorata de leur poids narratif réel dans le script
 (un script qui insiste beaucoup sur l'agitation aura plus de frames "Agitation", etc.) — jamais un bloc à 0 frame.
 
@@ -94,15 +94,15 @@ si la phrase décrit un symptôme, montre ce symptôme précis ; si elle décrit
 train de se produire. Si aucune voix ne couvre ce plan (voiceType="none"), laisse voiceOverText vide.
 
 RÈGLES DE DURÉE PAR FRAME — CADENCE DYNAMIQUE :
-- Cible en MOYENNE sur l'ensemble du script : 6 secondes par frame — c'est la référence globale à respecter,
+- Cible en MOYENNE sur l'ensemble du script : 5 secondes par frame — c'est la référence globale à respecter,
   pas seulement une fourchette large dans laquelle n'importe quelle valeur conviendrait.
-- Plage individuelle autorisée : 3 à 8 secondes ; compense toujours une frame courte (hook, cut rapide à
-  3-4s) par une frame plus longue ailleurs pour que la moyenne réelle reste proche de 6s.
-- Durée exceptionnelle jusqu'à 10 secondes UNIQUEMENT si le plan est très dynamique (mouvement de caméra
+- Plage individuelle autorisée : 3 à 7 secondes ; compense toujours une frame courte (hook, cut rapide à
+  3-4s) par une frame plus longue ailleurs pour que la moyenne réelle reste proche de 5s.
+- Durée exceptionnelle jusqu'à 9 secondes UNIQUEMENT si le plan est très dynamique (mouvement de caméra
   complexe, transformation visible, action physique forte, effet visuel marquant) — dans ce cas, remplis
   obligatoirement durationJustification. Ces frames restent rares (pas plus d'1 sur 6-7) pour ne pas tirer la
-  moyenne au-delà de 6s.
-- Jamais deux frames consécutives de plus de 7 secondes chacune — le changement de plan régulier est ce qui
+  moyenne au-delà de 5s.
+- Jamais deux frames consécutives de plus de 6 secondes chacune — le changement de plan régulier est ce qui
   rend la vidéo dynamique, plus que la durée individuelle de chaque plan.
 
 RÈGLE DE CADRAGE OBLIGATOIRE (framing) :
@@ -141,11 +141,11 @@ RÈGLE GLOBALE — AUCUNE MODIFICATION SANS ACCORD EXPLICITE : tu ne modifies, n
 ANALYSE GLOBALE (en plus du découpage en frames) :
 - arcNarratif : classe le script parmi ces types (ou le plus proche) : "villain monologue", "témoignage transformation", "autorité médicale", "storytelling", "éducatif mécanisme"
 - marqueDetectee : nom de la marque si identifiable dans le script (parmi celles connues ci-dessus ou une autre), sinon omettre
-- pointsVigilance : liste courte des risques que tu détectes (hook faible, transformation peu lisible, ambiguïté visuelle, durée irréaliste, hypothèse posée faute de précision dans le script...) et comment les gérer — ne valide jamais un brief bancal sans le signaler ici
+- pointsVigilance : liste courte des risques que tu détectes (hook faible, transformation peu lisible, ambiguïté visuelle, durée irréaliste, hypothèse posée faute de précision dans le script...) et comment les gérer — ne valide jamais un brief bancal sans le signaler ici. IMPORTANT : pointsVigilance signale des risques, il n'introduit JAMAIS une nouvelle exigence de production qui n'était pas déjà dans le script (ex: ne dis pas qu'un CTA "doit apparaître en incrustation texte à l'écran" si le script ne le prévoyait pas déjà) — une idée de ce type reste une simple suggestion possible, formulée comme telle ("tu pourrais envisager..."), jamais comme une chose déjà décidée ou requise.
 
 OBJECTIF DE NOMBRE TOTAL DE FRAMES :
 Vise la fourchette de nombre total de frames indiquée dans le message — calculée pour obtenir une cadence
-moyenne d'environ 6 secondes par frame sur la durée cible totale (durée cible ÷ nombre de frames ≈ 6s). Ne
+moyenne d'environ 5 secondes par frame sur la durée cible totale (durée cible ÷ nombre de frames ≈ 5s). Ne
 descends pas largement en dessous (des plans trop longs cassent le dynamisme) ni au-dessus (des plans trop
 courts empêchent de développer le message) de cette cadence, tout en respectant les durées ci-dessus.`;
 
@@ -456,14 +456,20 @@ export function buildImagePrompt(
   const brandNote = brand ? `Produit : ${brand.name}. ${brand.generationNotes || ""}`.trim() : "";
 
   // Les images de référence sont toujours passées dans cet ordre exact
-  // (voir getReferenceImageInfo) : personnages, puis décor, puis produit.
-  // Les numéroter explicitement évite au modèle de deviner laquelle est
-  // laquelle quand plusieurs références sont fournies dans le même appel —
-  // sans ça, le produit (souvent la dernière image, la plus petite/discrète)
-  // est fréquemment ignoré au profit des références personnage/décor.
-  const charCount = opts.characterReferenceCount ?? 0;
+  // (voir getReferenceImageInfo) : produit, puis personnages, puis décor —
+  // le produit est délibérément placé en premier car c'est l'élément le
+  // plus souvent dilué/ignoré par le modèle d'édition quand plusieurs
+  // références sont fournies dans le même appel. Les numéroter explicitement
+  // évite aussi au modèle de deviner laquelle est laquelle.
   let nextIndex = 1;
   const referenceNotes: string[] = [];
+  if (opts.hasProductReference) {
+    referenceNotes.push(
+      `Reference image ${nextIndex}: the product — this image MUST be reflected in the frame, reproduce this exact bottle/packaging's shape, cap and label design faithfully, do not redesign, reinvent or omit it. If the visual style is not photorealistic (paper-cut, claymation, 3D cartoon...), render the product's material/texture in that same style rather than as a plain photo pasted onto a stylized scene.`
+    );
+    nextIndex += 1;
+  }
+  const charCount = opts.characterReferenceCount ?? 0;
   if (charCount === 1) {
     referenceNotes.push(
       `Reference image ${nextIndex}: the main character — same character, unchanged appearance, do not alter face, hair or identity, describe only action/expression/posture for this shot.`
@@ -478,12 +484,6 @@ export function buildImagePrompt(
   if (opts.hasLocationReference) {
     referenceNotes.push(
       `Reference image ${nextIndex}: the background location — reproduce this exact location/setting faithfully, same layout, same key visual elements, do not redesign the background.`
-    );
-    nextIndex += 1;
-  }
-  if (opts.hasProductReference) {
-    referenceNotes.push(
-      `Reference image ${nextIndex}: the product — this image MUST be reflected in the frame, reproduce this exact bottle/packaging's shape, cap and label design faithfully, do not redesign, reinvent or omit it. If the visual style is not photorealistic (paper-cut, claymation, 3D cartoon...), render the product's material/texture in that same style rather than as a plain photo pasted onto a stylized scene.`
     );
     nextIndex += 1;
   }

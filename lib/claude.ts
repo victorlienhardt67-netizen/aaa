@@ -228,15 +228,15 @@ interface BeatTemplate {
 /**
  * Blocs narratifs types utilisés par le mode simulé — structure publicitaire
  * Hook / Problème / Agitation / Solution / Preuve / CTA, calibrée pour une
- * cadence moyenne de 6s/frame (voir estimateFrameCountForDuration).
+ * cadence moyenne de 5s/frame (voir estimateFrameCountForDuration).
  */
 const BEAT_TEMPLATES: BeatTemplate[] = [
   { labelFr: "Hook", labelEn: "Hook", weight: 1.5, minDuration: 3, maxDuration: 4 },
-  { labelFr: "Problème", labelEn: "Problem", weight: 2, minDuration: 4, maxDuration: 5 },
-  { labelFr: "Agitation", labelEn: "Agitate", weight: 2.5, minDuration: 5, maxDuration: 6 },
-  { labelFr: "Solution", labelEn: "Solution", weight: 2, minDuration: 5, maxDuration: 6 },
-  { labelFr: "Preuve", labelEn: "Proof", weight: 2.5, minDuration: 6, maxDuration: 8 },
-  { labelFr: "CTA", labelEn: "CTA", weight: 1, minDuration: 4, maxDuration: 5 },
+  { labelFr: "Problème", labelEn: "Problem", weight: 2, minDuration: 3, maxDuration: 4 },
+  { labelFr: "Agitation", labelEn: "Agitate", weight: 2.5, minDuration: 4, maxDuration: 5 },
+  { labelFr: "Solution", labelEn: "Solution", weight: 2, minDuration: 4, maxDuration: 5 },
+  { labelFr: "Preuve", labelEn: "Proof", weight: 2.5, minDuration: 5, maxDuration: 7 },
+  { labelFr: "CTA", labelEn: "CTA", weight: 1, minDuration: 3, maxDuration: 4 },
 ];
 
 /** Phrases mock par bloc narratif — simulent le fragment de voix off attribué à chaque frame (voiceOverText). */
@@ -402,10 +402,10 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
   const totalFrames = scenes.length;
   const briefAnalysis =
     lang === "fr"
-      ? `Brief analysé (mode simulé) : ${totalFrames} frames détectées à partir du script pour une durée cible de ${targetDuration}s (cible ${frameMin}-${frameMax}, cadence moyenne ~6s/frame). Structure narrative "Hook → Problème → Agitation → Solution → Preuve → CTA"${
+      ? `Brief analysé (mode simulé) : ${totalFrames} frames détectées à partir du script pour une durée cible de ${targetDuration}s (cible ${frameMin}-${frameMax}, cadence moyenne ~5s/frame). Structure narrative "Hook → Problème → Agitation → Solution → Preuve → CTA"${
           brand ? ` adaptée à ${brand.name}` : ""
         }. Chaque frame reste entre ${minDur}s et ${maxDur}s (jusqu'à 10s si justifié) pour garder la vidéo dynamique, avec alternance systématique des cadrages.`
-      : `Brief analyzed (simulated mode): ${totalFrames} frames detected from the script for a ${targetDuration}s target duration (target ${frameMin}-${frameMax}, ~6s/frame average pace). Narrative structure follows a "Hook → Problem → Agitate → Solution → Proof → CTA" arc${
+      : `Brief analyzed (simulated mode): ${totalFrames} frames detected from the script for a ${targetDuration}s target duration (target ${frameMin}-${frameMax}, ~5s/frame average pace). Narrative structure follows a "Hook → Problem → Agitate → Solution → Proof → CTA" arc${
           brand ? ` adapted for ${brand.name}` : ""
         }. Each frame stays between ${minDur}s and ${maxDur}s (up to 10s when justified) to keep the video dynamic, with systematic framing alternation.`;
 
