@@ -42,6 +42,20 @@ function sanitizeProject(project: Project): Project {
   };
 }
 
+/**
+ * `voiceOverAudioUrl` est le MP3 uploadé encodé en base64 — souvent plusieurs
+ * Mo, ce qui dépasse vite le quota de localStorage (~5-10 Mo par origine) une
+ * fois écrit dans le state persisté, faisant échouer silencieusement TOUTE
+ * écriture suivante (QuotaExceededError), y compris celles sans rapport avec
+ * l'audio. On garde ce champ en mémoire pour la session en cours (transcription,
+ * calage des durées) mais on ne le persiste jamais dans localStorage — seule
+ * la durée (un simple nombre) survit à un rechargement de page.
+ */
+function stripUnpersistableProject(project: Project): Project {
+  const { voiceOverAudioUrl: _voiceOverAudioUrl, ...rest } = project;
+  return rest as Project;
+}
+
 interface InitProjectParams {
   name: string;
   brandId: string;
@@ -328,7 +342,10 @@ export const useProjectStore = create<ProjectState>()(
     },
     {
       name: STORAGE_KEYS.projects,
-      partialize: (s) => ({ projects: s.projects, currentProject: s.currentProject }),
+      partialize: (s) => ({
+        projects: s.projects.map(stripUnpersistableProject),
+        currentProject: s.currentProject ? stripUnpersistableProject(s.currentProject) : s.currentProject,
+      }),
       // `merge` (pas `onRehydrateStorage`) est le hook garanti appliqué via
       // setState par le middleware persist — une mutation directe dans
       // onRehydrateStorage n'est pas fiable pour transformer l'état rechargé.
