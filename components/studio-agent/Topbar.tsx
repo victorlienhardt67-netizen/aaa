@@ -1,21 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { Building2, Check, FolderClock, LayoutTemplate, Palette, Plus, Settings } from "lucide-react";
+import { Check, Menu, Plus } from "lucide-react";
 import { useBrandStore } from "@/store/brandStore";
 import { useProjectStore } from "@/store/projectStore";
 import { cn } from "@/lib/utils";
 import { AGENT_STEPS, agentStepIndex } from "./steps";
 
-const NAV_LINKS = [
-  { href: "/brands", label: "Marques", icon: Building2 },
-  { href: "/styles", label: "Styles", icon: Palette },
-  { href: "/projects", label: "Projets", icon: FolderClock },
-  { href: "/templates", label: "Templates", icon: LayoutTemplate },
-  { href: "/settings", label: "Paramètres", icon: Settings },
-];
-
-export function AgentTopbar({ onNewProduction }: { onNewProduction: () => void }) {
+export function AgentTopbar({
+  onNewProduction,
+  onOpenMenu,
+}: {
+  onNewProduction: () => void;
+  /** Ouvre le vrai menu de navigation (même composant/couleurs que le reste du site) en superposition. */
+  onOpenMenu: () => void;
+}) {
   const currentProject = useProjectStore((s) => s.currentProject);
   const brands = useBrandStore((s) => s.brands);
   const brand = brands.find((b) => b.id === currentProject?.brandId);
@@ -28,6 +26,15 @@ export function AgentTopbar({ onNewProduction }: { onNewProduction: () => void }
 
   return (
     <header className="h-14 shrink-0 border-b border-agent-bd bg-agent-s1 flex items-center px-5 gap-5">
+      <button
+        type="button"
+        onClick={onOpenMenu}
+        title="Ouvrir le menu"
+        className="shrink-0 p-2 -ml-2 rounded-md text-agent-t2 hover:text-agent-t1 hover:bg-agent-s2 transition-colors"
+      >
+        <Menu className="w-4 h-4" />
+      </button>
+
       <div className="flex items-center gap-2 shrink-0">
         <span className="font-semibold text-[15px] tracking-tight text-agent-t1">Golddust</span>
         <span className="font-semibold text-[15px] tracking-tight text-agent-acc">Studio</span>
@@ -63,19 +70,6 @@ export function AgentTopbar({ onNewProduction }: { onNewProduction: () => void }
           );
         })}
       </nav>
-
-      <div className="flex items-center gap-1 shrink-0">
-        {NAV_LINKS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            title={label}
-            className="p-2 rounded-md text-agent-t2 hover:text-agent-t1 hover:bg-agent-s2 transition-colors"
-          >
-            <Icon className="w-4 h-4" />
-          </Link>
-        ))}
-      </div>
 
       <button
         type="button"
