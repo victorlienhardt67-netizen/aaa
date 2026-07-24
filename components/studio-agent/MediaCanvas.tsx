@@ -145,7 +145,8 @@ function StyleCreateForm({
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("Sparkles");
   const [shortDescription, setShortDescription] = useState("");
-  const [positivePrompt, setPositivePrompt] = useState("");
+  const [photoPrompt, setPhotoPrompt] = useState("");
+  const [videoPrompt, setVideoPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [imageEngine, setImageEngine] = useState<ImageEngine>("nano_banana");
   const [videoEngine, setVideoEngine] = useState<VideoEngine>("kling_3_0");
@@ -203,9 +204,16 @@ function StyleCreateForm({
       />
       <textarea
         rows={3}
-        value={positivePrompt}
-        onChange={(e) => setPositivePrompt(e.target.value)}
-        placeholder="Prompt positif système (injecté automatiquement)"
+        value={photoPrompt}
+        onChange={(e) => setPhotoPrompt(e.target.value)}
+        placeholder="Prompt Photo (apparence/look, injecté automatiquement)"
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 placeholder:text-agent-t3 resize-none"
+      />
+      <textarea
+        rows={2}
+        value={videoPrompt}
+        onChange={(e) => setVideoPrompt(e.target.value)}
+        placeholder="Prompt Vidéo (animation/mouvement spécifique)"
         className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 placeholder:text-agent-t3 resize-none"
       />
       <textarea
@@ -246,7 +254,8 @@ function StyleCreateForm({
               name: name.trim(),
               icon,
               shortDescription,
-              positivePrompt,
+              photoPrompt,
+              videoPrompt,
               negativePrompt,
               recommendedImageEngine: imageEngine,
               recommendedVideoEngine: videoEngine,
@@ -276,7 +285,8 @@ function StyleEditForm({
   onSave: (patch: Partial<StylePreset>) => void;
   onDelete?: () => void;
 }) {
-  const [positivePrompt, setPositivePrompt] = useState(style.positivePrompt);
+  const [photoPrompt, setPhotoPrompt] = useState(style.photoPrompt);
+  const [videoPrompt, setVideoPrompt] = useState(style.videoPrompt);
   const [negativePrompt, setNegativePrompt] = useState(style.negativePrompt);
   const [imageEngine, setImageEngine] = useState(style.recommendedImageEngine);
   const [videoEngine, setVideoEngine] = useState(style.recommendedVideoEngine);
@@ -319,8 +329,16 @@ function StyleEditForm({
       />
       <textarea
         rows={3}
-        value={positivePrompt}
-        onChange={(e) => setPositivePrompt(e.target.value)}
+        value={photoPrompt}
+        onChange={(e) => setPhotoPrompt(e.target.value)}
+        placeholder="Prompt Photo (apparence/look)"
+        className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 resize-none"
+      />
+      <textarea
+        rows={2}
+        value={videoPrompt}
+        onChange={(e) => setVideoPrompt(e.target.value)}
+        placeholder="Prompt Vidéo (animation/mouvement)"
         className="w-full bg-agent-s3 border border-agent-bd rounded px-2 py-1 text-[10.5px] text-agent-t1 resize-none"
       />
       <textarea
@@ -361,7 +379,8 @@ function StyleEditForm({
         <button
           onClick={() =>
             onSave({
-              positivePrompt,
+              photoPrompt,
+              videoPrompt,
               negativePrompt,
               recommendedImageEngine: imageEngine,
               recommendedVideoEngine: videoEngine,
@@ -728,6 +747,21 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
     if (styleTouchedRef.current) return;
     if (currentProject?.styleId && currentProject.styleId !== styleId) setStyleId(currentProject.styleId);
   }, [styleId, currentProject?.styleId]);
+
+  // Préselection depuis la Bibliothèque de styles (clic sur une carte de
+  // /styles → /studio?styleId=...) : ne s'applique qu'au démarrage d'une
+  // nouvelle production (aucun projet en cours), pour ne jamais écraser un
+  // travail déjà entamé. `window.location.search` plutôt que useSearchParams
+  // évite d'exiger un Suspense boundary sur cette page par ailleurs statique.
+  useEffect(() => {
+    if (currentProject || styleTouchedRef.current) return;
+    const preselect = new URLSearchParams(window.location.search).get("styleId");
+    if (preselect) {
+      setStyleId(preselect);
+      styleTouchedRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Voix off optionnelle fournie dès le brief (avant même l'analyse) : sa
   // durée réelle sert à caler le nombre de frames et le rythme de la vidéo,

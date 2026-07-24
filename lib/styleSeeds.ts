@@ -8,10 +8,12 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Pixar 3D standard",
     icon: "Sparkles",
     shortDescription: "Coloré, rond, familial — animation 3D Pixar classique",
-    positivePrompt:
+    photoPrompt:
       "Pixar-style 3D animation, feature-film render quality, warm cinematic three-point lighting with soft rim light, vibrant saturated color palette, expressive stylized characters with large readable eyes, subsurface scattering skin shading, soft global illumination and ambient occlusion, rounded friendly shapes, smooth subdivision-surface modeling, high-end animation studio quality, shallow cinematic depth of field, polished specular highlights on eyes and hair",
     negativePrompt:
       "photorealistic, live-action, flat lighting, dull muted colors, low-poly, uncanny valley, harsh hard shadows, waxy plastic skin, noisy grain, low-resolution render, blurry edges",
+    videoPrompt:
+      "Smooth cinematic camera moves with subtle animated dolly/crane motion, fluid squash-and-stretch character animation, expressive secondary motion on hair and cloth, polished feature-film animation timing",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en", "fr"],
@@ -24,10 +26,12 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Pixar 3D mature",
     icon: "UserRound",
     shortDescription: "Soul/Luca — imperfections réalistes, personnages âgés avec vraies textures",
-    positivePrompt:
+    photoPrompt:
       "Hyper-realistic Pixar-adjacent CGI style inspired by Soul and Luca, photorealistic pore-level skin textures, fine wrinkles and natural skin imperfections, subtle matte claymation-like finish (not glossy plastic), soft naturalistic cinematic lighting, believable adult body proportions and posture, realistic fabric weave and wardrobe texture — NOT cartoon, NOT toy-like, NOT exaggerated proportions",
     negativePrompt:
       "cartoonish, toy-like, exaggerated proportions, glossy plastic skin, childish design, uncanny valley, over-smoothed airbrushed skin, doll-like face, oversized eyes",
+    videoPrompt:
+      "Naturalistic restrained character motion with believable weight and physicality, smooth grounded camera work, subtle realistic secondary motion (hair, fabric) — no exaggerated cartoon bounce",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en", "fr"],
@@ -40,9 +44,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "LEGO",
     icon: "Blocks",
     shortDescription: "Tout en briques LEGO, plastique brillant, studio lumineux",
-    positivePrompt:
+    photoPrompt:
       "everything built entirely from LEGO bricks and plates, visible stud connectors and injection-mold seam lines, glossy injection-molded ABS plastic material, LEGO minifigure characters with cylindrical hands and blocky proportions, bright even studio lighting, sharp plastic sheen specular reflections, macro toy-photography aesthetic with shallow depth of field, vibrant primary and secondary LEGO color palette",
     negativePrompt: "organic textures, realistic skin, matte plastic, dark moody lighting, soft rounded non-brick shapes, fabric or cloth material, photorealistic proportions",
+    videoPrompt:
+      "Slightly rigid stop-motion-like articulated movement at LEGO joints, snappy toy-like pose-to-pose transitions, playful bouncy camera moves, occasional subtle brick-click micro-motion",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en", "fr"],
@@ -54,9 +60,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Playmobil",
     icon: "User",
     shortDescription: "Figurines Playmobil, décors colorés, style jouet",
-    positivePrompt:
+    photoPrompt:
       "Playmobil toy figurine characters with rounded blocky limbs and visible clip-joint connectors, smooth matte-glossy injection-molded plastic aesthetic, colorful detailed playset backgrounds and props, cheerful toy photography with bright even lighting, simplified rounded smiling faces with dot eyes, saturated primary color scheme, macro miniature-photography feel",
     negativePrompt: "realistic human anatomy, dark tones, gritty texture, photorealism, fabric clothing texture, articulated joints hidden",
+    videoPrompt:
+      "Rigid limited-articulation puppet-like movement typical of toy figurines, cheerful bouncy toy-photography camera moves, subtle handled-toy micro-jitter",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "grok_video",
     bestFor: ["fr"],
@@ -68,9 +76,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Claymation",
     icon: "Hand",
     shortDescription: "Argile animée, textures artisanales, lumière douce",
-    positivePrompt:
+    photoPrompt:
       "stop-motion claymation aesthetic in the style of Aardman studios, visible fingerprint and sculpting-tool textures on clay models, subtle asymmetry and handmade imperfection, soft warm practical studio lighting with visible set props, felt fabric and modeling clay materials, tactile miniature set design, slightly matte clay surface sheen",
     negativePrompt: "smooth CGI, digital rendering, photorealistic, glossy plastic, perfectly symmetrical shapes, sterile clean render, vector illustration",
+    videoPrompt:
+      "Frame-by-frame stop-motion jitter with slight positional imperfection between frames, tactile handmade movement, soft practical camera pans typical of Aardman-style animation",
     recommendedImageEngine: "flux_pro",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en"],
@@ -82,9 +92,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Studio Ghibli",
     icon: "Leaf",
     shortDescription: "Aquarelle animée, nature luxuriante, ambiance onirique",
-    positivePrompt:
+    photoPrompt:
       "Studio Ghibli inspired hand-painted watercolor animation style, lush detailed nature backgrounds with soft brushwork, dreamlike whimsical atmosphere, warm soft pastel color grading, painterly clouds and diffused natural light, gentle rounded character expressions with simple clean linework, visible paper/canvas texture in backgrounds",
     negativePrompt: "CGI render, harsh contrast, photorealistic, cyberpunk, neon, hard vector edges, glossy digital sheen",
+    videoPrompt:
+      "Gentle flowing painterly motion, soft breeze-driven secondary movement on hair/leaves/fabric, dreamy slow cinematic camera drifts, hand-animated fluidity",
     recommendedImageEngine: "flux_pro",
     recommendedVideoEngine: "grok_video",
     bestFor: ["fr", "en"],
@@ -96,9 +108,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Anime 2D",
     icon: "Zap",
     shortDescription: "Animation japonaise, contours nets, couleurs saturées",
-    positivePrompt:
+    photoPrompt:
       "2D Japanese anime animation style, crisp clean uniform-weight linework, flat cel-shaded saturated colors with sharp shadow shapes, dynamic anime motion lines and speed effects, large expressive anime eyes with detailed highlights, glossy anime hair with sharp specular streaks, studio-quality key animation frame composition",
     negativePrompt: "3D render, photorealistic, western cartoon, muted desaturated colors, painterly soft shading, rough sketchy linework",
+    videoPrompt:
+      "Dynamic anime-style motion with speed lines and impact frames on key actions, snappy key-pose timing, fluid but stylized limited-frame animation typical of Japanese TV anime",
     recommendedImageEngine: "ideogram_v3",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en"],
@@ -110,9 +124,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Hyper-réaliste dramatique",
     icon: "Camera",
     shortDescription: "Quasi-photographique, ambiance médicale/sombre",
-    positivePrompt:
+    photoPrompt:
       "Hyper-realistic photographic quality render, dramatic low-key cinematic lighting with strong directional shadows, ultra-detailed skin pores and fabric weave textures, shot on a full-frame camera with a fast prime lens, shallow depth of field with soft bokeh, physically based rendering, moody desaturated color grade, sharp focus on primary subject — NOT illustrated, NOT cartoon, NOT painterly",
     negativePrompt: "cartoon, stylized, flat shading, low detail, illustration, vector art, overly bright cheerful lighting, plastic-looking skin",
+    videoPrompt:
+      "Photoreal physically-accurate motion with natural physics, subtle handheld micro-shake, slow deliberate cinematic push-ins, dramatic pacing consistent with the low-key lighting",
     recommendedImageEngine: "flux_pro",
     recommendedVideoEngine: "seedance_2_0",
     bestFor: ["en", "fr"],
@@ -125,9 +141,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "UGC authentique",
     icon: "Smartphone",
     shortDescription: "Style selfie, naturel, peu stylisé",
-    positivePrompt:
+    photoPrompt:
       "Authentic UGC-style content, shot on iPhone front or rear camera, natural available daylight (window light or bathroom light), real-life everyday textures, slightly imperfect off-center framing, subtle handheld micro-shake feel, no color grading filter applied, real home/bathroom/bedroom setting with lived-in clutter, candid unpolished aesthetic, natural un-retouched skin",
     negativePrompt: "studio lighting, professional cinematography, polished color grade, tripod-stable perfectly centered shot, glossy commercial look, flawless retouched skin",
+    videoPrompt:
+      "Handheld phone-camera micro-shake, natural unpolished motion, casual imperfect framing shifts, no stabilization, authentic everyday movement",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "grok_video",
     bestFor: ["fr", "en"],
@@ -140,9 +158,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Alternance scientifique/réaliste",
     icon: "FlaskConical",
     shortDescription: "Anatomique + UGC — mécanisme scientifique alterné avec scènes réalistes",
-    positivePrompt:
+    photoPrompt:
       "Authentic UGC-style live-action footage alternating with clean scientific/medical infographic illustrations, natural daylight and real textures for live scenes, precise clean-line anatomical diagram style for mechanism scenes on a neutral background, medical infographic color palette (blues, whites, soft accent color), schematic cross-section diagram illustrations for internal mechanism shots with labeled clarity — NOT realistic exposed human anatomy",
     negativePrompt: "explicit anatomical exposure, realistic internal organs, NSFW, cartoon, low detail, cluttered busy diagram, gory or clinical-graphic imagery",
+    videoPrompt:
+      "Natural handheld motion for live-action UGC scenes, clean smooth animated transitions and callouts for schematic/diagram scenes, seamless cuts between the two registers",
     recommendedImageEngine: "flux_pro",
     recommendedVideoEngine: "grok_video",
     bestFor: ["fr", "en"],
@@ -155,9 +175,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Publicité TV Premium",
     icon: "Tv",
     shortDescription: "Cinématographique, 4K, éclairage studio, luxe",
-    positivePrompt:
+    photoPrompt:
       "premium television commercial cinematography, 4K broadcast-quality sharpness, dramatic multi-point studio lighting setup with soft key light and rim highlights, luxury brand aesthetic with clean minimalist composition, polished warm color grade, subtle lens flare on highlights, smooth gimbal-stabilized camera movement, high production value set design",
     negativePrompt: "amateur footage, handheld shake, low resolution, flat lighting, cluttered background, harsh unflattering shadows",
+    videoPrompt:
+      "Smooth gimbal-stabilized camera movement, elegant slow-motion accents on key beats, deliberate polished pacing typical of premium commercial cinematography",
     recommendedImageEngine: "flux_pro",
     recommendedVideoEngine: "seedance_2_0",
     bestFor: ["fr", "en"],
@@ -169,9 +191,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Cartoon 2D",
     icon: "Palette",
     shortDescription: "Dessin animé occidental, traits épais, couleurs plates",
-    positivePrompt:
+    photoPrompt:
       "western 2D cartoon animation style, bold uniform thick black outlines, flat solid color fills with no gradients, exaggerated character expressions and poses, classic Saturday-morning cartoon aesthetic, squash-and-stretch animation feel, simple clean background shapes",
     negativePrompt: "photorealistic, 3D render, painterly texture, muted desaturated tones, gradient shading, realistic proportions",
+    videoPrompt:
+      "Exaggerated squash-and-stretch motion, bouncy snappy transitions, classic cartoon animation timing with clear anticipation and follow-through",
     recommendedImageEngine: "ideogram_v3",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en"],
@@ -183,9 +207,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Stop Motion",
     icon: "Film",
     shortDescription: "Animation image par image, textures réelles, handmade",
-    positivePrompt:
+    photoPrompt:
       "stop-motion animation aesthetic, frame-by-frame handmade feel with subtle imperfections, real physical material textures (fabric, wood, felt, wire), miniature set design with visible practical lighting, tactile handcrafted props and characters, slight visible fingerprints or tool marks on surfaces",
     negativePrompt: "smooth CGI motion, digital rendering, perfectly fluid animation, glossy plastic sheen, vector illustration, flat 2D look",
+    videoPrompt:
+      "Frame-by-frame handmade stop-motion jitter with subtle positional imperfections between frames, tactile practical set camera moves, visible physical material response to motion",
     recommendedImageEngine: "flux_pro",
     recommendedVideoEngine: "grok_video",
     bestFor: ["fr"],
@@ -197,9 +223,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Papier Découpé",
     icon: "Scissors",
     shortDescription: "Collage en papier découpé, ombres portées, textures artisanales",
-    positivePrompt:
+    photoPrompt:
       "paper cutout collage animation style, layered die-cut paper shapes with visible paper grain and fiber texture, soft realistic drop shadows cast between layers showing physical depth, handmade craft aesthetic, flat colored construction-paper pieces arranged with parallax depth, subtle torn or scissor-cut paper edge texture, warm diffused studio lighting from above",
     negativePrompt: "smooth CGI, photorealistic, glossy digital rendering, 3D depth of field, perfectly flat single-layer image, vector-perfect edges",
+    videoPrompt:
+      "Flat 2D parallax layer movement — paper cutout pieces slide, rotate and shift on their own depth layer, gentle paper flutter and curl at the edges, camera moves reveal depth between the paper layers",
     recommendedImageEngine: "nano_banana",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["fr", "en"],
@@ -211,9 +239,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Futurama",
     icon: "Rocket",
     shortDescription: "Cartoon 2D rétro-futuriste, traits épais, palette néon vintage",
-    positivePrompt:
+    photoPrompt:
       "retro-futuristic 2D cartoon animation style inspired by classic adult sci-fi sitcoms, bold clean uniform outlines, exaggerated rounded character proportions with oversized eyes, vintage sci-fi color palette of teal cyan and warm orange with chrome accents, chrome-plated and neon-lit spaceship or space-station backgrounds, flat cel-shaded coloring with sharp shadow shapes, satirical exaggerated comedic expressions",
     negativePrompt: "photorealistic, 3D render, painterly texture, muted realistic colors, live-action, soft gradient shading, subtle realistic lighting",
+    videoPrompt:
+      "Exaggerated bouncy retro-cartoon motion with snappy comedic timing, sweeping camera moves through chrome and neon-lit environments, satirical exaggerated character animation",
     recommendedImageEngine: "ideogram_v3",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en", "fr"],
@@ -225,9 +255,11 @@ export const DEFAULT_STYLES: StylePreset[] = [
     name: "Flat Design Animé",
     icon: "Shapes",
     shortDescription: "Illustration vectorielle animée, minimalisme coloré",
-    positivePrompt:
+    photoPrompt:
       "flat vector illustration animation style, minimalist geometric shapes with clean uniform line weight, bold flat color palette with no gradients, clean modern motion-graphics composition, simplified iconographic characters with simple facial features, smooth vector-based shapes and transitions, generous negative space",
     negativePrompt: "photorealistic, 3D depth, textured surfaces, heavy gradients, hand-drawn sketchy linework, realistic shading",
+    videoPrompt:
+      "Smooth vector-based easing motion, clean geometric shape morphing and transitions, minimal flat motion-graphics style movement with no physical weight or texture",
     recommendedImageEngine: "ideogram_v3",
     recommendedVideoEngine: "kling_3_0",
     bestFor: ["en", "fr"],

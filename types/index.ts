@@ -65,7 +65,10 @@ export interface StylePreset {
   name: string;
   icon: string; // lucide icon name
   shortDescription: string;
-  positivePrompt: string;
+  /** Décrit l'apparence/le look du style — injecté dans les générations d'images (frames, personnages, décors). */
+  photoPrompt: string;
+  /** Décrit l'animation/le mouvement spécifique à ce style (ex: parallax pour Papier Découpé) — injecté dans les générations vidéo. */
+  videoPrompt: string;
   negativePrompt: string;
   recommendedImageEngine: ImageEngine;
   recommendedVideoEngine: VideoEngine;

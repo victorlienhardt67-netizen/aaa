@@ -285,7 +285,7 @@ export function buildScenePositivePrompt(
   return [
     scene.videoPrompt,
     `Camera movement: ${cameraPhrase}.`,
-    `Visual style: ${style.positivePrompt}`,
+    `Visual style: ${style.photoPrompt} ${style.videoPrompt}`,
     `Movement intensity: ${MOTION_INTENSITY_LABELS[motionIntensity]}.`,
   ].join(" ");
 }
@@ -307,7 +307,7 @@ export function buildGrokVideoPrompt(
   return [
     `Movement: ${cameraPhrase}.`,
     `Subject: ${scene.videoPrompt}`,
-    `Scene visual style: ${style.positivePrompt}.`,
+    `Scene visual style: ${style.photoPrompt}. ${style.videoPrompt}.`,
     `Lighting: consistent with the reference frame, natural continuity.`,
     `Mood and pace: ${MOTION_INTENSITY_LABELS[motionIntensity]} energy.`,
     `Audio: ${voiceDirective}`,
@@ -338,7 +338,7 @@ export function buildKlingVideoPrompt(
     `Shot 1 (0-${scene.durationSeconds}s): ${labels ? `${labels} ` : ""}${scene.videoPrompt}`,
     `Camera: ${cameraPhrase}, natural micro-movements — breathing, hair, fabric, light flicker.`,
     `SFX: ${voiceDirective}`,
-    `Style: ${style.positivePrompt}, ${MOTION_INTENSITY_LABELS[motionIntensity]} pace.`,
+    `Style: ${style.photoPrompt}. Animation: ${style.videoPrompt}, ${MOTION_INTENSITY_LABELS[motionIntensity]} pace.`,
     `No morphing textures, stable face, outfit artifact free, no circular motion.`,
     `Aspect ratio 9:16.`,
   ].join(" ");
@@ -382,7 +382,7 @@ export function buildCharacterSheetPrompt(
   const physicalTrait = physicalState
     ? ` Trait physique du personnage à représenter clairement sur les 5 panneaux : ${physicalState}.`
     : "";
-  return `${template}${physicalTrait} Style visuel du personnage : ${style.positivePrompt}. exactly two arms, no extra limbs, anatomically correct hands, no duplicate arms.`;
+  return `${template}${physicalTrait} Style visuel du personnage : ${style.photoPrompt}. exactly two arms, no extra limbs, anatomically correct hands, no duplicate arms.`;
 }
 
 /**
@@ -392,7 +392,7 @@ export function buildCharacterSheetPrompt(
  * cohérent d'une frame à l'autre pour toutes les scènes situées au même endroit.
  */
 export function buildLocationSheetPrompt(locationName: string, style: StylePreset): string {
-  return `Establishing reference shot of this location: ${locationName}. Wide clear view of the empty space, no character, no person, no text, no watermark, natural balanced lighting representative of this place, all key visual elements of the location clearly visible. Style visuel : ${style.positivePrompt}.`;
+  return `Establishing reference shot of this location: ${locationName}. Wide clear view of the empty space, no character, no person, no text, no watermark, natural balanced lighting representative of this place, all key visual elements of the location clearly visible. Style visuel : ${style.photoPrompt}.`;
 }
 
 /**
@@ -441,8 +441,7 @@ function pickCameraGear(seed: string): string {
 /**
  * Construit le prompt final d'une frame en 7 blocs obligatoires, dans l'ordre
  * — chaque bloc sert à éliminer une erreur connue, pas à faire joli :
- * 1. Ancre de style (style.positivePrompt — les 5 styles proposés à l'étape 0
- *    utilisent déjà le texte d'ancrage exact attendu par les moteurs image)
+ * 1. Ancre de style (style.photoPrompt — décrit l'apparence, jamais l'animation)
  * 2. Format explicite (jamais supposé hérité)
  * 3. Personnage principal — fidélité à la référence si fournie, jamais
  *    conditionnelle (seulement affirmée quand la référence existe réellement)
@@ -510,7 +509,7 @@ export function buildImagePrompt(
   const referenceNotesText = referenceNotes.join(" ");
 
   return [
-    `${style.positivePrompt},`, // BLOC 1 — ancre de style
+    `${style.photoPrompt},`, // BLOC 1 — ancre de style
     "FULL SCREEN vertical 9:16, no black bars, no borders, no letterbox,", // BLOC 2 — format
     scene.imagePrompt, // BLOC 3-5 — personnage/cadrage/action/décor/ambiance
     brandNote,

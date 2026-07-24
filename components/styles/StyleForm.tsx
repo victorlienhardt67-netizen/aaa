@@ -28,7 +28,8 @@ export function StyleForm({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("Sparkles");
   const [shortDescription, setShortDescription] = useState("");
-  const [positivePrompt, setPositivePrompt] = useState("");
+  const [photoPrompt, setPhotoPrompt] = useState("");
+  const [videoPrompt, setVideoPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [recommendedImageEngine, setRecommendedImageEngine] = useState<ImageEngine>("nano_banana");
   const [recommendedVideoEngine, setRecommendedVideoEngine] = useState<VideoEngine>("kling_3_0");
@@ -46,7 +47,8 @@ export function StyleForm({ onClose }: { onClose: () => void }) {
       name,
       icon,
       shortDescription,
-      positivePrompt,
+      photoPrompt,
+      videoPrompt,
       negativePrompt,
       recommendedImageEngine,
       recommendedVideoEngine,
@@ -116,8 +118,13 @@ export function StyleForm({ onClose }: { onClose: () => void }) {
       </div>
 
       <div>
-        <Label>Prompt positif système (caché, injecté automatiquement)</Label>
-        <Textarea rows={3} value={positivePrompt} onChange={(e) => setPositivePrompt(e.target.value)} />
+        <Label>Prompt Photo (apparence/look, caché, injecté automatiquement)</Label>
+        <Textarea rows={3} value={photoPrompt} onChange={(e) => setPhotoPrompt(e.target.value)} />
+      </div>
+
+      <div>
+        <Label>Prompt Vidéo (animation/mouvement spécifique à ce style, caché, injecté automatiquement)</Label>
+        <Textarea rows={2} value={videoPrompt} onChange={(e) => setVideoPrompt(e.target.value)} />
       </div>
 
       <div>

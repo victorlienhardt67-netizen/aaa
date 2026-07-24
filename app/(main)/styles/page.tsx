@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ImagePlus, Plus, Save, Trash2 } from "lucide-react";
 import { useStyleStore } from "@/store/styleStore";
 import { ImageEngine, IMAGE_ENGINE_LABELS, StylePreset, VideoEngine, VIDEO_ENGINE_LABELS } from "@/types";
@@ -25,7 +26,8 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
   const updateStyle = useStyleStore((s) => s.updateStyle);
   const deleteStyle = useStyleStore((s) => s.deleteStyle);
 
-  const [positivePrompt, setPositivePrompt] = useState(style.positivePrompt);
+  const [photoPrompt, setPhotoPrompt] = useState(style.photoPrompt);
+  const [videoPrompt, setVideoPrompt] = useState(style.videoPrompt);
   const [negativePrompt, setNegativePrompt] = useState(style.negativePrompt);
   const [recommendedImageEngine, setRecommendedImageEngine] = useState(style.recommendedImageEngine);
   const [recommendedVideoEngine, setRecommendedVideoEngine] = useState(style.recommendedVideoEngine);
@@ -34,7 +36,8 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
   const illustrationInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setPositivePrompt(style.positivePrompt);
+    setPhotoPrompt(style.photoPrompt);
+    setVideoPrompt(style.videoPrompt);
     setNegativePrompt(style.negativePrompt);
     setRecommendedImageEngine(style.recommendedImageEngine);
     setRecommendedVideoEngine(style.recommendedVideoEngine);
@@ -43,7 +46,7 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
   }, [style]);
 
   function handleSave() {
-    updateStyle(style.id, { positivePrompt, negativePrompt, recommendedImageEngine, recommendedVideoEngine, illustrationImageUrl });
+    updateStyle(style.id, { photoPrompt, videoPrompt, negativePrompt, recommendedImageEngine, recommendedVideoEngine, illustrationImageUrl });
     setSaved(true);
   }
 
@@ -57,12 +60,24 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
       </div>
 
       <div>
-        <Label>Prompt positif système (injecté automatiquement — modifiable pour ajuster le rendu)</Label>
+        <Label>Prompt Photo (apparence/look — injecté dans les générations d&apos;images)</Label>
         <Textarea
           rows={4}
-          value={positivePrompt}
+          value={photoPrompt}
           onChange={(e) => {
-            setPositivePrompt(e.target.value);
+            setPhotoPrompt(e.target.value);
+            setSaved(false);
+          }}
+        />
+      </div>
+
+      <div>
+        <Label>Prompt Vidéo (animation/mouvement spécifique à ce style — injecté dans les générations vidéo)</Label>
+        <Textarea
+          rows={3}
+          value={videoPrompt}
+          onChange={(e) => {
+            setVideoPrompt(e.target.value);
             setSaved(false);
           }}
         />
@@ -172,6 +187,7 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
 }
 
 export default function StylesPage() {
+  const router = useRouter();
   const styles = useStyleStore((s) => s.styles);
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -184,8 +200,8 @@ export default function StylesPage() {
         <div>
           <h1 className="font-display font-bold text-2xl text-ink">Bibliothèque de styles</h1>
           <p className="text-sm text-ink-secondary mt-1">
-            Presets de génération visuelle — clique sur un style pour ajuster ses prompts si le rendu ne
-            convient pas.
+            Clique sur un style pour démarrer une production avec ce style — survole une carte pour
+            ajuster ses prompts (icône crayon).
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
@@ -195,7 +211,12 @@ export default function StylesPage() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {styles.map((style) => (
-          <StyleCard key={style.id} style={style} onClick={() => setDetailId(style.id)} />
+          <StyleCard
+            key={style.id}
+            style={style}
+            onLaunch={() => router.push(`/studio?styleId=${style.id}`)}
+            onEdit={() => setDetailId(style.id)}
+          />
         ))}
       </div>
 
