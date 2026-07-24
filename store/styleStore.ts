@@ -45,9 +45,18 @@ export const useStyleStore = create<StyleState>()(
       merge: (persisted, current) => {
         const p = persisted as StyleState | undefined;
         if (!p || !p.styles || p.styles.length === 0) return { ...current, ...p };
-        // Fusionne : garde les styles custom persistés + rafraîchit les styles de base
+        // Fusionne : les styles de base gardent les modifs utilisateur persistées
+        // (image d'illustration, prompts...) tout en récupérant les nouveaux champs
+        // ajoutés côté code (ex: un futur champ absent des anciennes données
+        // persistées) — sans ça, toute édition d'un style de base était
+        // silencieusement effacée à chaque rechargement de page.
+        const persistedById = new Map(p.styles.map((st) => [st.id, st]));
         const customs = p.styles.filter((st) => st.isCustom);
-        return { ...current, ...p, styles: [...DEFAULT_STYLES, ...customs] };
+        const bases = DEFAULT_STYLES.map((base) => {
+          const saved = persistedById.get(base.id);
+          return saved ? { ...base, ...saved } : base;
+        });
+        return { ...current, ...p, styles: [...bases, ...customs] };
       },
     }
   )
