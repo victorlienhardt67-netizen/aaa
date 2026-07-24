@@ -192,6 +192,13 @@ export async function POST(req: NextRequest) {
 ${learningContext ? `\nRetours qualité des générations précédentes à prendre en compte :\n${learningContext}` : ""}${narrationInstruction}`;
 
   const frameTarget = estimateFrameCountForDuration(Number(targetDuration) || 60);
+  // Chaque scène génère plusieurs champs verbeux (imagePrompt, videoPrompt,
+  // description, voiceOverText...) — avec un plan long (script + voix off
+  // calée sur un audio de plusieurs minutes), le JSON dépasse largement les
+  // 8192 tokens par défaut et Claude est coupé en plein milieu sans erreur
+  // visible. On dimensionne le budget sur le nombre de scènes visé, avec une
+  // marge de sécurité, plafonné très en dessous de la limite du modèle (128k).
+  const maxTokens = Math.min(64000, Math.max(8192, 2500 + frameTarget.max * 700));
 
   const userMessage = `Script à analyser :
 """
@@ -209,7 +216,7 @@ Nombre total de frames visé : entre ${frameTarget.min} et ${frameTarget.max}
 Découpe ce script en frames cohérentes qui respectent la durée cible totale (somme des durationSeconds proche de ${targetDuration}s) et le nombre total de frames visé ci-dessus, en respectant les règles de durée par frame, l'alternance de cadrage et le regroupement en blocs narratifs (beatLabel).`;
 
   try {
-    const result = await callClaudeTool({ apiKey, system, userMessage, tool: PRODUCTION_PLAN_TOOL });
+    const result = await callClaudeTool({ apiKey, system, userMessage, tool: PRODUCTION_PLAN_TOOL, maxTokens });
     return NextResponse.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
