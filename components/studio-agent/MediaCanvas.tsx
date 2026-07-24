@@ -61,7 +61,8 @@ import {
   VideoEngine,
 } from "@/types";
 import { analyzeBrief, refineCharacterPrompt } from "@/lib/claude";
-import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage, falTranscribeAudio, type FalTranscriptWord } from "@/lib/fal";
+import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage, type FalTranscriptWord } from "@/lib/fal";
+import { whisperxTranscribeAudio } from "@/lib/whisperx";
 import { buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
 import {
   alignScenesToTranscriptWords,
@@ -746,8 +747,8 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
   }, [voAudioUrl, currentProject?.voiceOverAudioUrl, currentProject?.voiceOverAudioDurationSeconds]);
   // Transcription Whisper (mot par mot) — permet de caler chaque scène sur sa
   // durée réelle exacte plutôt qu'une estimation par nombre de mots. Optionnelle :
-  // si elle échoue (pas de clé fal.ai, modèle indisponible...), on retombe sur
-  // l'estimation par mots sans bloquer l'upload de l'audio lui-même.
+  // si elle échoue (backend voiceover-sync non configuré/indisponible...), on
+  // retombe sur l'estimation par mots sans bloquer l'upload de l'audio lui-même.
   const [voTranscriptWords, setVoTranscriptWords] = useState<FalTranscriptWord[] | undefined>(undefined);
   const [voTranscribing, setVoTranscribing] = useState(false);
   const [voTranscriptError, setVoTranscriptError] = useState("");
@@ -778,7 +779,7 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
 
       setVoTranscribing(true);
       try {
-        const transcription = await falTranscribeAudio(file, apiKeys.falApiKey);
+        const transcription = await whisperxTranscribeAudio(file, lang);
         setVoTranscriptWords(transcription.words);
       } catch (transcriptionError) {
         setVoTranscriptError(
