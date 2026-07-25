@@ -1,10 +1,56 @@
 "use client";
 
-import * as Icons from "lucide-react";
-import { LucideIcon, Pencil, Sparkles } from "lucide-react";
+import {
+  LucideIcon,
+  Pencil,
+  Sparkles,
+  Blocks,
+  User,
+  UserRound,
+  Hand,
+  Leaf,
+  Zap,
+  Camera,
+  Smartphone,
+  Tv,
+  Palette,
+  Film,
+  Shapes,
+  Wand2,
+  Star,
+  Flame,
+  FlaskConical,
+  Scissors,
+  Rocket,
+} from "lucide-react";
 import { StylePreset, IMAGE_ENGINE_LABELS, VIDEO_ENGINE_LABELS } from "@/types";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+
+// Import nommé de chaque icône utilisée par un style (au lieu de `import * as
+// Icons from "lucide-react"`, qui empêche le tree-shaking et fait à lui seul
+// gonfler le bundle de cette page — ~150 Ko de plus que les autres pages).
+const STYLE_ICON_MAP: Record<string, LucideIcon> = {
+  Sparkles,
+  Blocks,
+  User,
+  UserRound,
+  Hand,
+  Leaf,
+  Zap,
+  Camera,
+  Smartphone,
+  Tv,
+  Palette,
+  Film,
+  Shapes,
+  Wand2,
+  Star,
+  Flame,
+  FlaskConical,
+  Scissors,
+  Rocket,
+};
 
 export function StyleCard({
   style,
@@ -17,7 +63,7 @@ export function StyleCard({
   /** Icône crayon (visible au survol) — ouvre l'édition des prompts sans quitter la page. */
   onEdit?: () => void;
 }) {
-  const Icon = ((Icons as unknown as Record<string, LucideIcon>)[style.icon] ?? Sparkles) as LucideIcon;
+  const Icon = STYLE_ICON_MAP[style.icon] ?? Sparkles;
 
   return (
     <Card
