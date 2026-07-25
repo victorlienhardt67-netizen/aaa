@@ -2364,6 +2364,21 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
   }));
   const hasVoice = !!plan?.scenes.some((s) => s.voiceType === "voiceover" || s.voiceType === "lipsync");
   const hasFailed = framedScenes.some((s) => s.frameStatus === "error") || !!plan?.scenes.some((s) => s.videoStatus === "error");
+  const hasUnvalidated = !!plan?.scenes.some(
+    (s) => (s.needsFrame && s.frameStatus === "frame_generated") || s.videoStatus === "video_generated"
+  );
+
+  /** Valide en un clic toutes les frames/vidéos déjà générées (mais pas encore validées) — évite de cocher chaque case une par une. */
+  function handleValidateAll() {
+    plan?.scenes.forEach((s) => {
+      if (s.needsFrame && s.frameStatus === "frame_generated") {
+        updateScene(s.id, { frameStatus: "frame_validated" });
+      }
+      if (s.videoStatus === "video_generated") {
+        updateScene(s.id, { videoStatus: "video_validated" });
+      }
+    });
+  }
 
   function handleCardDragStart(cardId: string, e: ReactPointerEvent) {
     e.stopPropagation();
@@ -2534,6 +2549,14 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
               className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1.5 rounded-md bg-agent-s2 border border-agent-bd2 text-agent-t1 disabled:opacity-40"
             >
               <Film className="w-3.5 h-3.5" /> {generatingAllVideos ? "Animation..." : "Tout animer"}
+            </button>
+            <button
+              onClick={handleValidateAll}
+              disabled={!hasUnvalidated}
+              title="Valider toutes les frames et vidéos déjà générées"
+              className="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1.5 rounded-md bg-agent-grn/15 border border-agent-grn/40 text-agent-grn disabled:opacity-40"
+            >
+              <Check className="w-3.5 h-3.5" /> Tout valider
             </button>
           </div>
         </div>
