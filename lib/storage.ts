@@ -34,6 +34,45 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
+/**
+ * Comme fileToBase64, mais redimensionne et recompresse en JPEG avant
+ * l'encodage — une photo brute (souvent plusieurs Mo) peut à elle seule
+ * remplir le quota localStorage (~5-10 Mo/origine) au bout de 2-3 images,
+ * faisant échouer silencieusement toutes les sauvegardes suivantes. Réservé
+ * aux images purement illustratives (jamais envoyées aux moteurs de
+ * génération) — ne pas utiliser pour des références produit/personnage où la
+ * fidélité visuelle compte.
+ */
+export function fileToCompressedBase64(
+  file: File,
+  opts: { maxWidth?: number; quality?: number } = {}
+): Promise<string> {
+  const { maxWidth = 960, quality = 0.82 } = opts;
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas 2D non supporté"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Impossible de lire l'image"));
+    };
+    img.src = objectUrl;
+  });
+}
+
 export const STORAGE_KEYS = {
   brands: "golddust:brands",
   activeBrandId: "golddust:activeBrandId",

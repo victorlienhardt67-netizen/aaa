@@ -7,7 +7,7 @@ import { ImageEngine, IMAGE_ENGINE_LABELS, Lang, VideoEngine, VIDEO_ENGINE_LABEL
 import { Input, Textarea, Label } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { fileToBase64 } from "@/lib/storage";
+import { fileToCompressedBase64 } from "@/lib/storage";
 
 const ICON_OPTIONS = [
   "Sparkles", "Blocks", "User", "Hand", "Leaf", "Zap", "Camera", "Smartphone",
@@ -102,7 +102,7 @@ export function StyleForm({ onClose }: { onClose: () => void }) {
           className="hidden"
           onChange={async (e) => {
             const f = e.target.files?.[0];
-            if (f) setIllustrationImageUrl(await fileToBase64(f));
+            if (f) setIllustrationImageUrl(await fileToCompressedBase64(f));
             e.target.value = "";
           }}
         />

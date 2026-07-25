@@ -72,7 +72,7 @@ import {
   generateId,
   mapWithConcurrency,
 } from "@/lib/utils";
-import { fileToBase64 } from "@/lib/storage";
+import { fileToBase64, fileToCompressedBase64 } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { getReferenceImageInfo } from "@/lib/frameReferences";
 import { generateSceneVideo } from "@/lib/videoGeneration";
@@ -192,7 +192,7 @@ function StyleCreateForm({
         className="hidden"
         onChange={async (e) => {
           const f = e.target.files?.[0];
-          if (f) setIllustrationImageUrl(await fileToBase64(f));
+          if (f) setIllustrationImageUrl(await fileToCompressedBase64(f));
           e.target.value = "";
         }}
       />
@@ -323,7 +323,7 @@ function StyleEditForm({
         className="hidden"
         onChange={async (e) => {
           const f = e.target.files?.[0];
-          if (f) setIllustrationImageUrl(await fileToBase64(f));
+          if (f) setIllustrationImageUrl(await fileToCompressedBase64(f));
           e.target.value = "";
         }}
       />

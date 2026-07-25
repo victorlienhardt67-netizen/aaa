@@ -12,7 +12,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { Label, Textarea } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { fileToBase64 } from "@/lib/storage";
+import { fileToCompressedBase64 } from "@/lib/storage";
 
 const IMAGE_ENGINE_OPTIONS = (Object.keys(IMAGE_ENGINE_LABELS) as ImageEngine[])
   .filter((e) => e !== "auto")
@@ -152,7 +152,7 @@ function StyleDetailForm({ style, onClose }: { style: StylePreset; onClose: () =
           onChange={async (e) => {
             const f = e.target.files?.[0];
             if (f) {
-              setIllustrationImageUrl(await fileToBase64(f));
+              setIllustrationImageUrl(await fileToCompressedBase64(f));
               setSaved(false);
             }
             e.target.value = "";
