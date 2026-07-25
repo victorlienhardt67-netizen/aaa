@@ -521,7 +521,7 @@ function StylePickerBlock({ styleId, onSelect }: { styleId: string; onSelect: (i
 }
 
 function statusBorder(status: Scene["frameStatus"] | Scene["videoStatus"], selected: boolean): string {
-  if (selected) return "border-agent-acc shadow-[0_0_0_1px_rgba(168,85,247,0.4)]";
+  if (selected) return "border-agent-acc shadow-[0_0_0_1px_rgba(226,103,46,0.4)]";
   if (status === "frame_validated" || status === "video_validated") return "border-agent-grn/50";
   if (status === "frame_generating" || status === "video_generating") return "border-agent-acc/60 animate-pulse";
   if (status === "error") return "border-red-500/50";

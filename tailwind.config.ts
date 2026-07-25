@@ -9,36 +9,41 @@ const config: Config = {
     extend: {
       colors: {
         background: "#0A0A0A",
-        surface: "#111111",
-        surface2: "#161616",
-        border: "#242420",
+        surface: "#131313",
+        surface2: "#1A1A1A",
+        border: "#262622",
+        // Accent unique de la marque (orange brûlé du logo) — remplace l'ancien
+        // or ET l'ancien violet du Studio, pour que tout le site partage la
+        // même identité visuelle au lieu de deux thèmes différents.
         gold: {
-          DEFAULT: "#C9A84C",
-          light: "#E8C96A",
-          dark: "#8A7233",
+          DEFAULT: "#E2672E",
+          light: "#F2946A",
+          dark: "#A8421C",
         },
         ink: {
           DEFAULT: "#F5F5F0",
-          secondary: "#888880",
+          secondary: "#8A8A82",
         },
-        // Design system violet — nouvelle expérience /studio (Ad Production Agent).
-        // Namespace séparé du thème or existant (brands/styles/projects/templates/settings
-        // gardent l'ancien thème pour l'instant).
+        // Le Studio (Ad Production Agent) réutilise exactement les mêmes valeurs
+        // que le thème principal ci-dessus (accent, fonds, texte) — namespace
+        // conservé pour ne pas avoir à réécrire toutes les classes `agent-*`
+        // déjà posées dans le code du Studio, mais visuellement c'est
+        // désormais un seul et même système de couleurs.
         agent: {
-          bg: "#0e0e10",
-          s1: "#161618",
-          s2: "#1e1e21",
-          s3: "#26262a",
-          bd: "#2e2e33",
-          bd2: "#3a3a40",
-          acc: "#a855f7",
-          acc2: "#7c3aed",
-          accs: "rgba(168,85,247,0.1)",
+          bg: "#0A0A0A",
+          s1: "#131313",
+          s2: "#1A1A1A",
+          s3: "#212120",
+          bd: "#262622",
+          bd2: "#33332e",
+          acc: "#E2672E",
+          acc2: "#A8421C",
+          accs: "rgba(226,103,46,0.12)",
           grn: "#22c55e",
-          amb: "#f59e0b",
-          t1: "#f0eff0",
-          t2: "#9b9a9e",
-          t3: "#4e4e54",
+          amb: "#F2C94C",
+          t1: "#F5F5F0",
+          t2: "#8A8A82",
+          t3: "#5C5C56",
         },
       },
       fontFamily: {
@@ -51,7 +56,7 @@ const config: Config = {
         lg: "12px",
       },
       boxShadow: {
-        gold: "0 0 0 1px rgba(201,168,76,0.25), 0 8px 24px rgba(201,168,76,0.08)",
+        gold: "0 0 0 1px rgba(226,103,46,0.25), 0 8px 24px rgba(226,103,46,0.08)",
       },
     },
   },

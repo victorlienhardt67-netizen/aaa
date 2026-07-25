@@ -8,7 +8,7 @@ html, body {
 }
 
 * {
-  border-color: #242420;
+  border-color: #262622;
 }
 
 ::-webkit-scrollbar {
@@ -19,11 +19,11 @@ html, body {
   background: #0A0A0A;
 }
 ::-webkit-scrollbar-thumb {
-  background: #242420;
+  background: #262622;
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C9A84C55;
+  background: #E2672E55;
 }
 
 input[type="color"]::-webkit-color-swatch-wrapper {
