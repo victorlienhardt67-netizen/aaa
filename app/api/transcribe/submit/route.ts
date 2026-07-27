@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Point d'entrée unique de soumission de transcription, quel que soit le
-// provider actif — le choix se fait ici, côté serveur (jamais côté client),
-// via TRANSCRIPTION_PROVIDER. Whisper reste le défaut si la variable est
-// absente ou a une valeur inconnue.
-const PROVIDER = (process.env.TRANSCRIPTION_PROVIDER || "whisper").toLowerCase();
+// Provider par défaut si l'utilisateur n'a rien choisi explicitement dans le
+// Studio (bouton Whisper/ElevenLabs) — Whisper reste le défaut si la variable
+// est absente ou a une valeur inconnue.
+const ENV_DEFAULT_PROVIDER = (process.env.TRANSCRIPTION_PROVIDER || "whisper").toLowerCase();
 
 // ElevenLabs Scribe répond de façon synchrone (pas de job à interroger) — la
 // route peut donc tourner plus longtemps qu'une requête classique sur les
@@ -184,5 +183,31 @@ export async function POST(req: NextRequest) {
   if (!formData) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
-  return PROVIDER === "elevenlabs" ? submitElevenLabs(formData) : submitWhisper(formData);
+
+  // Le Studio peut demander explicitement un provider (bouton Whisper/ElevenLabs) ;
+  // sinon on retombe sur le défaut serveur.
+  const requestedProvider = formData.get("provider");
+  const provider =
+    requestedProvider === "whisper" || requestedProvider === "elevenlabs"
+      ? requestedProvider
+      : ENV_DEFAULT_PROVIDER;
+
+  if (provider !== "elevenlabs") {
+    return submitWhisper(formData);
+  }
+
+  const elevenLabsResponse = await submitElevenLabs(formData);
+  if (elevenLabsResponse.status < 400) {
+    return elevenLabsResponse;
+  }
+
+  // Filet de sécurité : si ElevenLabs échoue et que Whisper est configuré,
+  // on bascule automatiquement dessus plutôt que de faire échouer la
+  // transcription pour l'utilisateur.
+  if (BACKEND_URL) {
+    console.error("ElevenLabs Scribe indisponible, fallback vers Whisper.");
+    return submitWhisper(formData);
+  }
+
+  return elevenLabsResponse;
 }

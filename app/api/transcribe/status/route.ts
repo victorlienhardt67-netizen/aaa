@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PROVIDER = (process.env.TRANSCRIPTION_PROVIDER || "whisper").toLowerCase();
+const ENV_DEFAULT_PROVIDER = (process.env.TRANSCRIPTION_PROVIDER || "whisper").toLowerCase();
 const BACKEND_URL = process.env.VOICEOVER_SYNC_BACKEND_URL;
 const BACKEND_API_KEY = process.env.VOICEOVER_SYNC_API_KEY;
 
@@ -44,5 +44,13 @@ export async function GET(req: NextRequest) {
   if (!jobId) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
-  return PROVIDER === "elevenlabs" ? statusElevenLabs(jobId) : statusWhisper(jobId);
+  // Le provider effectivement utilisé au submit (transmis par le client) prime
+  // sur le défaut serveur — un job Whisper doit toujours être interrogé via
+  // statusWhisper même si TRANSCRIPTION_PROVIDER vaut "elevenlabs".
+  const requestedProvider = req.nextUrl.searchParams.get("provider");
+  const provider =
+    requestedProvider === "whisper" || requestedProvider === "elevenlabs"
+      ? requestedProvider
+      : ENV_DEFAULT_PROVIDER;
+  return provider === "elevenlabs" ? statusElevenLabs(jobId) : statusWhisper(jobId);
 }

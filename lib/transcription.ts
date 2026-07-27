@@ -38,13 +38,23 @@ function toTranscriptionResult(result: RawTranscriptionResult): TranscriptionRes
  * direct côté appelant (alignScenesToTranscriptWords consomme cette forme
  * sans modification).
  */
+export type TranscriptionProvider = "whisper" | "elevenlabs";
+
+/**
+ * `provider` est le choix explicite de l'utilisateur (bouton Whisper/ElevenLabs
+ * dans le Studio) ; s'il est omis, le serveur retombe sur TRANSCRIPTION_PROVIDER.
+ */
 export async function transcribeAudio(
   audioFile: File,
-  language: "fr" | "en"
+  language: "fr" | "en",
+  provider?: TranscriptionProvider
 ): Promise<TranscriptionResult> {
   const formData = new FormData();
   formData.append("audio", audioFile);
   formData.append("language", language);
+  if (provider) {
+    formData.append("provider", provider);
+  }
 
   const submitRes = await fetch("/api/transcribe/submit", {
     method: "POST",
@@ -61,11 +71,17 @@ export async function transcribeAudio(
     return toTranscriptionResult(submitData.result as RawTranscriptionResult);
   }
 
+  // Le provider réellement utilisé peut différer de celui demandé si un
+  // filet de sécurité serveur a basculé sur Whisper (ex. ElevenLabs en échec).
+  const actualProvider = submitData.provider as string | undefined;
   const jobId = submitData.jobId as string;
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
-    const statusRes = await fetch(`/api/transcribe/status?jobId=${encodeURIComponent(jobId)}`, {
+    const statusUrl = `/api/transcribe/status?jobId=${encodeURIComponent(jobId)}${
+      actualProvider ? `&provider=${encodeURIComponent(actualProvider)}` : ""
+    }`;
+    const statusRes = await fetch(statusUrl, {
       cache: "no-store",
     });
     const statusData = await statusRes.json();
