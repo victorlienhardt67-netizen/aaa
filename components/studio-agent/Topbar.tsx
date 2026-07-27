@@ -4,6 +4,7 @@ import { Check, Menu, Plus } from "lucide-react";
 import { useBrandStore } from "@/store/brandStore";
 import { useProjectStore } from "@/store/projectStore";
 import { cn } from "@/lib/utils";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import { AGENT_STEPS, agentStepIndex } from "./steps";
 
 export function AgentTopbar({
@@ -78,6 +79,8 @@ export function AgentTopbar({
       >
         <Plus className="w-3.5 h-3.5" /> Nouvelle prod
       </button>
+
+      <LogoutButton className="shrink-0 text-agent-t3 hover:text-agent-t1 transition-colors" />
     </header>
   );
 }

@@ -6,6 +6,7 @@ import { useBrandStore } from "@/store/brandStore";
 import { useUiStore } from "@/store/uiStore";
 import { useProjectStore } from "@/store/projectStore";
 import { Toggle } from "@/components/ui/Toggle";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import { initials, formatCost } from "@/lib/utils";
 
 export function Header() {
@@ -74,8 +75,10 @@ export function Header() {
 
         <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
           <Circle className="w-2 h-2 fill-emerald-400 text-emerald-400" />
-          Session locale active
+          Connecté
         </div>
+
+        <LogoutButton className="text-ink-secondary hover:text-ink transition-colors" />
       </div>
     </header>
   );
