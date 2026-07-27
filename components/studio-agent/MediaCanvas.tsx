@@ -779,16 +779,13 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
       setVoAudioDuration(currentProject.voiceOverAudioDurationSeconds);
     }
   }, [voAudioUrl, currentProject?.voiceOverAudioUrl, currentProject?.voiceOverAudioDurationSeconds]);
-  // Transcription Whisper (mot par mot) — permet de caler chaque scène sur sa
-  // durée réelle exacte plutôt qu'une estimation par nombre de mots. Optionnelle :
-  // si elle échoue (backend voiceover-sync non configuré/indisponible...), on
-  // retombe sur l'estimation par mots sans bloquer l'upload de l'audio lui-même.
+  // Transcription ElevenLabs Scribe (mot par mot) — permet de caler chaque
+  // scène sur sa durée réelle exacte plutôt qu'une estimation par nombre de
+  // mots. Optionnelle : si elle échoue, on retombe sur l'estimation par mots
+  // sans bloquer l'upload de l'audio lui-même.
   const [voTranscriptWords, setVoTranscriptWords] = useState<FalTranscriptWord[] | undefined>(undefined);
   const [voTranscribing, setVoTranscribing] = useState(false);
   const [voTranscriptError, setVoTranscriptError] = useState("");
-  // Choix explicite du moteur de transcription — Whisper par défaut (même
-  // comportement qu'avant), ElevenLabs Scribe en option.
-  const [voTranscriptionProvider, setVoTranscriptionProvider] = useState<"whisper" | "elevenlabs">("whisper");
   const voAudioInputRef = useRef<HTMLInputElement>(null);
 
   // Type de narration : par défaut Claude détecte scène par scène (gère déjà
@@ -816,13 +813,13 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
 
       setVoTranscribing(true);
       try {
-        const transcription = await transcribeAudio(file, lang, voTranscriptionProvider);
+        const transcription = await transcribeAudio(file, lang);
         setVoTranscriptWords(transcription.words);
       } catch (transcriptionError) {
         setVoTranscriptError(
           transcriptionError instanceof Error
             ? transcriptionError.message
-            : "Transcription Whisper indisponible"
+            : "Transcription ElevenLabs indisponible"
         );
       } finally {
         setVoTranscribing(false);
@@ -907,7 +904,7 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
       // brief — même calcul que le bouton "Appliquer ces durées" du bloc Voix
       // off, mais appliqué d'emblée pour ne pas obliger à ré-uploader le
       // fichier une seconde fois une fois le plan généré. Priorité à
-      // l'alignement Whisper mot par mot (timestamps réels) quand disponible,
+      // l'alignement ElevenLabs mot par mot (timestamps réels) quand disponible,
       // sinon repli sur l'estimation proportionnelle au nombre de mots.
       if (voTranscriptWords && voTranscriptWords.length > 0) {
         const aligned = alignScenesToTranscriptWords(producedPlan.scenes, voTranscriptWords);
@@ -916,7 +913,7 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
           updateScene(sceneId, {
             durationSeconds,
             durationJustification:
-              "Calé sur la transcription Whisper exacte du fichier audio (timestamps réels, alignement séquentiel mot à mot).",
+              "Calé sur la transcription ElevenLabs exacte du fichier audio (timestamps réels, alignement séquentiel mot à mot).",
           });
         });
       } else if (voAudioDuration) {
@@ -1011,23 +1008,6 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
 
       <div className="mb-2">
         <p className="text-[10px] text-agent-t3 mb-1">As-tu un fichier MP3 de la voix off ? (optionnel)</p>
-        {!voAudioUrl && (
-          <div className="flex gap-1 bg-agent-s3 border border-agent-bd rounded p-0.5 mb-1.5">
-            {(["whisper", "elevenlabs"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setVoTranscriptionProvider(p)}
-                className={cn(
-                  "flex-1 px-2 py-1 text-[10.5px] rounded",
-                  voTranscriptionProvider === p ? "bg-agent-acc text-white" : "text-agent-t2"
-                )}
-              >
-                {p === "whisper" ? "Whisper" : "ElevenLabs"}
-              </button>
-            ))}
-          </div>
-        )}
         {!voAudioUrl ? (
           <>
             <button
@@ -1072,18 +1052,16 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
               </button>
             </div>
             {voTranscribing && (
-              <p className="text-[9.5px] text-agent-t3">
-                Transcription {voTranscriptionProvider === "whisper" ? "Whisper" : "ElevenLabs"} en cours (calage exact mot par mot)...
-              </p>
+              <p className="text-[9.5px] text-agent-t3">Transcription ElevenLabs en cours (calage exact mot par mot)...</p>
             )}
             {!voTranscribing && voTranscriptWords && voTranscriptWords.length > 0 && (
               <p className="text-[9.5px] text-agent-grn">
-                Transcription {voTranscriptionProvider === "whisper" ? "Whisper" : "ElevenLabs"} obtenue ({voTranscriptWords.length} mots) — les durées de scène seront calées sur les timestamps exacts.
+                Transcription ElevenLabs obtenue ({voTranscriptWords.length} mots) — les durées de scène seront calées sur les timestamps exacts.
               </p>
             )}
             {!voTranscribing && voTranscriptError && (
               <p className="text-[9.5px] text-agent-amb">
-                Transcription {voTranscriptionProvider === "whisper" ? "Whisper" : "ElevenLabs"} indisponible ({voTranscriptError}) — repli sur l&apos;estimation par nombre de mots.
+                Transcription ElevenLabs indisponible ({voTranscriptError}) — repli sur l&apos;estimation par nombre de mots.
               </p>
             )}
           </div>

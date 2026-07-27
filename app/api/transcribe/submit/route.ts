@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Provider par défaut si l'utilisateur n'a rien choisi explicitement dans le
-// Studio (bouton Whisper/ElevenLabs) — Whisper reste le défaut si la variable
-// est absente ou a une valeur inconnue.
-const ENV_DEFAULT_PROVIDER = (process.env.TRANSCRIPTION_PROVIDER || "whisper").toLowerCase();
-
 // ElevenLabs Scribe répond de façon synchrone (pas de job à interroger) — la
 // route peut donc tourner plus longtemps qu'une requête classique sur les
 // fichiers voix off longs (nécessite un plan Vercel supportant ce maxDuration).
 export const maxDuration = 300;
-
-// Backend WhisperX auto-hébergé (voir voiceover_sync_backend/) — service
-// maison, son URL et sa clé restent des secrets serveur, jamais exposés au client.
-const BACKEND_URL = process.env.VOICEOVER_SYNC_BACKEND_URL;
-const BACKEND_API_KEY = process.env.VOICEOVER_SYNC_API_KEY;
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_SCRIBE_URL = "https://api.elevenlabs.io/v1/speech-to-text";
@@ -40,49 +30,6 @@ interface ElevenLabsScribeResponse {
   language_code: string;
   language_probability: number;
   words: ElevenLabsScribeWord[];
-}
-
-async function submitWhisper(formData: FormData): Promise<NextResponse> {
-  if (!BACKEND_URL) {
-    return NextResponse.json({ error: "voiceover_sync_backend_not_configured" }, { status: 501 });
-  }
-
-  const audio = formData.get("audio");
-  const language = formData.get("language");
-  const referenceText = formData.get("referenceText");
-
-  if (!(audio instanceof Blob) || typeof language !== "string" || !language) {
-    return NextResponse.json({ error: "missing_params" }, { status: 400 });
-  }
-
-  const backendFormData = new FormData();
-  backendFormData.append("file", audio, audio instanceof File ? audio.name : "voiceover.mp3");
-  backendFormData.append("language", language);
-  if (typeof referenceText === "string" && referenceText) {
-    backendFormData.append("reference_text", referenceText);
-  }
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/analyze-voiceover`, {
-      method: "POST",
-      headers: BACKEND_API_KEY ? { "X-API-Key": BACKEND_API_KEY } : undefined,
-      body: backendFormData,
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return NextResponse.json(
-        { error: `voiceover_sync_backend_error_${res.status}`, detail: text.slice(0, 500) },
-        { status: 502 }
-      );
-    }
-
-    const data = await res.json();
-    return NextResponse.json({ jobId: data.job_id, status: data.status, provider: "whisper" });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "unknown_error";
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
 }
 
 /**
@@ -121,9 +68,14 @@ async function callElevenLabsScribe(body: FormData): Promise<Response> {
   return lastResponse ?? new Response(null, { status: 502 });
 }
 
-async function submitElevenLabs(formData: FormData): Promise<NextResponse> {
+export async function POST(req: NextRequest) {
   if (!ELEVENLABS_API_KEY) {
     return NextResponse.json({ error: "elevenlabs_api_key_not_configured" }, { status: 501 });
+  }
+
+  const formData = await req.formData().catch(() => null);
+  if (!formData) {
+    return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
   const audio = formData.get("audio");
@@ -138,7 +90,7 @@ async function submitElevenLabs(formData: FormData): Promise<NextResponse> {
   backendFormData.append("model_id", "scribe_v2");
   backendFormData.append("language_code", language);
   backendFormData.append("timestamps_granularity", "word");
-  // Pas de no_verbatim : on veut la transcription verbatim exacte, comme avec Whisper.
+  // Pas de no_verbatim : on veut la transcription verbatim exacte.
   for (const term of ELEVENLABS_KEYTERMS) {
     backendFormData.append("keyterms", term);
   }
@@ -163,51 +115,13 @@ async function submitElevenLabs(formData: FormData): Promise<NextResponse> {
     const totalDuration = words.length ? words[words.length - 1].end : 0;
 
     return NextResponse.json({
-      status: "done",
-      provider: "elevenlabs",
-      result: {
-        total_duration: totalDuration,
-        detected_language: data.language_code,
-        segments: [{ index: 0, text: data.text, start: 0, end: totalDuration, duration: totalDuration }],
-        words,
-      },
+      total_duration: totalDuration,
+      detected_language: data.language_code,
+      segments: [{ index: 0, text: data.text, start: 0, end: totalDuration, duration: totalDuration }],
+      words,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
     return NextResponse.json({ error: message }, { status: 502 });
   }
-}
-
-export async function POST(req: NextRequest) {
-  const formData = await req.formData().catch(() => null);
-  if (!formData) {
-    return NextResponse.json({ error: "missing_params" }, { status: 400 });
-  }
-
-  // Le Studio peut demander explicitement un provider (bouton Whisper/ElevenLabs) ;
-  // sinon on retombe sur le défaut serveur.
-  const requestedProvider = formData.get("provider");
-  const provider =
-    requestedProvider === "whisper" || requestedProvider === "elevenlabs"
-      ? requestedProvider
-      : ENV_DEFAULT_PROVIDER;
-
-  if (provider !== "elevenlabs") {
-    return submitWhisper(formData);
-  }
-
-  const elevenLabsResponse = await submitElevenLabs(formData);
-  if (elevenLabsResponse.status < 400) {
-    return elevenLabsResponse;
-  }
-
-  // Filet de sécurité : si ElevenLabs échoue et que Whisper est configuré,
-  // on bascule automatiquement dessus plutôt que de faire échouer la
-  // transcription pour l'utilisateur.
-  if (BACKEND_URL) {
-    console.error("ElevenLabs Scribe indisponible, fallback vers Whisper.");
-    return submitWhisper(formData);
-  }
-
-  return elevenLabsResponse;
 }
