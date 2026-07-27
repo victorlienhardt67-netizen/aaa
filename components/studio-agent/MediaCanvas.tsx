@@ -62,7 +62,7 @@ import {
 } from "@/types";
 import { analyzeBrief, refineCharacterPrompt } from "@/lib/claude";
 import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage, type FalTranscriptWord } from "@/lib/fal";
-import { whisperxTranscribeAudio } from "@/lib/whisperx";
+import { transcribeAudio } from "@/lib/transcription";
 import { buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
 import {
   alignScenesToTranscriptWords,
@@ -813,7 +813,7 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
 
       setVoTranscribing(true);
       try {
-        const transcription = await whisperxTranscribeAudio(file, lang);
+        const transcription = await transcribeAudio(file, lang);
         setVoTranscriptWords(transcription.words);
       } catch (transcriptionError) {
         setVoTranscriptError(
