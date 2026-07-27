@@ -88,7 +88,8 @@ export default function SettingsPage() {
       <div>
         <h1 className="font-display font-bold text-2xl text-ink mb-1">Paramètres</h1>
         <p className="text-sm text-ink-secondary">
-          Clés API, préférences de génération et journal d&apos;apprentissage — tout est stocké en local uniquement.
+          Clés API, préférences de génération et journal d&apos;apprentissage — liés à ton compte, ils te suivent
+          d&apos;un appareil à l&apos;autre.
         </p>
       </div>
 
@@ -98,7 +99,7 @@ export default function SettingsPage() {
           <h2 className="font-display font-bold text-sm text-ink">Clés API</h2>
         </div>
         <p className="text-xs text-ink-secondary">
-          Stockées uniquement dans le localStorage de votre navigateur — jamais envoyées à un serveur.
+          Propres à ton compte — jamais partagées avec les autres utilisateurs.
         </p>
         <ApiKeyField
           label="fal.ai API key"
@@ -117,6 +118,12 @@ export default function SettingsPage() {
           value={apiKeys.claudeApiKey}
           onChange={(v) => setApiKeys({ claudeApiKey: v })}
           placeholder="sk-ant-..."
+        />
+        <ApiKeyField
+          label="ElevenLabs API key"
+          value={apiKeys.elevenLabsApiKey}
+          onChange={(v) => setApiKeys({ elevenLabsApiKey: v })}
+          placeholder="sk_..."
         />
       </Card>
 

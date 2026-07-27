@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 // fichiers voix off longs (nécessite un plan Vercel supportant ce maxDuration).
 export const maxDuration = 300;
 
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_SCRIBE_URL = "https://api.elevenlabs.io/v1/speech-to-text";
 // Termes clés (marques) pour aider la reconnaissance — configurable via env,
 // séparés par des virgules ; 100 termes max acceptés par l'API Scribe.
@@ -36,7 +35,7 @@ interface ElevenLabsScribeResponse {
  * Appelle Scribe avec retry sur 429/5xx (backoff 1s/2s/4s) et un timeout par
  * tentative — les erreurs client (401/422) ne sont pas retentées.
  */
-async function callElevenLabsScribe(body: FormData): Promise<Response> {
+async function callElevenLabsScribe(body: FormData, apiKey: string): Promise<Response> {
   let lastResponse: Response | null = null;
 
   for (let attempt = 0; attempt < ELEVENLABS_MAX_ATTEMPTS; attempt++) {
@@ -49,7 +48,7 @@ async function callElevenLabsScribe(body: FormData): Promise<Response> {
     try {
       const res = await fetch(ELEVENLABS_SCRIBE_URL, {
         method: "POST",
-        headers: { "xi-api-key": ELEVENLABS_API_KEY! },
+        headers: { "xi-api-key": apiKey },
         body,
         signal: controller.signal,
       });
@@ -69,10 +68,6 @@ async function callElevenLabsScribe(body: FormData): Promise<Response> {
 }
 
 export async function POST(req: NextRequest) {
-  if (!ELEVENLABS_API_KEY) {
-    return NextResponse.json({ error: "elevenlabs_api_key_not_configured" }, { status: 501 });
-  }
-
   const formData = await req.formData().catch(() => null);
   if (!formData) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
@@ -80,7 +75,11 @@ export async function POST(req: NextRequest) {
 
   const audio = formData.get("audio");
   const language = formData.get("language");
+  const apiKey = formData.get("apiKey");
 
+  if (typeof apiKey !== "string" || !apiKey) {
+    return NextResponse.json({ error: "elevenlabs_api_key_missing" }, { status: 400 });
+  }
   if (!(audio instanceof Blob) || typeof language !== "string" || !language) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
@@ -96,7 +95,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const res = await callElevenLabsScribe(backendFormData);
+    const res = await callElevenLabsScribe(backendFormData, apiKey);
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");

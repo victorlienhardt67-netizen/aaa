@@ -357,6 +357,7 @@ export interface ApiKeys {
   falApiKey: string;
   higgsfieldApiKey: string;
   claudeApiKey: string;
+  elevenLabsApiKey: string;
 }
 
 export interface GenerationDefaults {

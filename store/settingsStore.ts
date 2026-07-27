@@ -1,9 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import { AdvancedPromptSettings, ApiKeys, GenerationDefaults } from "@/types";
-import { STORAGE_KEYS, safeLocalStorage } from "@/lib/storage";
+import { createClient } from "@/lib/supabase/client";
 import {
   DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT,
   DEFAULT_CO_CONSTRUCTION_SYSTEM_PROMPT,
@@ -13,6 +12,20 @@ import {
   DEFAULT_MAX_SCENE_DURATION,
   DEFAULT_MIN_SCENE_DURATION,
 } from "@/lib/prompts";
+
+const DEFAULT_API_KEYS: ApiKeys = {
+  falApiKey: "",
+  higgsfieldApiKey: "",
+  claudeApiKey: "",
+  elevenLabsApiKey: "",
+};
+
+const DEFAULT_GENERATION_DEFAULTS: GenerationDefaults = {
+  imageEngine: "auto",
+  videoEngine: "auto",
+  defaultLang: "fr",
+  motionIntensity: "equilibre",
+};
 
 const DEFAULT_ADVANCED_PROMPTS: AdvancedPromptSettings = {
   analyzeBriefSystemPrompt: DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT,
@@ -25,48 +38,88 @@ const DEFAULT_ADVANCED_PROMPTS: AdvancedPromptSettings = {
 };
 
 interface SettingsState {
+  /** true une fois la première lecture depuis Supabase terminée (évite d'écraser avec les valeurs par défaut avant que la vraie valeur soit connue). */
+  hydrated: boolean;
   apiKeys: ApiKeys;
   generationDefaults: GenerationDefaults;
   advancedPrompts: AdvancedPromptSettings;
+  /** Charge les réglages du compte connecté depuis Supabase — appelé une fois au montage de l'app. */
+  hydrateFromRemote: () => Promise<void>;
   setApiKeys: (patch: Partial<ApiKeys>) => void;
   setGenerationDefaults: (patch: Partial<GenerationDefaults>) => void;
   setAdvancedPrompts: (patch: Partial<AdvancedPromptSettings>) => void;
   resetAdvancedPrompts: () => void;
 }
 
-export const useSettingsStore = create<SettingsState>()(
-  persist(
-    (set) => ({
-      apiKeys: {
-        falApiKey: "",
-        higgsfieldApiKey: "",
-        claudeApiKey: "",
-      },
+/**
+ * Réglages désormais liés au compte (table Supabase `settings`, une ligne par
+ * utilisateur, créée automatiquement à l'inscription) plutôt qu'au navigateur —
+ * chaque collègue a ses propres clés API et ses propres prompts avancés, qui
+ * le suivent d'un appareil à l'autre.
+ */
+async function persistSettings(patch: {
+  api_keys?: ApiKeys;
+  generation_defaults?: GenerationDefaults;
+  advanced_prompt_settings?: AdvancedPromptSettings;
+}) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("settings").update(patch).eq("user_id", user.id);
+}
+
+export const useSettingsStore = create<SettingsState>()((set, get) => ({
+  hydrated: false,
+  apiKeys: DEFAULT_API_KEYS,
+  generationDefaults: DEFAULT_GENERATION_DEFAULTS,
+  advancedPrompts: DEFAULT_ADVANCED_PROMPTS,
+
+  hydrateFromRemote: async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("settings")
+      .select("api_keys, generation_defaults, advanced_prompt_settings")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    set({
+      hydrated: true,
+      apiKeys: { ...DEFAULT_API_KEYS, ...(data?.api_keys as Partial<ApiKeys> | null) },
       generationDefaults: {
-        imageEngine: "auto",
-        videoEngine: "auto",
-        defaultLang: "fr",
-        motionIntensity: "equilibre",
+        ...DEFAULT_GENERATION_DEFAULTS,
+        ...(data?.generation_defaults as Partial<GenerationDefaults> | null),
       },
-      advancedPrompts: DEFAULT_ADVANCED_PROMPTS,
-      setApiKeys: (patch) => set((s) => ({ apiKeys: { ...s.apiKeys, ...patch } })),
-      setGenerationDefaults: (patch) =>
-        set((s) => ({ generationDefaults: { ...s.generationDefaults, ...patch } })),
-      setAdvancedPrompts: (patch) =>
-        set((s) => ({ advancedPrompts: { ...s.advancedPrompts, ...patch } })),
-      resetAdvancedPrompts: () => set({ advancedPrompts: DEFAULT_ADVANCED_PROMPTS }),
-    }),
-    {
-      name: STORAGE_KEYS.settings,
-      storage: createJSONStorage(() => safeLocalStorage),
-      merge: (persisted, current) => {
-        const p = persisted as Partial<SettingsState> | undefined;
-        return {
-          ...current,
-          ...p,
-          advancedPrompts: { ...DEFAULT_ADVANCED_PROMPTS, ...p?.advancedPrompts },
-        };
+      advancedPrompts: {
+        ...DEFAULT_ADVANCED_PROMPTS,
+        ...(data?.advanced_prompt_settings as Partial<AdvancedPromptSettings> | null),
       },
-    }
-  )
-);
+    });
+  },
+
+  setApiKeys: (patch) => {
+    const next = { ...get().apiKeys, ...patch };
+    set({ apiKeys: next });
+    persistSettings({ api_keys: next });
+  },
+  setGenerationDefaults: (patch) => {
+    const next = { ...get().generationDefaults, ...patch };
+    set({ generationDefaults: next });
+    persistSettings({ generation_defaults: next });
+  },
+  setAdvancedPrompts: (patch) => {
+    const next = { ...get().advancedPrompts, ...patch };
+    set({ advancedPrompts: next });
+    persistSettings({ advanced_prompt_settings: next });
+  },
+  resetAdvancedPrompts: () => {
+    set({ advancedPrompts: DEFAULT_ADVANCED_PROMPTS });
+    persistSettings({ advanced_prompt_settings: DEFAULT_ADVANCED_PROMPTS });
+  },
+}));

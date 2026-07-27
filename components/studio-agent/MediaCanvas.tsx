@@ -811,18 +811,22 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
       setVoAudioDuration(duration);
       if (currentProject) updateCurrentProject({ voiceOverAudioUrl: base64, voiceOverAudioDurationSeconds: duration });
 
-      setVoTranscribing(true);
-      try {
-        const transcription = await transcribeAudio(file, lang);
-        setVoTranscriptWords(transcription.words);
-      } catch (transcriptionError) {
-        setVoTranscriptError(
-          transcriptionError instanceof Error
-            ? transcriptionError.message
-            : "Transcription ElevenLabs indisponible"
-        );
-      } finally {
-        setVoTranscribing(false);
+      if (!apiKeys.elevenLabsApiKey) {
+        setVoTranscriptError("Clé API ElevenLabs manquante — renseigne-la dans Réglages.");
+      } else {
+        setVoTranscribing(true);
+        try {
+          const transcription = await transcribeAudio(file, lang, apiKeys.elevenLabsApiKey);
+          setVoTranscriptWords(transcription.words);
+        } catch (transcriptionError) {
+          setVoTranscriptError(
+            transcriptionError instanceof Error
+              ? transcriptionError.message
+              : "Transcription ElevenLabs indisponible"
+          );
+        } finally {
+          setVoTranscribing(false);
+        }
       }
     } catch (e) {
       setVoAudioError(e instanceof Error ? e.message : "Erreur inconnue");
