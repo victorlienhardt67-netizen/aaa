@@ -22,6 +22,15 @@ interface RawTranscriptionResult {
   words: { text: string; start: number; end: number }[];
 }
 
+function toTranscriptionResult(result: RawTranscriptionResult): TranscriptionResult {
+  const words: TranscriptionWord[] = result.words.map((w) => ({
+    text: w.text,
+    startSeconds: w.start,
+    endSeconds: w.end,
+  }));
+  return { text: result.segments.map((s) => s.text).join(" "), words };
+}
+
 /**
  * Transcrit un fichier audio (voix off) avec un timestamp par mot, quel que
  * soit le provider actif côté serveur — même forme de retour que
@@ -46,6 +55,12 @@ export async function transcribeAudio(
     throw new Error(submitData?.error ?? `Erreur soumission transcription (${submitRes.status})`);
   }
 
+  // Les providers synchrones (ex. ElevenLabs Scribe) renvoient directement le
+  // résultat, sans job à interroger.
+  if (submitData.status === "done") {
+    return toTranscriptionResult(submitData.result as RawTranscriptionResult);
+  }
+
   const jobId = submitData.jobId as string;
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
@@ -63,13 +78,7 @@ export async function transcribeAudio(
     }
 
     if (statusData.status === "done") {
-      const result = statusData.result as RawTranscriptionResult;
-      const words: TranscriptionWord[] = result.words.map((w) => ({
-        text: w.text,
-        startSeconds: w.start,
-        endSeconds: w.end,
-      }));
-      return { text: result.segments.map((s) => s.text).join(" "), words };
+      return toTranscriptionResult(statusData.result as RawTranscriptionResult);
     }
   }
 
