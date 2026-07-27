@@ -1,9 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { CharacterReference, LocationReference, Project, ProjectStatus, Scene } from "@/types";
-import { STORAGE_KEYS } from "@/lib/storage";
+import { STORAGE_KEYS, safeLocalStorage } from "@/lib/storage";
 import { generateId } from "@/lib/utils";
 
 /**
@@ -342,6 +342,7 @@ export const useProjectStore = create<ProjectState>()(
     },
     {
       name: STORAGE_KEYS.projects,
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: (s) => ({
         projects: s.projects.map(stripUnpersistableProject),
         currentProject: s.currentProject ? stripUnpersistableProject(s.currentProject) : s.currentProject,

@@ -1,9 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { StylePreset } from "@/types";
-import { STORAGE_KEYS } from "@/lib/storage";
+import { STORAGE_KEYS, safeLocalStorage } from "@/lib/storage";
 import { DEFAULT_STYLES } from "@/lib/styleSeeds";
 import { generateId } from "@/lib/utils";
 
@@ -42,6 +42,7 @@ export const useStyleStore = create<StyleState>()(
     }),
     {
       name: STORAGE_KEYS.styles,
+      storage: createJSONStorage(() => safeLocalStorage),
       merge: (persisted, current) => {
         const p = persisted as StyleState | undefined;
         if (!p || !p.styles || p.styles.length === 0) return { ...current, ...p };

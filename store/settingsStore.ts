@@ -1,9 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { AdvancedPromptSettings, ApiKeys, GenerationDefaults } from "@/types";
-import { STORAGE_KEYS } from "@/lib/storage";
+import { STORAGE_KEYS, safeLocalStorage } from "@/lib/storage";
 import {
   DEFAULT_ANALYZE_BRIEF_SYSTEM_PROMPT,
   DEFAULT_CO_CONSTRUCTION_SYSTEM_PROMPT,
@@ -58,6 +58,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: STORAGE_KEYS.settings,
+      storage: createJSONStorage(() => safeLocalStorage),
       merge: (persisted, current) => {
         const p = persisted as Partial<SettingsState> | undefined;
         return {

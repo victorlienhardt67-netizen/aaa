@@ -1,5 +1,43 @@
 // Helpers localStorage — aucune donnée n'est envoyée à un serveur.
 
+import type { StateStorage } from "zustand/middleware";
+
+/**
+ * Adaptateur localStorage pour zustand/persist qui absorbe silencieusement
+ * une QuotaExceededError au lieu de la laisser remonter. Par défaut, persist
+ * appelle localStorage.setItem sans filet — un seul dépassement de quota (ex.
+ * beaucoup d'images/projets accumulés) plante alors TOUT l'arbre React au
+ * prochain rendu (exception non interceptée), pas seulement l'écriture
+ * concernée. Utilisé par tous les stores persistés (styles, projets, marques,
+ * templates, settings, learning).
+ */
+export const safeLocalStorage: StateStorage = {
+  getItem: (name) => {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(name, value);
+    } catch (e) {
+      console.error(`Échec de sauvegarde localStorage (${name}) :`, e);
+    }
+  },
+  removeItem: (name) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.removeItem(name);
+    } catch {
+      // ignoré
+    }
+  },
+};
+
 export function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {

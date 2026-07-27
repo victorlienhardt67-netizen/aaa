@@ -1,8 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { Lang } from "@/types";
+import { safeLocalStorage } from "@/lib/storage";
 
 interface UiState {
   activeLang: Lang;
@@ -15,6 +16,6 @@ export const useUiStore = create<UiState>()(
       activeLang: "fr",
       setActiveLang: (lang) => set({ activeLang: lang }),
     }),
-    { name: "golddust:ui" }
+    { name: "golddust:ui", storage: createJSONStorage(() => safeLocalStorage) }
   )
 );

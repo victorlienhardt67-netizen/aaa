@@ -1,9 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { Brand, BrandAsset } from "@/types";
-import { STORAGE_KEYS } from "@/lib/storage";
+import { STORAGE_KEYS, safeLocalStorage } from "@/lib/storage";
 import { DEFAULT_BRANDS } from "@/lib/brandSeeds";
 import { generateId } from "@/lib/utils";
 
@@ -128,6 +128,6 @@ export const useBrandStore = create<BrandState>()(
           ),
         })),
     }),
-    { name: STORAGE_KEYS.brands }
+    { name: STORAGE_KEYS.brands, storage: createJSONStorage(() => safeLocalStorage) }
   )
 );

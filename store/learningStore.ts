@@ -1,9 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { LearningEntry } from "@/types";
-import { STORAGE_KEYS } from "@/lib/storage";
+import { STORAGE_KEYS, safeLocalStorage } from "@/lib/storage";
 import { generateId } from "@/lib/utils";
 
 interface LearningState {
@@ -25,6 +25,6 @@ export const useLearningStore = create<LearningState>()(
         })),
       reset: () => set({ entries: [] }),
     }),
-    { name: STORAGE_KEYS.learning }
+    { name: STORAGE_KEYS.learning, storage: createJSONStorage(() => safeLocalStorage) }
   )
 );

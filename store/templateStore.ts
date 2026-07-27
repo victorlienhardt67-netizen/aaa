@@ -1,9 +1,9 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { CampaignTemplate } from "@/types";
-import { STORAGE_KEYS } from "@/lib/storage";
+import { STORAGE_KEYS, safeLocalStorage } from "@/lib/storage";
 import { generateId } from "@/lib/utils";
 
 const SEED_TEMPLATES: CampaignTemplate[] = [
@@ -73,6 +73,7 @@ export const useTemplateStore = create<TemplateState>()(
     }),
     {
       name: STORAGE_KEYS.templates,
+      storage: createJSONStorage(() => safeLocalStorage),
       merge: (persisted, current) => {
         const p = persisted as TemplateState | undefined;
         if (!p || !p.templates || p.templates.length === 0) return { ...current, ...p };
