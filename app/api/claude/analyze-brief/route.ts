@@ -196,6 +196,14 @@ export async function POST(req: NextRequest) {
 - Intensité de mouvement souhaitée : ${motionIntensity ?? "equilibre"}
 ${learningContext ? `\nRetours qualité des générations précédentes à prendre en compte :\n${learningContext}` : ""}${narrationInstruction}`;
 
+  // Détection déterministe (pas laissée à l'appréciation du modèle) d'un
+  // script déjà structuré en clips/scènes numérotés explicitement (ex: un
+  // storyboard "Clip 01" à "Clip 25" pré-écrit) — plus fiable qu'espérer que
+  // Claude compte correctement lui-même un grand nombre d'unités en une seule
+  // génération, ce qui reste faillible même avec une consigne explicite.
+  const clipHeaderMatches = brief.match(/^\s{0,3}#{0,6}\s*(?:clip|scène|scene|plan)\s*\d+/gim) ?? [];
+  const explicitSceneCount = clipHeaderMatches.length >= 2 ? clipHeaderMatches.length : undefined;
+
   const frameTarget = estimateFrameCountForDuration(Number(targetDuration) || 60);
   // Chaque scène génère plusieurs champs verbeux (imagePrompt, videoPrompt,
   // description, voiceOverText...) — avec un plan long (script + voix off
@@ -223,11 +231,31 @@ Style visuel : ${styleName ?? ""} — ${stylePositivePrompt ?? ""}
 Langue cible du projet : ${lang}
 Durée cible totale : ${targetDuration} secondes
 Nombre total de frames visé (INDICATIF, seulement si le script ne précise rien lui-même) : entre ${frameTarget.min} et ${frameTarget.max}
+${
+  explicitSceneCount
+    ? `\nDÉTECTION AUTOMATIQUE (comptage effectué par le code, pas une estimation) : ce script contient ${explicitSceneCount} clips/scènes numérotés explicitement d'un bout à l'autre. Le plan de production final DOIT donc contenir EXACTEMENT ${explicitSceneCount} frames — une frame par clip numéroté, dans le même ordre, sans en fusionner ni en omettre aucun. Ignore complètement la fourchette indicative ci-dessus dans ce cas précis.`
+    : ""
+}
 
 Découpe ce script en frames cohérentes. Si le script précise lui-même un nombre exact de scènes/clips/plans, respecte ce nombre à l'identique (voir règle prioritaire à ce sujet). Sinon, vise le nombre de frames indiqué ci-dessus et une durée cible totale proche de ${targetDuration}s (somme des durationSeconds), en respectant les règles de durée par frame, l'alternance de cadrage et le regroupement en blocs narratifs (beatLabel).`;
 
   try {
     const result = await callClaudeTool({ apiKey, system, userMessage, tool: PRODUCTION_PLAN_TOOL, maxTokens });
+
+    // Filet de sécurité : si un nombre exact était détecté et que Claude ne l'a
+    // pas respecté malgré la consigne, on ne laisse jamais passer ça en
+    // silence — l'écart est signalé explicitement pour que l'utilisateur le
+    // voie et décide, plutôt que d'accepter une réduction non validée.
+    if (explicitSceneCount) {
+      const actualCount = Array.isArray(result.scenes) ? result.scenes.length : 0;
+      if (actualCount !== explicitSceneCount) {
+        const warning = `⚠️ Le script contenait ${explicitSceneCount} clips/scènes numérotés explicitement, mais ${actualCount} frames ont été générées — vérifie qu'aucun clip n'a été fusionné ou omis avant de valider le plan.`;
+        result.pointsVigilance = Array.isArray(result.pointsVigilance)
+          ? [warning, ...result.pointsVigilance]
+          : [warning];
+      }
+    }
+
     return NextResponse.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
