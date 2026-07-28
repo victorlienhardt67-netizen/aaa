@@ -11,20 +11,17 @@ export const DEFAULT_MANDATORY_VIDEO_RULES = [
 ].join("\n");
 
 /**
- * Force la prononciation correcte du "é" français par les moteurs vidéo
- * (souvent optimisés pour l'anglais) en le transformant phonétiquement.
- * Appliqué uniquement au texte de la voix off, jamais aux prompts descriptifs.
- */
-export function applyFrenchPhoneticTransform(text: string): string {
-  return text.replace(/\bSOPK\b/gi, "S-O-P-K").replace(/é/g, "er").replace(/É/g, "ER");
-}
-
-/**
  * Directive de voix off/son injectée dans le prompt vidéo, selon le type
  * détecté (ou choisi manuellement) pour la scène :
  * - "lipsync" : le personnage parle face caméra, lèvres synchronisées sur le texte
- * - "voiceover" : narration hors-champ, aucun lip sync (texte FR transformé phonétiquement)
+ * - "voiceover" : narration hors-champ, aucun lip sync
  * - "none" / non défini : aucun son, aucune voix
+ *
+ * Le texte de la voix off/dialogue est TOUJOURS repris strictement à l'identique
+ * du brief, jamais reformulé ni modifié (y compris pour la prononciation) —
+ * une transformation phonétique du français était appliquée ici auparavant,
+ * retirée à la demande explicite : aucune raison, même la prononciation, ne
+ * justifie de s'écarter du texte exact fourni.
  */
 export function buildVoiceDirective(
   voiceOver: VoiceOver | undefined,
@@ -44,22 +41,22 @@ export function buildVoiceDirective(
     : "";
 
   if (voiceType === "lipsync" && hasText) {
-    const text = lang === "fr" ? applyFrenchPhoneticTransform(voiceOver!.text.trim()) : voiceOver!.text.trim();
+    const text = voiceOver!.text.trim();
     if (lang === "fr") {
-      return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. The character must speak in correct, natural, fluent Parisian French — proper French pronunciation and intonation, not an approximate or accented reading: "${text}".${voiceHint}`;
+      return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. The character must speak in correct, natural, fluent Parisian French — proper French pronunciation and intonation, not an approximate or accented reading. Speak this exact sentence, word for word, with no rewording: "${text}".${voiceHint}`;
     }
-    return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. Clear English voice: "${text}".${voiceHint}`;
+    return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. Clear English voice. Speak this exact sentence, word for word, with no rewording: "${text}".${voiceHint}`;
   }
 
   if ((voiceType === "voiceover" || voiceType === undefined) && lang === "fr" && hasText) {
-    const vo = applyFrenchPhoneticTransform(voiceOver!.text.trim());
-    return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural French voice, calm conversational pace: "${vo}".${voiceHint} No music, no background sounds, voiceover only.`;
+    const vo = voiceOver!.text.trim();
+    return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural French voice, calm conversational pace. Speak this exact sentence, word for word, with no rewording: "${vo}".${voiceHint} No music, no background sounds, voiceover only.`;
   }
 
   if (voiceType === "voiceover" && hasText) {
     return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural ${
       lang === "fr" ? "French" : "English"
-    } voice, calm conversational pace: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, voiceover only.`;
+    } voice, calm conversational pace. Speak this exact sentence, word for word, with no rewording: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, voiceover only.`;
   }
 
   return "No sound, no voiceover, no music, no lip sync, mouths do not move.";
@@ -314,8 +311,8 @@ export function buildScenePositivePrompt(
  * Prompt vidéo Grok (FR) — structure imposée : Mouvement → Sujet → Scène →
  * Éclairage → Ambiance → Audio → Ratio. Le mouvement caméra est décrit en
  * premier (Grok répond mieux quand le mouvement précède le sujet). La
- * directive audio (buildVoiceDirective) porte déjà la règle phonétique
- * française (é→er, SOPK→S-O-P-K) — ne jamais la redoubler ici.
+ * directive audio (buildVoiceDirective) porte déjà le texte exact à dire —
+ * ne jamais le reformuler ici.
  */
 export function buildGrokVideoPrompt(
   scene: Pick<Scene, "cameraMovement" | "videoPrompt">,

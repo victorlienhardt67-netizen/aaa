@@ -10,6 +10,10 @@ import {
 } from "@/lib/prompts";
 import { estimateDurationFromWordCount } from "@/lib/utils";
 
+// Certains moteurs fal.ai rejettent un prompt vidéo au-delà d'environ 2500
+// caractères — marge de sécurité sous ce seuil observé.
+const MAX_VIDEO_PROMPT_CHARS = 2400;
+
 /**
  * Génère la vidéo d'une scène — logique partagée entre la génération
  * individuelle et le workflow batch ("3 premières puis le reste") de
@@ -45,13 +49,20 @@ export async function generateSceneVideo(params: {
       : engine === "kling_3_0"
       ? buildKlingVideoPrompt(sceneWithPrompt, style, motionIntensity, voiceDirective, characterNames)
       : [buildScenePositivePrompt(sceneWithPrompt, style, motionIntensity), voiceDirective].join(" ");
-  const fullPrompt = [
-    engineBody,
-    `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules)}`,
-    relevantLearning && `\n\n${relevantLearning}`,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const rulesBlock = `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules)}`;
+  const learningBlock = relevantLearning ? `\n\n${relevantLearning}` : "";
+  // Garde-fou longueur : le contenu créatif/voix (engineBody) ne doit jamais
+  // être coupé — on retire d'abord le contexte d'apprentissage (le moins
+  // critique), puis en dernier recours on raccourcit les règles obligatoires,
+  // pour rester sous la limite de caractères de certains moteurs fal.ai.
+  let fullPrompt = [engineBody, rulesBlock, learningBlock].filter(Boolean).join(" ");
+  if (fullPrompt.length > MAX_VIDEO_PROMPT_CHARS) {
+    fullPrompt = [engineBody, rulesBlock].filter(Boolean).join(" ");
+  }
+  if (fullPrompt.length > MAX_VIDEO_PROMPT_CHARS) {
+    const budgetForRules = Math.max(0, MAX_VIDEO_PROMPT_CHARS - engineBody.length - 1);
+    fullPrompt = [engineBody, rulesBlock.slice(0, budgetForRules)].filter(Boolean).join(" ");
+  }
   // Filet de sécurité débit de parole : Claude est censé déjà caler
   // durationSeconds sur le débit naturel de la réplique (voir system prompt),
   // mais si une frame porte une voix (voiceover ou lipsync, quel que soit le

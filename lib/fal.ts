@@ -34,6 +34,51 @@ interface FalSubmitData {
   resultUrl?: string;
 }
 
+// Mots-clés utilisés pour transformer une erreur brute fal.ai (souvent un
+// jargon technique en anglais, parfois même absent du statut) en un message
+// exploitable par l'utilisateur, avec une action corrective concrète — sans
+// jamais cacher le détail technique brut (utile en debug, et fal.ai peut
+// changer sa formulation exacte sans préavis, donc on ne s'appuie jamais
+// uniquement sur le message reformulé).
+const NSFW_ERROR_PATTERN = /nsfw|not safe for work|sensitive content|content polic|content moderat|flagged|inappropriate|explicit content|sexual content/i;
+const LENGTH_ERROR_PATTERN = /too long|too many characters|max(?:imum)?\s*length|character limit|exceeds?[^.]{0,30}(length|characters|limit)|string.{0,20}too long/i;
+
+function extractFalErrorDetail(data: unknown): string {
+  if (!data || typeof data !== "object") return "";
+  const d = data as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof d.error === "string") parts.push(d.error);
+  if (typeof d.detail === "string") parts.push(d.detail);
+  if (Array.isArray(d.detail)) {
+    parts.push(
+      d.detail
+        .map((item) => (typeof item === "string" ? item : (item as { msg?: string })?.msg ?? JSON.stringify(item)))
+        .join("; ")
+    );
+  }
+  if (Array.isArray(d.logs)) {
+    parts.push(
+      d.logs
+        .map((log) => (typeof log === "string" ? log : (log as { message?: string })?.message ?? ""))
+        .filter(Boolean)
+        .join("; ")
+    );
+  }
+  if (typeof d.message === "string") parts.push(d.message);
+  return parts.filter(Boolean).join(" | ");
+}
+
+function friendlyFalError(rawDetail: string, fallback: string): string {
+  const detail = rawDetail.trim();
+  if (detail && NSFW_ERROR_PATTERN.test(detail)) {
+    return `Vidéo refusée par la modération de contenu (jugée sensible/NSFW). Adoucis la description dans le champ "Ta vision pour la vidéo" (retire toute nudité, violence ou contenu suggestif) puis clique sur "Réessayer". Détail technique : ${detail.slice(0, 300)}`;
+  }
+  if (detail && LENGTH_ERROR_PATTERN.test(detail)) {
+    return `Le prompt vidéo dépasse la limite de caractères de ce moteur. Raccourcis la description dans le champ "Ta vision pour la vidéo" (ou simplifie le brief de la scène) puis clique sur "Réessayer". Détail technique : ${detail.slice(0, 300)}`;
+  }
+  return detail ? `${fallback} — ${detail.slice(0, 300)}` : fallback;
+}
+
 async function pollFalJob(submitData: FalSubmitData, apiKey: string): Promise<Record<string, unknown>> {
   const { modelId, requestId, statusUrl, resultUrl } = submitData;
   const statusParams = new URLSearchParams({ modelId, requestId });
@@ -47,19 +92,24 @@ async function pollFalJob(submitData: FalSubmitData, apiKey: string): Promise<Re
       headers: { "x-fal-key": apiKey },
     });
     const statusData = await statusRes.json();
-    if (!statusRes.ok) throw new Error(statusData?.error ?? `Erreur statut fal.ai (${statusRes.status})`);
+    if (!statusRes.ok) {
+      throw new Error(friendlyFalError(extractFalErrorDetail(statusData), `Erreur statut fal.ai (${statusRes.status})`));
+    }
 
     if (statusData.status === "COMPLETED") {
       const resultRes = await fetch(`/api/fal/result?${resultParams.toString()}`, {
         headers: { "x-fal-key": apiKey },
       });
       const resultData = await resultRes.json();
-      if (!resultRes.ok) throw new Error(resultData?.error ?? `Erreur résultat fal.ai (${resultRes.status})`);
+      if (!resultRes.ok) {
+        throw new Error(friendlyFalError(extractFalErrorDetail(resultData), `Erreur résultat fal.ai (${resultRes.status})`));
+      }
       return resultData;
     }
 
     if (statusData.status === "FAILED" || statusData.status === "ERROR") {
-      throw new Error(`Génération fal.ai échouée (statut ${statusData.status})`);
+      const detail = extractFalErrorDetail(statusData);
+      throw new Error(friendlyFalError(detail, `Génération fal.ai échouée (statut ${statusData.status})`));
     }
   }
   throw new Error("Délai d'attente dépassé pour la génération fal.ai");
@@ -99,7 +149,9 @@ export async function falGenerateImage(
     }),
   });
   const submitData = await submitRes.json();
-  if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
+  if (!submitRes.ok) {
+    throw new Error(friendlyFalError(extractFalErrorDetail(submitData), `Erreur soumission fal.ai (${submitRes.status})`));
+  }
 
   const result = await pollFalJob(submitData, apiKey);
   const imageUrl = (result?.images as Array<{ url?: string }> | undefined)?.[0]?.url;
@@ -131,7 +183,9 @@ export async function falGenerateVideo(
     body: JSON.stringify({ apiKey, engine, prompt, imageUrl: frameUrl, durationSeconds, kind: "video" }),
   });
   const submitData = await submitRes.json();
-  if (!submitRes.ok) throw new Error(submitData?.error ?? `Erreur soumission fal.ai (${submitRes.status})`);
+  if (!submitRes.ok) {
+    throw new Error(friendlyFalError(extractFalErrorDetail(submitData), `Erreur soumission fal.ai (${submitRes.status})`));
+  }
 
   const result = await pollFalJob(submitData, apiKey);
   const videoUrl = (result?.video as { url?: string } | undefined)?.url;
