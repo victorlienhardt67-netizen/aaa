@@ -122,16 +122,20 @@ export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
     },
   },
   kling_ai_avatar: {
-    // Schéma confirmé via la doc officielle fal.ai (2026) : image + audio →
-    // vidéo animée sur cet audio précis (pas de prompt texte, pas de
-    // paramètre de durée — la durée sort directement de celle de l'audio).
+    // Schéma confirmé via la doc officielle fal.ai (2026) : image + audio +
+    // prompt optionnel (direction d'animation — gestes, mouvement de caméra,
+    // ambiance) → vidéo animée sur cet audio précis. Le prompt sert à ce que
+    // le résultat reste une vraie vidéo (mouvement, gestes cohérents avec la
+    // réplique), pas juste un visage figé qui parle. Pas de paramètre de
+    // durée — la durée sort directement de celle de l'audio.
     // Moteur EN TEST : le support officiel de Kling AI Avatar liste chinois/
     // anglais/japonais/coréen/espagnol, PAS le français — à valider par
     // l'usage réel avant de le généraliser aux scènes françaises (Lynae).
     modelId: "fal-ai/kling-video/ai-avatar/v2/standard",
-    buildInput: ({ imageUrl, audioUrl }) => ({
+    buildInput: ({ prompt, imageUrl, audioUrl }) => ({
       image_url: imageUrl,
       audio_url: audioUrl,
+      prompt,
     }),
   },
 };

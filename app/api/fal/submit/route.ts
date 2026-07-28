@@ -14,7 +14,7 @@ import {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  if (!body?.apiKey || !body?.kind || !body?.prompt) {
+  if (!body?.apiKey || !body?.kind) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
@@ -23,8 +23,11 @@ export async function POST(req: NextRequest) {
   try {
     if (kind === "video") {
       const model = WIRED_VIDEO_MODELS[engine];
-      if (!model || !imageUrl) {
+      if (!model) {
         return NextResponse.json({ error: "engine_not_wired" }, { status: 501 });
+      }
+      if (!imageUrl || !prompt) {
+        return NextResponse.json({ error: "missing_params" }, { status: 400 });
       }
       const input = model.buildInput({
         prompt,
@@ -43,6 +46,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (kind === "image") {
+      if (!prompt) {
+        return NextResponse.json({ error: "missing_params" }, { status: 400 });
+      }
       // Si des images de référence sont fournies (character sheet validé), on
       // passe par la variante "edit" pour garder le personnage cohérent.
       if (Array.isArray(imageUrls) && imageUrls.length > 0) {

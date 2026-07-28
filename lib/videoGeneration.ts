@@ -50,9 +50,12 @@ export async function generateSceneVideo(params: {
   const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, currentProject, brand, elevenLabsApiKey, updateScene, recalcTotalCost } = params;
   updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
 
-  // Kling AI Avatar (test) : pas de prompt texte ni de moteur de règles vidéo
-  // — l'audio (généré via ElevenLabs, prononciation fiable) et la frame
-  // suffisent, le lipsync suit directement la forme d'onde de cet audio.
+  // Kling AI Avatar (test) : l'audio (généré via ElevenLabs, prononciation
+  // fiable) porte la voix, mais le prompt reste nécessaire pour que le
+  // résultat soit une vraie vidéo (gestes, mouvement de caméra, ambiance) et
+  // pas juste un visage figé qui parle — on réutilise la même construction
+  // que le prompt vidéo "générique" (action + caméra + style), sans directive
+  // de voix puisque celle-ci vient de l'audio, pas du texte.
   if (engine === "kling_ai_avatar") {
     try {
       const text = scene.voiceOver?.text?.trim();
@@ -61,8 +64,10 @@ export async function generateSceneVideo(params: {
           "Kling AI Avatar (test) nécessite un texte de voix off/dialogue sur cette scène — aucune voix détectée ici."
         );
       }
+      const sceneWithPrompt = { ...scene, videoPrompt: prompt };
+      const animationPrompt = buildScenePositivePrompt(sceneWithPrompt, style, motionIntensity);
       const { audioUrl } = await generateVoiceoverAudio(text, scene.characters[0] ?? "default", elevenLabsApiKey, apiKey);
-      const result = await falGenerateVideo("", scene.frameUrl, engine, scene.durationSeconds, apiKey, [], audioUrl);
+      const result = await falGenerateVideo(animationPrompt, scene.frameUrl, engine, scene.durationSeconds, apiKey, [], audioUrl);
       updateScene(scene.id, {
         videoUrl: result.url,
         videoStatus: "video_generated",
