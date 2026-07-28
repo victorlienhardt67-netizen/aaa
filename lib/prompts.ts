@@ -470,6 +470,19 @@ function characterSheetTemplateBlock(characterName: string): string {
   ].join(" ");
 }
 
+/**
+ * Prompt pour extraire de la planche 5 panneaux validée un portrait unique
+ * propre (plein pied, fond neutre, sans labels ni réglets) — généré via
+ * Nano Banana edit avec la planche en référence, à la validation de la
+ * fiche. Ce portrait devient la référence envoyée aux frames (voir
+ * CharacterReference.portraitUrl) : bien plus fiable qu'un découpage
+ * géométrique de la planche, qui tombait à cheval entre deux panneaux dès
+ * que la planche générée n'était pas parfaitement régulière.
+ */
+export function buildCharacterPortraitPrompt(): string {
+  return `A single clean full-body portrait of the exact same character shown in the reference image: identical face, hairstyle, outfit, colors, proportions and design — reproduce this character identically, do not redesign, reinterpret or restyle it. Standing straight, facing the camera, neutral pose, arms slightly away from the body. Plain light grey studio background, even flat lighting. One single full-frame portrait only: no panels, no split view, no side-by-side views, no labels, no measurement rulers, no text, no watermark.`;
+}
+
 export function buildCharacterSheetPrompt(
   characterName: string,
   style: StylePreset,

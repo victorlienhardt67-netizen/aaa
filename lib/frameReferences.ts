@@ -9,10 +9,14 @@ import { cropCharacterFrontPanel } from "./imageProcessing";
  * affirmer une consigne qui ne s'applique pas). Partagée par MediaCanvas
  * (composants/studio-agent) pour la génération individuelle et en batch.
  *
- * Les fiches personnage sont recadrées sur leur seul panneau "FRONT" (voir
- * cropCharacterFrontPanel) avant d'être envoyées comme référence — la
- * planche 5-panneaux complète (labels, réglets) génère des artefacts dans
- * les frames produites.
+ * La référence personnage envoyée est, par ordre de fiabilité :
+ * 1. le portrait unique propre généré à la validation (portraitUrl) —
+ *    aucun artefact de mise en page possible ;
+ * 2. à défaut (fiche validée avant l'introduction du portrait), le
+ *    recadrage du panneau "FRONT" (cropCharacterFrontPanel) — fragile car
+ *    purement géométrique (1/5e de largeur), la planche générée n'étant pas
+ *    toujours régulière ;
+ * 3. en dernier recours la planche complète (labels/réglets inclus).
  */
 export async function getReferenceImageInfo(
   scene: Pick<SceneType, "characters" | "locationId" | "hasProduct" | "productAssetId">,
@@ -31,6 +35,7 @@ export async function getReferenceImageInfo(
 
   const characterUrls = await Promise.all(
     validatedCharacterSheets.map(async (ref) => {
+      if (ref.portraitUrl) return ref.portraitUrl;
       try {
         return await cropCharacterFrontPanel(ref.sheetUrl!);
       } catch {

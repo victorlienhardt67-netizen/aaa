@@ -65,7 +65,7 @@ import {
 import { analyzeBrief, refineCharacterPrompt } from "@/lib/claude";
 import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage, type FalTranscriptWord } from "@/lib/fal";
 import { transcribeAudio } from "@/lib/transcription";
-import { buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
+import { buildCharacterPortraitPrompt, buildCharacterSheetPrompt, buildImagePrompt, buildLearningContext, buildLocationSheetPrompt } from "@/lib/prompts";
 import {
   alignScenesToTranscriptWords,
   downloadImage,
@@ -1293,6 +1293,7 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
   const [modDrafts, setModDrafts] = useState<Record<string, string>>({});
   const [refining, setRefining] = useState<Record<string, boolean>>({});
   const referenceInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const portraitInFlightRef = useRef<Set<string>>(new Set());
 
   const plan = currentProject?.plan;
   const distinctAssetIds = Array.from(new Set((plan?.scenes ?? []).flatMap((s) => s.characters)));
@@ -1318,6 +1319,20 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
   // détecté ce personnage" reste réparable ici sans dépendre du découpage.
   const references = Object.entries(currentProject?.characterReferences ?? {}).map(([key, ref]) => ({ key, ref }));
   const allValidated = references.length > 0 && references.every((r) => r.ref.status === "validated");
+
+  // Rattrapage : les personnages validés AVANT l'introduction du portrait de
+  // référence n'en ont pas encore — on le génère automatiquement pour eux.
+  const keysNeedingPortrait = references
+    .filter((r) => r.ref.status === "validated" && !!r.ref.sheetUrl && !r.ref.portraitUrl)
+    .map((r) => r.key);
+  useEffect(() => {
+    if (!apiKeys.falApiKey) return;
+    for (const key of keysNeedingPortrait) {
+      const sheetUrl = currentProject?.characterReferences?.[key]?.sheetUrl;
+      if (sheetUrl) void generatePortrait(key, sheetUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keysNeedingPortrait.join(",")]);
 
   useEffect(() => {
     if (!allValidated) return;
@@ -1372,6 +1387,32 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
     } finally {
       setRefining((prev) => ({ ...prev, [key]: false }));
     }
+  }
+
+  /**
+   * Génère le portrait unique propre qui servira de référence aux frames
+   * (voir CharacterReference.portraitUrl) — extrait de la planche par Nano
+   * Banana lui-même, jamais par découpage géométrique. Non bloquant : le
+   * portrait arrive en arrière-plan (repli sur le recadrage FRONT s'il échoue).
+   */
+  async function generatePortrait(key: string, sheetUrl: string) {
+    if (portraitInFlightRef.current.has(key)) return;
+    portraitInFlightRef.current.add(key);
+    try {
+      const result = await falGenerateImage(buildCharacterPortraitPrompt(), "nano_banana", apiKeys.falApiKey, [sheetUrl]);
+      updateCharacterReference(key, { portraitUrl: result.url });
+    } catch (e) {
+      // Non bloquant — le recadrage du panneau FRONT reste le repli côté frames.
+      setErrors((prev) => ({ ...prev, [key]: e instanceof Error ? e.message : "Erreur portrait de référence" }));
+    } finally {
+      portraitInFlightRef.current.delete(key);
+    }
+  }
+
+  function validateReference(key: string) {
+    const ref = currentProject?.characterReferences?.[key];
+    updateCharacterReference(key, { status: "validated" });
+    if (ref?.sheetUrl && !ref.portraitUrl) void generatePortrait(key, ref.sheetUrl);
   }
 
   return (
@@ -1434,7 +1475,7 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
               />
             </div>
             <div className="flex items-center gap-1.5 mb-1.5">
-              <span className="text-[10px] text-agent-t3 shrink-0">Voix (Kling AI Avatar) :</span>
+              <span className="text-[10px] text-agent-t3 shrink-0">Voix (moteurs avatar) :</span>
               <select
                 value={ref.voiceArchetype ?? "auto"}
                 onChange={(e) => updateCharacterReference(key, { voiceArchetype: e.target.value as VoiceArchetype })}
@@ -1460,7 +1501,7 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
               ) : ref.status !== "validated" ? (
                 <>
                   <button
-                    onClick={() => updateCharacterReference(key, { status: "validated" })}
+                    onClick={() => validateReference(key)}
                     className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-1 rounded bg-agent-acc hover:bg-agent-acc2 text-white"
                   >
                     <Check className="w-3 h-3" /> Valider
@@ -1478,6 +1519,19 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
                 </span>
               )}
             </div>
+            {ref.status === "validated" && (
+              <div className="mt-1.5 pt-1.5 border-t border-agent-bd">
+                <p className="text-[10px] text-agent-t3 mb-1">Référence envoyée aux frames :</p>
+                {ref.portraitUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={ref.portraitUrl} alt={`Portrait de référence — ${ref.name}`} className="w-16 rounded border border-agent-bd2" />
+                ) : (
+                  <p className="text-[10px] text-agent-t3 flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Portrait en cours de génération...
+                  </p>
+                )}
+              </div>
+            )}
             {ref.sheetUrl && ref.status !== "validated" && (
               <div className="mt-1.5 pt-1.5 border-t border-agent-bd">
                 <p className="text-[10px] text-agent-t3 mb-1">Satisfait de ce personnage, ou tu veux ajuster quelque chose ?</p>
@@ -2205,6 +2259,7 @@ function VideoCard({
             <option value="kling_3_0">Kling 3.0</option>
             <option value="grok_video">Grok Video</option>
             <option value="kling_ai_avatar">Kling AI Avatar (test)</option>
+            <option value="omnihuman">OmniHuman (test)</option>
           </select>
           <span className="text-[10px] text-agent-t3 shrink-0">{scene.durationSeconds}s</span>
         </div>

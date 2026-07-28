@@ -44,7 +44,7 @@ export interface Brand {
 }
 
 export type ImageEngine = "auto" | "nano_banana" | "flux_pro" | "ideogram_v3";
-export type VideoEngine = "auto" | "kling_3_0" | "grok_video" | "seedance_2_0" | "kling_ai_avatar";
+export type VideoEngine = "auto" | "kling_3_0" | "grok_video" | "seedance_2_0" | "kling_ai_avatar" | "omnihuman";
 
 export const IMAGE_ENGINE_LABELS: Record<ImageEngine, string> = {
   auto: "Auto",
@@ -59,6 +59,7 @@ export const VIDEO_ENGINE_LABELS: Record<VideoEngine, string> = {
   grok_video: "Grok Video",
   seedance_2_0: "Seedance 2.0",
   kling_ai_avatar: "Kling AI Avatar (test)",
+  omnihuman: "OmniHuman (test)",
 };
 
 export interface StylePreset {
@@ -308,6 +309,15 @@ export interface CharacterReference {
   referenceImageUrl?: string;
   /** Type de voix ElevenLabs à utiliser pour ce personnage (Kling AI Avatar, test) — "auto" par défaut. */
   voiceArchetype?: VoiceArchetype;
+  /**
+   * Portrait unique propre (plein pied, fond neutre) généré automatiquement à
+   * la validation de la fiche — c'est LUI qui sert de référence visuelle à la
+   * génération des frames, jamais la planche 5 panneaux brute : le découpage
+   * géométrique du panneau FRONT (1/5e de largeur) tombait régulièrement à
+   * cheval entre deux panneaux quand la planche générée n'était pas
+   * parfaitement régulière, ce qui cassait la cohérence du personnage.
+   */
+  portraitUrl?: string;
 }
 
 /**
