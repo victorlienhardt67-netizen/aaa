@@ -1,5 +1,6 @@
 import { Brand, LearningEntry, MotionIntensity, Project, Scene, StylePreset, VideoEngine } from "@/types";
 import { falGenerateVideo } from "@/lib/fal";
+import { generateVoiceoverAudio } from "@/lib/elevenlabsTts";
 import { getReferenceImageInfo } from "@/lib/frameReferences";
 import {
   buildScenePositivePrompt,
@@ -41,11 +42,44 @@ export async function generateSceneVideo(params: {
   currentProject: Pick<Project, "characterReferences" | "locationReferences"> | undefined;
   /** Marque du projet (photo produit) — même usage que currentProject ci-dessus. */
   brand: Brand | undefined;
+  /** Requis uniquement pour le moteur "kling_ai_avatar" (test) — sert à générer l'audio via ElevenLabs avant l'animation. */
+  elevenLabsApiKey?: string;
   updateScene: (sceneId: string, patch: Partial<Scene>) => void;
   recalcTotalCost: () => void;
 }) {
-  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, currentProject, brand, updateScene, recalcTotalCost } = params;
+  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, currentProject, brand, elevenLabsApiKey, updateScene, recalcTotalCost } = params;
   updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
+
+  // Kling AI Avatar (test) : pas de prompt texte ni de moteur de règles vidéo
+  // — l'audio (généré via ElevenLabs, prononciation fiable) et la frame
+  // suffisent, le lipsync suit directement la forme d'onde de cet audio.
+  if (engine === "kling_ai_avatar") {
+    try {
+      const text = scene.voiceOver?.text?.trim();
+      if (!text) {
+        throw new Error(
+          "Kling AI Avatar (test) nécessite un texte de voix off/dialogue sur cette scène — aucune voix détectée ici."
+        );
+      }
+      const { audioUrl } = await generateVoiceoverAudio(text, scene.characters[0] ?? "default", elevenLabsApiKey, apiKey);
+      const result = await falGenerateVideo("", scene.frameUrl, engine, scene.durationSeconds, apiKey, [], audioUrl);
+      updateScene(scene.id, {
+        videoUrl: result.url,
+        videoStatus: "video_generated",
+        videoCostEstimate: result.costEstimate,
+        videoPrompt: prompt,
+        videoError: undefined,
+      });
+      recalcTotalCost();
+    } catch (e) {
+      updateScene(scene.id, {
+        videoStatus: "error",
+        videoError: e instanceof Error ? e.message : "Erreur inconnue",
+      });
+    }
+    return;
+  }
+
   const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
   const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType, voiceDescription);
   const sceneWithPrompt = { ...scene, videoPrompt: prompt };

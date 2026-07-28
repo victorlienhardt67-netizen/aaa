@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 });
   }
 
-  const { apiKey, engine, prompt, imageUrl, imageUrls, durationSeconds, kind } = body;
+  const { apiKey, engine, prompt, imageUrl, imageUrls, audioUrl, durationSeconds, kind } = body;
 
   try {
     if (kind === "video") {
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
         prompt,
         imageUrl,
         imageUrls: Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls : [imageUrl],
+        audioUrl,
         durationSeconds: durationSeconds ?? 5,
       });
       const result = await submitFalJob(model.modelId, apiKey, input);

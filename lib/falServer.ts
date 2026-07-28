@@ -69,7 +69,14 @@ export async function getFalResult(
 
 interface VideoModelConfig {
   modelId: string;
-  buildInput: (params: { prompt: string; imageUrl: string; imageUrls: string[]; durationSeconds: number }) => Record<string, unknown>;
+  buildInput: (params: {
+    prompt: string;
+    imageUrl: string;
+    imageUrls: string[];
+    durationSeconds: number;
+    /** Uniquement pour Kling AI Avatar (audio-driven) — absent pour les autres moteurs. */
+    audioUrl?: string;
+  }) => Record<string, unknown>;
 }
 
 /**
@@ -113,6 +120,19 @@ export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
         aspect_ratio: "9:16",
       };
     },
+  },
+  kling_ai_avatar: {
+    // Schéma confirmé via la doc officielle fal.ai (2026) : image + audio →
+    // vidéo animée sur cet audio précis (pas de prompt texte, pas de
+    // paramètre de durée — la durée sort directement de celle de l'audio).
+    // Moteur EN TEST : le support officiel de Kling AI Avatar liste chinois/
+    // anglais/japonais/coréen/espagnol, PAS le français — à valider par
+    // l'usage réel avant de le généraliser aux scènes françaises (Lynae).
+    modelId: "fal-ai/kling-video/ai-avatar/v2/standard",
+    buildInput: ({ imageUrl, audioUrl }) => ({
+      image_url: imageUrl,
+      audio_url: audioUrl,
+    }),
   },
 };
 

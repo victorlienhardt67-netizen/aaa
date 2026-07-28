@@ -20,7 +20,7 @@ export interface FalVideoResult {
   durationSeconds: number;
 }
 
-const WIRED_VIDEO_ENGINES: VideoEngine[] = ["kling_3_0", "grok_video"];
+const WIRED_VIDEO_ENGINES: VideoEngine[] = ["kling_3_0", "grok_video", "kling_ai_avatar"];
 const WIRED_IMAGE_ENGINES: ImageEngine[] = ["nano_banana"];
 const MAX_POLL_ATTEMPTS = 60; // ~5 minutes à 5s d'intervalle
 
@@ -172,7 +172,9 @@ export async function falGenerateVideo(
    * au total en comptant la frame. La frame de la scène reste toujours en
    * premier (@Image1 dans le prompt), pour rester l'ancrage visuel principal.
    */
-  additionalReferenceImageUrls?: string[]
+  additionalReferenceImageUrls?: string[],
+  /** URL de l'audio (généré via ElevenLabs) — uniquement pour Kling AI Avatar, qui anime la bouche à partir d'un vrai fichier audio plutôt que de "deviner" une voix depuis le prompt. */
+  audioUrl?: string
 ): Promise<FalVideoResult> {
   if (!apiKey) {
     throw new Error("Clé API fal.ai manquante — ajoute-la dans Réglages avant de générer une vidéo.");
@@ -188,7 +190,7 @@ export async function falGenerateVideo(
   const submitRes = await fetch("/api/fal/submit", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ apiKey, engine, prompt, imageUrl: frameUrl, imageUrls: referenceImageUrls, durationSeconds, kind: "video" }),
+    body: JSON.stringify({ apiKey, engine, prompt, imageUrl: frameUrl, imageUrls: referenceImageUrls, audioUrl, durationSeconds, kind: "video" }),
   });
   const submitData = await submitRes.json();
   if (!submitRes.ok) {

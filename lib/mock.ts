@@ -78,6 +78,7 @@ export function estimateVideoCost(engine: string, durationSeconds: number): numb
     kling_3_0: 0.45,
     grok_video: 0.4,
     seedance_2_0: 0.5,
+    kling_ai_avatar: 0.0562, // Kling AI Avatar v2 Standard sur fal.ai
     auto: 0.4,
   };
   return (perSecond[engine] ?? 0.4) * durationSeconds;

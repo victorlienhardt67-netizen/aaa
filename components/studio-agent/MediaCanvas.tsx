@@ -2149,6 +2149,7 @@ function VideoCard({
       audioCalibrated: !!currentProject?.voiceOverAudioUrl,
       currentProject: currentProject ?? undefined,
       brand,
+      elevenLabsApiKey: apiKeys.elevenLabsApiKey,
       updateScene,
       recalcTotalCost,
     });
@@ -2187,6 +2188,7 @@ function VideoCard({
             <option value="auto">Auto ({VIDEO_ENGINE_LABELS[engine] ?? engine})</option>
             <option value="kling_3_0">Kling 3.0</option>
             <option value="grok_video">Grok Video</option>
+            <option value="kling_ai_avatar">Kling AI Avatar (test)</option>
           </select>
           <span className="text-[10px] text-agent-t3 shrink-0">{scene.durationSeconds}s</span>
         </div>
@@ -2516,6 +2518,7 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
       audioCalibrated: !!currentProject?.voiceOverAudioUrl,
       currentProject: currentProject ?? undefined,
       brand,
+      elevenLabsApiKey: apiKeys.elevenLabsApiKey,
       updateScene,
       recalcTotalCost,
     });
