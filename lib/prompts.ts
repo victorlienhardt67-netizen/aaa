@@ -29,27 +29,37 @@ export function applyFrenchPhoneticTransform(text: string): string {
 export function buildVoiceDirective(
   voiceOver: VoiceOver | undefined,
   lang: Lang,
-  voiceType?: "voiceover" | "lipsync" | "none"
+  voiceType?: "voiceover" | "lipsync" | "none",
+  /**
+   * Description fixe de la voix de CE personnage (timbre, débit, ton),
+   * identique dans toutes ses scènes — sans ça, chaque plan étant généré
+   * indépendamment par le modèle vidéo, celui-ci réinvente une voix
+   * différente à chaque fois faute de référence audio persistante.
+   */
+  voiceDescription?: string
 ): string {
   const hasText = !!voiceOver?.enabled && !!voiceOver.text.trim();
+  const voiceHint = voiceDescription?.trim()
+    ? ` Voice must sound exactly like this: ${voiceDescription.trim()} — this exact same voice (pitch, timbre, pace, tone) must be used identically in every scene featuring this character, never a different-sounding voice from one scene to the next.`
+    : "";
 
   if (voiceType === "lipsync" && hasText) {
     const text = lang === "fr" ? applyFrenchPhoneticTransform(voiceOver!.text.trim()) : voiceOver!.text.trim();
     if (lang === "fr") {
-      return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. The character must speak in correct, natural, fluent Parisian French — proper French pronunciation and intonation, not an approximate or accented reading: "${text}".`;
+      return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. The character must speak in correct, natural, fluent Parisian French — proper French pronunciation and intonation, not an approximate or accented reading: "${text}".${voiceHint}`;
     }
-    return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. Clear English voice: "${text}".`;
+    return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. Clear English voice: "${text}".${voiceHint}`;
   }
 
   if ((voiceType === "voiceover" || voiceType === undefined) && lang === "fr" && hasText) {
     const vo = applyFrenchPhoneticTransform(voiceOver!.text.trim());
-    return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural French voice, calm conversational pace: "${vo}". No music, no background sounds, voiceover only.`;
+    return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural French voice, calm conversational pace: "${vo}".${voiceHint} No music, no background sounds, voiceover only.`;
   }
 
   if (voiceType === "voiceover" && hasText) {
     return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural ${
       lang === "fr" ? "French" : "English"
-    } voice, calm conversational pace: "${voiceOver!.text.trim()}". No music, no background sounds, voiceover only.`;
+    } voice, calm conversational pace: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, voiceover only.`;
   }
 
   return "No sound, no voiceover, no music, no lip sync, mouths do not move.";

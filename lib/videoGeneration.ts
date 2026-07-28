@@ -25,6 +25,8 @@ export async function generateSceneVideo(params: {
   motionIntensity: MotionIntensity;
   mandatoryVideoRules: string;
   characterNames: Record<string, string> | undefined;
+  /** Description fixe de la voix du personnage qui parle dans cette scène (voir Scene.characters[0]), pour que sa voix reste identique d'une scène à l'autre. */
+  voiceDescription?: string;
   learningEntries: LearningEntry[];
   apiKey: string;
   /** true si le projet a un fichier audio voix off calé (VoiceOverBlock) — la durée de scène vient alors de ce calage réel, jamais de l'estimation mots. */
@@ -32,10 +34,10 @@ export async function generateSceneVideo(params: {
   updateScene: (sceneId: string, patch: Partial<Scene>) => void;
   recalcTotalCost: () => void;
 }) {
-  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, learningEntries, apiKey, audioCalibrated, updateScene, recalcTotalCost } = params;
+  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, updateScene, recalcTotalCost } = params;
   updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
   const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
-  const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType);
+  const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType, voiceDescription);
   const sceneWithPrompt = { ...scene, videoPrompt: prompt };
   const engineBody =
     engine === "grok_video"

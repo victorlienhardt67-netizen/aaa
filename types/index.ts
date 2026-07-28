@@ -243,7 +243,7 @@ export interface ProductionPlan {
    * prompt de sa fiche de référence unique, jamais comme variante séparée.
    * Première occurrence non vide retenue par personnage.
    */
-  characterProfiles?: Record<string, { physicalState?: string }>;
+  characterProfiles?: Record<string, { physicalState?: string; voiceDescription?: string }>;
   /** Nom affiché de chaque lieu détecté dans le script, par locationId. */
   locationNames?: Record<string, string>;
   /** Évaluation du hook (3-5 premières secondes) — toujours vérifiée en premier. */
@@ -297,6 +297,14 @@ export interface CharacterReference {
   prompt: string;
   sheetUrl?: string;
   status: CharacterReferenceStatus;
+  /**
+   * Image de référence fournie manuellement (ex: photo réelle du produit
+   * quand le "personnage" est le produit anthropomorphisé) — utilisée en
+   * priorité comme référence visuelle à la génération de la fiche, pour que
+   * l'apparence reste fidèle même quand aucune photo personnage de la marque
+   * ne correspond (le cas des objets/produits anthropomorphisés).
+   */
+  referenceImageUrl?: string;
 }
 
 /**

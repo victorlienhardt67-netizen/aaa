@@ -87,6 +87,11 @@ const PRODUCTION_PLAN_TOOL = {
                     description:
                       "Tout trait pertinent pour la cohérence visuelle de ce personnage, rédigé librement (pas de checklist imposée) — c'est une CARACTÉRISTIQUE du personnage, pas une variante : une seule image de référence sera générée pour ce personnage avec ce trait intégré, jamais une entrée séparée. Une seule fois suffit (première scène où il apparaît) ; omettre si rien de particulier n'est mentionné.",
                   },
+                  voiceDescription: {
+                    type: "string",
+                    description:
+                      "UNIQUEMENT si ce personnage parle à l'écran (voiceType='lipsync') dans au moins une scène : décris en une phrase libre la voix fixe de ce personnage (tessiture/pitch, timbre, débit, ton, accent éventuel — pas de nom de voix ni de technologie, une description audio pure, ex: 'voix grave et posée, débit lent, ton rassurant' ou 'voix féminine claire et dynamique, débit rapide, ton enjoué'). Cette même description sera injectée telle quelle dans TOUTES les scènes où ce personnage parle, pour que sa voix reste identique d'un plan à l'autre — ne varie jamais cette description d'une scène à l'autre pour un même personnage. Une seule fois suffit (première scène où il parle) ; omettre s'il ne parle jamais à l'écran.",
+                  },
                 },
                 required: ["name"],
               },

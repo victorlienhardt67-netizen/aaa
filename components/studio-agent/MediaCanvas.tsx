@@ -1290,6 +1290,7 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [modDrafts, setModDrafts] = useState<Record<string, string>>({});
   const [refining, setRefining] = useState<Record<string, boolean>>({});
+  const referenceInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const plan = currentProject?.plan;
   const distinctAssetIds = Array.from(new Set((plan?.scenes ?? []).flatMap((s) => s.characters)));
@@ -1339,13 +1340,22 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
     updateCharacterReference(key, { status: "generating" });
     setErrors((prev) => ({ ...prev, [key]: "" }));
     try {
+      const ref = currentProject?.characterReferences?.[key];
       const originalPhoto = brand?.characterPhotos.find((p) => p.id === key);
-      const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey, originalPhoto?.url ? [originalPhoto.url] : undefined);
+      // La référence fournie manuellement (ex: vraie photo produit pour un
+      // personnage anthropomorphisé) prime — elle est la plus fiable.
+      const referenceUrls = [ref?.referenceImageUrl, originalPhoto?.url].filter((u): u is string => !!u);
+      const result = await falGenerateImage(prompt, "nano_banana", apiKeys.falApiKey, referenceUrls.length > 0 ? referenceUrls : undefined);
       updateCharacterReference(key, { sheetUrl: result.url, status: "generated" });
     } catch (e) {
       updateCharacterReference(key, { status: "pending" });
       setErrors((prev) => ({ ...prev, [key]: e instanceof Error ? e.message : "Erreur inconnue" }));
     }
+  }
+
+  async function handleUploadReference(key: string, file: File) {
+    const base64 = await fileToBase64(file);
+    updateCharacterReference(key, { referenceImageUrl: base64 });
   }
 
   async function adjust(key: string, basePrompt: string) {
@@ -1393,6 +1403,34 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
               // eslint-disable-next-line @next/next/no-img-element
               <img src={ref.sheetUrl} alt={ref.name} className="w-full rounded mb-1.5" />
             )}
+            <div className="flex items-center gap-1.5 mb-1.5">
+              {ref.referenceImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={ref.referenceImageUrl} alt="Référence" className="w-6 h-6 rounded object-cover border border-agent-bd2 shrink-0" />
+              ) : (
+                <ImageIcon className="w-3.5 h-3.5 text-agent-t3 shrink-0" />
+              )}
+              <button
+                type="button"
+                onClick={() => referenceInputRefs.current[key]?.click()}
+                className="text-[10px] text-agent-t2 hover:text-agent-t1 underline underline-offset-2"
+              >
+                {ref.referenceImageUrl ? "Changer l'image de référence" : "Ajouter une image de référence (ex : vraie photo produit)"}
+              </button>
+              <input
+                ref={(el) => {
+                  referenceInputRefs.current[key] = el;
+                }}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadReference(key, f);
+                  e.target.value = "";
+                }}
+              />
+            </div>
             {errors[key] && <div className="text-[10px] text-red-400 mb-1.5">{errors[key]}</div>}
             <div className="flex gap-1 flex-wrap">
               {!ref.sheetUrl ? (
@@ -2104,6 +2142,7 @@ function VideoCard({
       motionIntensity,
       mandatoryVideoRules,
       characterNames: currentProject?.plan?.characterNames,
+      voiceDescription: currentProject?.plan?.characterProfiles?.[scene.characters[0]]?.voiceDescription,
       learningEntries,
       apiKey: apiKeys.falApiKey,
       audioCalibrated: !!currentProject?.voiceOverAudioUrl,
@@ -2468,6 +2507,7 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
       motionIntensity,
       mandatoryVideoRules,
       characterNames: plan!.characterNames,
+      voiceDescription: plan!.characterProfiles?.[scene.characters[0]]?.voiceDescription,
       learningEntries,
       apiKey: apiKeys.falApiKey,
       audioCalibrated: !!currentProject?.voiceOverAudioUrl,

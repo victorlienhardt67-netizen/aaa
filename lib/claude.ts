@@ -60,6 +60,8 @@ interface ClaudeSceneCharacter {
   name: string;
   /** Trait physique du personnage (ex: "corpulent", "très mince") si le script en mentionne un — retenu une seule fois par personnage (première occurrence), intégré dans sa fiche de référence unique. */
   physicalState?: string;
+  /** Description fixe de la voix du personnage (timbre, débit, ton) si il parle à l'écran — retenue une seule fois, réinjectée identique dans toutes ses scènes pour que sa voix ne varie jamais d'un plan à l'autre. */
+  voiceDescription?: string;
 }
 
 interface ClaudeScene {
@@ -163,7 +165,7 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
   const productPhoto = brand?.productPhotos[0];
   const rawScenes: ClaudeScene[] = data.scenes ?? [];
   const characterNames: Record<string, string> = {};
-  const characterProfiles: Record<string, { physicalState?: string }> = {};
+  const characterProfiles: Record<string, { physicalState?: string; voiceDescription?: string }> = {};
   const locationNames: Record<string, string> = {};
 
   const scenes: Scene[] = rawScenes.map((s, i) => {
@@ -173,8 +175,12 @@ async function analyzeBriefWithClaude(params: AnalyzeBriefParams): Promise<Produ
       if (!characterNames[assetId]) {
         characterNames[assetId] = characterPhoto?.name || c.name || "Personnage principal";
       }
-      if (!characterProfiles[assetId]?.physicalState && c.physicalState) {
-        characterProfiles[assetId] = { physicalState: c.physicalState };
+      if (!characterProfiles[assetId]) characterProfiles[assetId] = {};
+      if (!characterProfiles[assetId].physicalState && c.physicalState) {
+        characterProfiles[assetId].physicalState = c.physicalState;
+      }
+      if (!characterProfiles[assetId].voiceDescription && c.voiceDescription) {
+        characterProfiles[assetId].voiceDescription = c.voiceDescription;
       }
       return assetId;
     });
@@ -322,7 +328,7 @@ async function analyzeBriefMock(params: AnalyzeBriefParams): Promise<ProductionP
     [characterAssetId]: characterPhoto?.name || "Personnage principal",
   };
   // Trait physique unique du personnage — intégré dans sa seule fiche de référence, jamais une variante séparée.
-  const characterProfiles: Record<string, { physicalState?: string }> = {
+  const characterProfiles: Record<string, { physicalState?: string; voiceDescription?: string }> = {
     [characterAssetId]: {
       physicalState:
         lang === "fr"
