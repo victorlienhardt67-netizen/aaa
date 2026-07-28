@@ -306,7 +306,40 @@ export interface CharacterReference {
    * ne correspond (le cas des objets/produits anthropomorphisés).
    */
   referenceImageUrl?: string;
+  /** Type de voix ElevenLabs à utiliser pour ce personnage (Kling AI Avatar, test) — "auto" par défaut. */
+  voiceArchetype?: VoiceArchetype;
 }
+
+/**
+ * Catégories de voix ElevenLabs proposées pour Kling AI Avatar (test) —
+ * "auto" déduit le genre/l'âge depuis la description de voix générée par
+ * Claude (voiceDescription), les autres forcent un filtre précis parmi les
+ * voix réellement disponibles sur le compte (jamais un voice_id en dur,
+ * pour ne jamais dépendre d'un identifiant qui pourrait ne pas exister sur
+ * le compte de l'utilisateur).
+ */
+export type VoiceArchetype =
+  | "auto"
+  | "young_woman"
+  | "mature_woman"
+  | "young_man"
+  | "mature_man"
+  | "villain"
+  | "narrator"
+  | "energetic"
+  | "warm_friendly";
+
+export const VOICE_ARCHETYPE_LABELS: Record<VoiceArchetype, string> = {
+  auto: "Auto (détection depuis la description)",
+  young_woman: "Femme jeune (20-35 ans)",
+  mature_woman: "Femme mûre (35-55 ans)",
+  young_man: "Homme jeune (20-35 ans)",
+  mature_man: "Homme mûr (35-60 ans)",
+  villain: "Voix de \"méchant\" / menaçante",
+  narrator: "Narrateur neutre (pub/documentaire)",
+  energetic: "Énergique / enthousiaste",
+  warm_friendly: "Douce / amicale",
+};
 
 /**
  * Référence visuelle d'un lieu/décor détecté dans le script — sert à garder

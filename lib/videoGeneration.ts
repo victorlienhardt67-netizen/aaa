@@ -4,6 +4,7 @@ import { generateVoiceoverAudio } from "@/lib/elevenlabsTts";
 import { getReferenceImageInfo } from "@/lib/frameReferences";
 import {
   buildScenePositivePrompt,
+  buildKlingAvatarPrompt,
   buildGrokVideoPrompt,
   buildGrokReferenceNotes,
   buildKlingVideoPrompt,
@@ -50,14 +51,19 @@ export async function generateSceneVideo(params: {
   const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, currentProject, brand, elevenLabsApiKey, updateScene, recalcTotalCost } = params;
   updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
 
-  // Kling AI Avatar (test) : l'audio (généré via ElevenLabs, prononciation
-  // fiable) porte la voix, mais le prompt reste nécessaire pour que le
-  // résultat soit une vraie vidéo (gestes, mouvement de caméra, ambiance) et
-  // pas juste un visage figé qui parle — on réutilise la même construction
-  // que le prompt vidéo "générique" (action + caméra + style), sans directive
-  // de voix puisque celle-ci vient de l'audio, pas du texte.
+  // Kling AI Avatar (test) : anime un personnage qui parle à l'écran à partir
+  // d'un audio réel (ElevenLabs) — ne s'applique donc qu'aux scènes en vrai
+  // lipsync (voiceType="lipsync"). Une scène en voix off (voiceType=
+  // "voiceover", personne ne parle visiblement à l'écran) n'est pas un cas
+  // que ce moteur sait gérer proprement : mieux vaut le signaler clairement
+  // que de forcer une animation de bouche sur un plan qui n'en a pas besoin.
   if (engine === "kling_ai_avatar") {
     try {
+      if (scene.voiceType !== "lipsync") {
+        throw new Error(
+          "Kling AI Avatar (test) est fait pour un personnage qui parle à l'écran (lipsync) — cette scène est en voix off ou sans voix, utilise Grok Video/Kling 3.0 pour elle."
+        );
+      }
       const text = scene.voiceOver?.text?.trim();
       if (!text) {
         throw new Error(
@@ -65,8 +71,17 @@ export async function generateSceneVideo(params: {
         );
       }
       const sceneWithPrompt = { ...scene, videoPrompt: prompt };
-      const animationPrompt = buildScenePositivePrompt(sceneWithPrompt, style, motionIntensity);
-      const { audioUrl } = await generateVoiceoverAudio(text, scene.characters[0] ?? "default", elevenLabsApiKey, apiKey);
+      const animationPrompt = buildKlingAvatarPrompt(sceneWithPrompt, style, motionIntensity);
+      const characterKey = scene.characters[0] ?? "default";
+      const voiceArchetype = currentProject?.characterReferences?.[characterKey]?.voiceArchetype;
+      const { audioUrl } = await generateVoiceoverAudio(
+        text,
+        characterKey,
+        elevenLabsApiKey,
+        apiKey,
+        voiceArchetype,
+        voiceDescription
+      );
       const result = await falGenerateVideo(animationPrompt, scene.frameUrl, engine, scene.durationSeconds, apiKey, [], audioUrl);
       updateScene(scene.id, {
         videoUrl: result.url,

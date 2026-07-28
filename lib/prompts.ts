@@ -308,6 +308,31 @@ export function buildScenePositivePrompt(
 }
 
 /**
+ * Prompt d'animation pour Kling AI Avatar (test) — ce moteur, centré sur le
+ * lipsync audio-driven, tend à rester statique (visage qui parle, quasi
+ * aucun mouvement) si on ne pousse pas explicitement le dynamisme. On insiste
+ * donc sur le mouvement de caméra ET les gestes/le langage corporel naturel
+ * du personnage pendant qu'il parle, en plus du style visuel — et on ajoute
+ * une interdiction explicite de tout texte à l'écran (le lipsync génère
+ * parfois du texte parasite illisible sans cette consigne).
+ */
+export function buildKlingAvatarPrompt(
+  scene: Pick<Scene, "cameraMovement" | "videoPrompt">,
+  style: StylePreset,
+  motionIntensity: MotionIntensity
+): string {
+  const cameraPhrase = CAMERA_MOVEMENT_VIDEO_PHRASES[scene.cameraMovement];
+  return [
+    scene.videoPrompt,
+    `Camera: ${cameraPhrase}, natural subtle movement, never a completely locked static shot.`,
+    `The character shows natural body language while speaking — hand gestures, head movement, shifting weight, expressive face — not a frozen talking head.`,
+    `Visual style: ${style.photoPrompt} ${style.videoPrompt}`,
+    `Movement intensity: ${MOTION_INTENSITY_LABELS[motionIntensity]}.`,
+    `No text, no typography, no letters, no subtitles, no captions, no on-screen writing of any kind.`,
+  ].join(" ");
+}
+
+/**
  * Notes de référence pour Grok Video (reference-to-video, fal.ai) — ce
  * moteur accepte jusqu'à 7 images de référence citées dans le prompt via
  * @Image1, @Image2... au lieu d'une seule image de départ. L'ordre DOIT

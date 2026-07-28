@@ -59,6 +59,8 @@ import {
   StylePreset,
   VIDEO_ENGINE_LABELS as FULL_VIDEO_ENGINE_LABELS,
   VideoEngine,
+  VoiceArchetype,
+  VOICE_ARCHETYPE_LABELS,
 } from "@/types";
 import { analyzeBrief, refineCharacterPrompt } from "@/lib/claude";
 import { autoRouteImageEngine, autoRouteVideoEngine, falGenerateImage, type FalTranscriptWord } from "@/lib/fal";
@@ -1430,6 +1432,20 @@ function CastingBlock({ offset, active, onDragStart, measureRef }: DragHandlePro
                   e.target.value = "";
                 }}
               />
+            </div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-[10px] text-agent-t3 shrink-0">Voix (Kling AI Avatar) :</span>
+              <select
+                value={ref.voiceArchetype ?? "auto"}
+                onChange={(e) => updateCharacterReference(key, { voiceArchetype: e.target.value as VoiceArchetype })}
+                className="text-[10px] bg-agent-s2 border border-agent-bd rounded px-1 py-0.5 text-agent-t2 flex-1 min-w-0"
+              >
+                {Object.entries(VOICE_ARCHETYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
             {errors[key] && <div className="text-[10px] text-red-400 mb-1.5">{errors[key]}</div>}
             <div className="flex gap-1 flex-wrap">
