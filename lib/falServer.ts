@@ -122,33 +122,35 @@ export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
     },
   },
   kling_ai_avatar: {
-    // Schéma confirmé via la doc officielle fal.ai (2026) : image + audio +
-    // prompt (direction d'animation — gestes, mouvement de caméra, ambiance)
-    // → vidéo animée sur cet audio précis. `negative_prompt` est un vrai champ
-    // dédié (pas juste une instruction dans le prompt positif) — utilisé ici
-    // pour exclure le texte à l'écran, régulièrement halluciné par ce moteur
-    // (artefact connu des modèles avatar audio-driven, entraînés en partie sur
-    // des vidéos avec sous-titres/paroles incrustés). `duration` n'accepte que
-    // "5" ou "10" (pas une valeur libre dérivée de l'audio) — on choisit la
-    // plus proche de la durée réelle de la scène pour éviter une vidéo coupée
-    // avant la fin de l'audio.
-    // Moteur EN TEST : le support officiel de Kling AI Avatar liste chinois/
-    // anglais/japonais/coréen/espagnol, PAS le français — à valider par
-    // l'usage réel avant de le généraliser aux scènes françaises (Lynae).
+    // Schéma RÉEL du endpoint v2 (vérifié après plusieurs tentatives de
+    // correctifs sans effet) : SEULS image_url, audio_url et prompt existent.
+    // negative_prompt / cfg_scale / duration appartiennent à la v1 et aux
+    // autres endpoints Kling — envoyés ici, ils sont silencieusement ignorés
+    // par fal.ai (aucune erreur), c'est pourquoi les sous-titres hallucinés
+    // persistaient malgré ces "correctifs". L'artefact de sous-titres karaoké
+    // est intrinsèque à KlingAvatar 2.0 (entraîné sur des vidéos parlées
+    // sous-titrées) et n'a AUCUN paramètre pour le désactiver — moteur
+    // conservé pour comparaison, mais préférer "omnihuman" ci-dessous.
     modelId: "fal-ai/kling-video/ai-avatar/v2/standard",
-    buildInput: ({ prompt, imageUrl, audioUrl, durationSeconds }) => ({
+    buildInput: ({ prompt, imageUrl, audioUrl }) => ({
       image_url: imageUrl,
       audio_url: audioUrl,
       prompt,
-      negative_prompt:
-        "text, subtitles, captions, on-screen writing, typography, letters, lyrics, karaoke, song, music video, watermark, blur, distort, low quality",
-      // cfg_scale par défaut 0.5 — relevé pour forcer une adhérence plus
-      // stricte au prompt/negative_prompt (le texte à l'écran persistait
-      // malgré negative_prompt seul, artefact que ce moteur semble
-      // reproduire depuis des vidéos karaoké/paroles incrustées vues à
-      // l'entraînement).
-      cfg_scale: 0.8,
-      duration: durationSeconds > 7 ? "10" : "5",
+    }),
+  },
+  omnihuman: {
+    // ByteDance OmniHuman v1.5 — même principe que Kling AI Avatar (image +
+    // audio → personnage qui parle, lipsync calé sur la forme d'onde) mais
+    // sans l'artefact de sous-titres hallucinés, et piloté par l'audio donc
+    // indépendant de la langue (français inclus). Le prompt guide les gestes,
+    // la caméra et l'attitude pendant la réplique. Audio limité à 30s en
+    // 1080p (nos scènes font 3-10s). Schéma confirmé via la doc officielle
+    // fal.ai (2026) ; sortie : { video: { url } } comme les autres moteurs.
+    modelId: "fal-ai/bytedance/omnihuman/v1.5",
+    buildInput: ({ prompt, imageUrl, audioUrl }) => ({
+      image_url: imageUrl,
+      audio_url: audioUrl,
+      prompt,
     }),
   },
 };
@@ -245,11 +247,15 @@ export async function uploadFileToFalStorage(file: Blob, apiKey: string): Promis
 }
 
 /**
- * Variante "edit" standard de Nano Banana (jamais la version pro) — prend des
+ * Variante "edit" de Nano Banana 2 (jamais la version pro) — prend des
  * images de référence (image_urls) en plus du prompt, pour garder un
  * personnage visuellement cohérent d'une frame à l'autre.
+ * Version 2 obligatoire : l'ancien "fal-ai/nano-banana/edit" (v1) ignorait
+ * le paramètre aspect_ratio et calquait le format de sortie sur celui des
+ * images de référence — les frames avec références sortaient donc parfois
+ * carrées/4:5 au lieu du 9:16 attendu. La v2 respecte aspect_ratio: "9:16".
  */
-export const NANO_BANANA_EDIT_MODEL_ID = "fal-ai/nano-banana/edit";
+export const NANO_BANANA_EDIT_MODEL_ID = "fal-ai/nano-banana-2/edit";
 
 export function buildNanoBananaEditInput(params: { prompt: string; imageUrls: string[] }) {
   return {
