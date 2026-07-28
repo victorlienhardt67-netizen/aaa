@@ -141,7 +141,13 @@ export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
       audio_url: audioUrl,
       prompt,
       negative_prompt:
-        "text, subtitles, captions, on-screen writing, typography, letters, lyrics, watermark, blur, distort, low quality",
+        "text, subtitles, captions, on-screen writing, typography, letters, lyrics, karaoke, song, music video, watermark, blur, distort, low quality",
+      // cfg_scale par défaut 0.5 — relevé pour forcer une adhérence plus
+      // stricte au prompt/negative_prompt (le texte à l'écran persistait
+      // malgré negative_prompt seul, artefact que ce moteur semble
+      // reproduire depuis des vidéos karaoké/paroles incrustées vues à
+      // l'entraînement).
+      cfg_scale: 0.8,
       duration: durationSeconds > 7 ? "10" : "5",
     }),
   },
