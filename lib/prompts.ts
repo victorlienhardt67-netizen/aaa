@@ -308,13 +308,18 @@ export function buildScenePositivePrompt(
 }
 
 /**
- * Prompt d'animation pour Kling AI Avatar (test) — ce moteur, centré sur le
- * lipsync audio-driven, tend à rester statique (visage qui parle, quasi
- * aucun mouvement) si on ne pousse pas explicitement le dynamisme. On insiste
- * donc sur le mouvement de caméra ET les gestes/le langage corporel naturel
- * du personnage pendant qu'il parle, en plus du style visuel — et on ajoute
- * une interdiction explicite de tout texte à l'écran (le lipsync génère
- * parfois du texte parasite illisible sans cette consigne).
+ * Prompt d'animation pour les moteurs avatar (Kling AI Avatar, OmniHuman) —
+ * centrés sur le lipsync audio-driven, ils tendent à rester statiques si on
+ * ne pousse pas le dynamisme (gestes, caméra).
+ *
+ * Deux règles anti-sous-titres apprises à la dure (l'artefact de texte
+ * karaoké incrusté) :
+ * 1. NE JAMAIS mentionner les mots texte/sous-titres/captions dans le prompt,
+ *    même en négation ("no subtitles") — ces moteurs gèrent mal la négation
+ *    et le simple fait de nommer le concept suffit à le faire apparaître.
+ * 2. NE JAMAIS laisser passer de réplique entre guillemets dans le prompt
+ *    (le texte cité est régulièrement affiché à l'écran tel quel) — la
+ *    réplique vit uniquement dans l'audio, on la retire du prompt.
  */
 export function buildKlingAvatarPrompt(
   scene: Pick<Scene, "cameraMovement" | "videoPrompt">,
@@ -322,13 +327,20 @@ export function buildKlingAvatarPrompt(
   motionIntensity: MotionIntensity
 ): string {
   const cameraPhrase = CAMERA_MOVEMENT_VIDEO_PHRASES[scene.cameraMovement];
+  // Retire tout passage cité (guillemets droits, typographiques ou français) —
+  // la réplique exacte est portée par l'audio, jamais par le prompt.
+  const sanitizedVideoPrompt = scene.videoPrompt
+    .replace(/«[^»]*»/g, "")
+    .replace(/"[^"]*"/g, "")
+    .replace(/“[^”]*”/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   return [
-    scene.videoPrompt,
+    sanitizedVideoPrompt,
     `Camera: ${cameraPhrase}, natural subtle movement, never a completely locked static shot.`,
     `The character shows natural body language while speaking — hand gestures, head movement, shifting weight, expressive face — not a frozen talking head.`,
     `Visual style: ${style.photoPrompt} ${style.videoPrompt}`,
     `Movement intensity: ${MOTION_INTENSITY_LABELS[motionIntensity]}.`,
-    `No text, no typography, no letters, no subtitles, no captions, no on-screen writing of any kind.`,
   ].join(" ");
 }
 
