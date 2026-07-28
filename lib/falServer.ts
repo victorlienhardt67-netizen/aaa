@@ -123,19 +123,26 @@ export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
   },
   kling_ai_avatar: {
     // Schéma confirmé via la doc officielle fal.ai (2026) : image + audio +
-    // prompt optionnel (direction d'animation — gestes, mouvement de caméra,
-    // ambiance) → vidéo animée sur cet audio précis. Le prompt sert à ce que
-    // le résultat reste une vraie vidéo (mouvement, gestes cohérents avec la
-    // réplique), pas juste un visage figé qui parle. Pas de paramètre de
-    // durée — la durée sort directement de celle de l'audio.
+    // prompt (direction d'animation — gestes, mouvement de caméra, ambiance)
+    // → vidéo animée sur cet audio précis. `negative_prompt` est un vrai champ
+    // dédié (pas juste une instruction dans le prompt positif) — utilisé ici
+    // pour exclure le texte à l'écran, régulièrement halluciné par ce moteur
+    // (artefact connu des modèles avatar audio-driven, entraînés en partie sur
+    // des vidéos avec sous-titres/paroles incrustés). `duration` n'accepte que
+    // "5" ou "10" (pas une valeur libre dérivée de l'audio) — on choisit la
+    // plus proche de la durée réelle de la scène pour éviter une vidéo coupée
+    // avant la fin de l'audio.
     // Moteur EN TEST : le support officiel de Kling AI Avatar liste chinois/
     // anglais/japonais/coréen/espagnol, PAS le français — à valider par
     // l'usage réel avant de le généraliser aux scènes françaises (Lynae).
     modelId: "fal-ai/kling-video/ai-avatar/v2/standard",
-    buildInput: ({ prompt, imageUrl, audioUrl }) => ({
+    buildInput: ({ prompt, imageUrl, audioUrl, durationSeconds }) => ({
       image_url: imageUrl,
       audio_url: audioUrl,
       prompt,
+      negative_prompt:
+        "text, subtitles, captions, on-screen writing, typography, letters, lyrics, watermark, blur, distort, low quality",
+      duration: durationSeconds > 7 ? "10" : "5",
     }),
   },
 };
