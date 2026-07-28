@@ -165,7 +165,14 @@ export async function falGenerateVideo(
   frameUrl: string | undefined,
   engine: VideoEngine,
   durationSeconds: number,
-  apiKey?: string
+  apiKey?: string,
+  /**
+   * Images de référence supplémentaires (produit, personnages, décor) — seul
+   * Grok Video (reference-to-video) les utilise réellement, jusqu'à 7 images
+   * au total en comptant la frame. La frame de la scène reste toujours en
+   * premier (@Image1 dans le prompt), pour rester l'ancrage visuel principal.
+   */
+  additionalReferenceImageUrls?: string[]
 ): Promise<FalVideoResult> {
   if (!apiKey) {
     throw new Error("Clé API fal.ai manquante — ajoute-la dans Réglages avant de générer une vidéo.");
@@ -177,10 +184,11 @@ export async function falGenerateVideo(
     throw new Error(`Le moteur "${engine}" n'est pas encore branché sur l'API fal.ai réelle.`);
   }
 
+  const referenceImageUrls = [frameUrl, ...(additionalReferenceImageUrls ?? [])].slice(0, 7);
   const submitRes = await fetch("/api/fal/submit", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ apiKey, engine, prompt, imageUrl: frameUrl, durationSeconds, kind: "video" }),
+    body: JSON.stringify({ apiKey, engine, prompt, imageUrl: frameUrl, imageUrls: referenceImageUrls, durationSeconds, kind: "video" }),
   });
   const submitData = await submitRes.json();
   if (!submitRes.ok) {

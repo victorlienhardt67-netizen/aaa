@@ -308,8 +308,50 @@ export function buildScenePositivePrompt(
 }
 
 /**
+ * Notes de référence pour Grok Video (reference-to-video, fal.ai) — ce
+ * moteur accepte jusqu'à 7 images de référence citées dans le prompt via
+ * @Image1, @Image2... au lieu d'une seule image de départ. L'ordre DOIT
+ * correspondre exactement à celui utilisé pour construire reference_image_urls
+ * (voir generateSceneVideo, lib/videoGeneration.ts) : la frame de la scène en
+ * premier (@Image1, l'ancrage visuel principal), puis le produit, puis les
+ * personnages, puis le décor — même ordre que buildImagePrompt.
+ */
+export function buildGrokReferenceNotes(opts: {
+  hasProductReference?: boolean;
+  characterReferenceCount?: number;
+  hasLocationReference?: boolean;
+}): string {
+  const notes: string[] = [
+    `@Image1 is the exact validated starting frame for this shot — match its composition, framing, lighting and setting faithfully, this is not a free reinterpretation.`,
+  ];
+  let nextIndex = 2;
+  if (opts.hasProductReference) {
+    notes.push(
+      `@Image${nextIndex} is the product — reproduce its exact packaging shape, cap, label design and colors faithfully, never redesign or approximate it.`
+    );
+    nextIndex += 1;
+  }
+  const charCount = opts.characterReferenceCount ?? 0;
+  if (charCount === 1) {
+    notes.push(
+      `@Image${nextIndex} is the character appearing in this shot — keep their exact appearance, do not alter face, hair or identity.`
+    );
+    nextIndex += 1;
+  } else if (charCount > 1) {
+    notes.push(
+      `Images @Image${nextIndex} to @Image${nextIndex + charCount - 1} are the characters appearing in this shot, each in their own reference image — keep each one's exact identity, do not merge or swap them.`
+    );
+    nextIndex += charCount;
+  }
+  if (opts.hasLocationReference) {
+    notes.push(`@Image${nextIndex} is the background location — reproduce this exact setting faithfully.`);
+  }
+  return notes.join(" ");
+}
+
+/**
  * Prompt vidéo Grok (FR) — structure imposée : Mouvement → Sujet → Scène →
- * Éclairage → Ambiance → Audio → Ratio. Le mouvement caméra est décrit en
+ * Références → Ambiance → Audio → Ratio. Le mouvement caméra est décrit en
  * premier (Grok répond mieux quand le mouvement précède le sujet). La
  * directive audio (buildVoiceDirective) porte déjà le texte exact à dire —
  * ne jamais le reformuler ici.
@@ -318,14 +360,15 @@ export function buildGrokVideoPrompt(
   scene: Pick<Scene, "cameraMovement" | "videoPrompt">,
   style: StylePreset,
   motionIntensity: MotionIntensity,
-  voiceDirective: string
+  voiceDirective: string,
+  referenceNotes: string
 ): string {
   const cameraPhrase = CAMERA_MOVEMENT_VIDEO_PHRASES[scene.cameraMovement];
   return [
     `Movement: ${cameraPhrase}.`,
     `Subject: ${scene.videoPrompt}`,
     `Scene visual style: ${style.photoPrompt}. ${style.videoPrompt}.`,
-    `Lighting: consistent with the reference frame, natural continuity.`,
+    `Reference images: ${referenceNotes}`,
     `Mood and pace: ${MOTION_INTENSITY_LABELS[motionIntensity]} energy.`,
     `Audio: ${voiceDirective}`,
     `Aspect ratio: 9:16 vertical.`,

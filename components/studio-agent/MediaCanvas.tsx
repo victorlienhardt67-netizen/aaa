@@ -2113,6 +2113,7 @@ function VideoCard({
   const currentProject = useProjectStore((s) => s.currentProject);
   const updateScene = useProjectStore((s) => s.updateScene);
   const recalcTotalCost = useProjectStore((s) => s.recalcTotalCost);
+  const brand = useBrandStore((s) => s.brands.find((b) => b.id === currentProject?.brandId));
   const addLearningEntry = useLearningStore((s) => s.addEntry);
   const learningEntries = useLearningStore((s) => s.entries);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
@@ -2146,6 +2147,8 @@ function VideoCard({
       learningEntries,
       apiKey: apiKeys.falApiKey,
       audioCalibrated: !!currentProject?.voiceOverAudioUrl,
+      currentProject: currentProject ?? undefined,
+      brand,
       updateScene,
       recalcTotalCost,
     });
@@ -2511,6 +2514,8 @@ export function MediaCanvas({ onOpenLibrary, onOpenProjectBrain }: { onOpenLibra
       learningEntries,
       apiKey: apiKeys.falApiKey,
       audioCalibrated: !!currentProject?.voiceOverAudioUrl,
+      currentProject: currentProject ?? undefined,
+      brand,
       updateScene,
       recalcTotalCost,
     });

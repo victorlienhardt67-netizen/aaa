@@ -69,7 +69,7 @@ export async function getFalResult(
 
 interface VideoModelConfig {
   modelId: string;
-  buildInput: (params: { prompt: string; imageUrl: string; durationSeconds: number }) => Record<string, unknown>;
+  buildInput: (params: { prompt: string; imageUrl: string; imageUrls: string[]; durationSeconds: number }) => Record<string, unknown>;
 }
 
 /**
@@ -96,12 +96,18 @@ export const WIRED_VIDEO_MODELS: Record<string, VideoModelConfig> = {
     },
   },
   grok_video: {
-    modelId: "xai/grok-imagine-video/image-to-video",
-    buildInput: ({ prompt, imageUrl, durationSeconds }) => {
+    // Schéma confirmé via la doc officielle fal.ai (2026) : remplace l'ancien
+    // endpoint image-to-video (une seule image de départ) par reference-to-video,
+    // qui accepte jusqu'à 7 images de référence (`reference_image_urls`) citées
+    // dans le prompt via @Image1, @Image2... — corrige la limite qui empêchait
+    // de garder à la fois la frame de la scène, le produit, les personnages et
+    // le décor cohérents sur ce moteur.
+    modelId: "xai/grok-imagine-video/reference-to-video",
+    buildInput: ({ prompt, imageUrls, durationSeconds }) => {
       const clamped = Math.min(10, Math.max(1, Math.round(durationSeconds)));
       return {
         prompt,
-        image_url: imageUrl,
+        reference_image_urls: imageUrls.slice(0, 7),
         duration: clamped,
         resolution: "720p",
         aspect_ratio: "9:16",

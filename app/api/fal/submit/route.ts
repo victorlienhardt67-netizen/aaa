@@ -26,7 +26,12 @@ export async function POST(req: NextRequest) {
       if (!model || !imageUrl) {
         return NextResponse.json({ error: "engine_not_wired" }, { status: 501 });
       }
-      const input = model.buildInput({ prompt, imageUrl, durationSeconds: durationSeconds ?? 5 });
+      const input = model.buildInput({
+        prompt,
+        imageUrl,
+        imageUrls: Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls : [imageUrl],
+        durationSeconds: durationSeconds ?? 5,
+      });
       const result = await submitFalJob(model.modelId, apiKey, input);
       return NextResponse.json({
         requestId: result.request_id,

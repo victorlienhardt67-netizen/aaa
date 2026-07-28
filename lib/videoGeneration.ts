@@ -1,8 +1,10 @@
-import { LearningEntry, MotionIntensity, Scene, StylePreset, VideoEngine } from "@/types";
+import { Brand, LearningEntry, MotionIntensity, Project, Scene, StylePreset, VideoEngine } from "@/types";
 import { falGenerateVideo } from "@/lib/fal";
+import { getReferenceImageInfo } from "@/lib/frameReferences";
 import {
   buildScenePositivePrompt,
   buildGrokVideoPrompt,
+  buildGrokReferenceNotes,
   buildKlingVideoPrompt,
   buildMandatoryVideoRules,
   buildLearningContext,
@@ -35,17 +37,39 @@ export async function generateSceneVideo(params: {
   apiKey: string;
   /** true si le projet a un fichier audio voix off calé (VoiceOverBlock) — la durée de scène vient alors de ce calage réel, jamais de l'estimation mots. */
   audioCalibrated?: boolean;
+  /** Fiches personnages/décor validées du projet — utilisées par Grok Video (reference-to-video) pour fournir des images de référence en plus de la frame. */
+  currentProject: Pick<Project, "characterReferences" | "locationReferences"> | undefined;
+  /** Marque du projet (photo produit) — même usage que currentProject ci-dessus. */
+  brand: Brand | undefined;
   updateScene: (sceneId: string, patch: Partial<Scene>) => void;
   recalcTotalCost: () => void;
 }) {
-  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, updateScene, recalcTotalCost } = params;
+  const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, currentProject, brand, updateScene, recalcTotalCost } = params;
   updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
   const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
   const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType, voiceDescription);
   const sceneWithPrompt = { ...scene, videoPrompt: prompt };
+
+  // Grok Video (reference-to-video) accepte jusqu'à 7 images de référence en
+  // plus de la frame de départ — on ne les collecte que pour ce moteur (Kling
+  // n'utilise qu'une seule image de départ, inutile d'y payer le coût du
+  // recadrage des fiches personnage).
+  const referenceInfo = engine === "grok_video" ? await getReferenceImageInfo(scene, currentProject, brand) : undefined;
+  const additionalReferenceImageUrls = referenceInfo?.urls ?? [];
+
   const engineBody =
     engine === "grok_video"
-      ? buildGrokVideoPrompt(sceneWithPrompt, style, motionIntensity, voiceDirective)
+      ? buildGrokVideoPrompt(
+          sceneWithPrompt,
+          style,
+          motionIntensity,
+          voiceDirective,
+          buildGrokReferenceNotes({
+            hasProductReference: referenceInfo?.hasProductReference,
+            characterReferenceCount: referenceInfo?.characterReferenceCount,
+            hasLocationReference: referenceInfo?.hasLocationReference,
+          })
+        )
       : engine === "kling_3_0"
       ? buildKlingVideoPrompt(sceneWithPrompt, style, motionIntensity, voiceDirective, characterNames)
       : [buildScenePositivePrompt(sceneWithPrompt, style, motionIntensity), voiceDirective].join(" ");
@@ -80,7 +104,7 @@ export async function generateSceneVideo(params: {
     updateScene(scene.id, { durationSeconds });
   }
   try {
-    const result = await falGenerateVideo(fullPrompt, scene.frameUrl, engine, durationSeconds, apiKey);
+    const result = await falGenerateVideo(fullPrompt, scene.frameUrl, engine, durationSeconds, apiKey, additionalReferenceImageUrls);
     updateScene(scene.id, {
       videoUrl: result.url,
       videoStatus: "video_generated",
