@@ -182,15 +182,19 @@ export function buildWizperInput(params: { audioUrl: string }) {
  * acceptée (observé en pratique : erreur "Request Entity Too Large" sur un
  * MP3 de ~3 minutes envoyé directement en `audio_url`).
  * Flux en 2 temps recoupé sur plusieurs sources tierces (SDK officiel
- * @fal-ai/client, documentation communautaire) — je n'ai pas pu le tester en
- * direct depuis cet environnement (accès réseau à fal.ai bloqué ici) : si le
- * nom exact d'un champ de réponse diffère, l'erreur renvoyée par fal.ai (avec
- * le corps de la réponse tronqué) permettra d'ajuster précisément.
+ * @fal-ai/client, documentation communautaire) — corrigé après un premier
+ * test réel (voir historique) : l'endpoint auth/token exige un corps JSON
+ * (l'appel échouait en 422 "Field required" sur "body" quand seul le
+ * paramètre de requête était envoyé, sans corps du tout).
  */
 export async function uploadFileToFalStorage(file: Blob, apiKey: string): Promise<string> {
   const tokenRes = await fetch("https://rest.alpha.fal.ai/storage/auth/token?storage_type=fal-cdn-v3", {
     method: "POST",
-    headers: { Authorization: `Key ${apiKey}` },
+    headers: {
+      Authorization: `Key ${apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ storage_type: "fal-cdn-v3" }),
   });
   if (!tokenRes.ok) {
     const text = await tokenRes.text().catch(() => "");
