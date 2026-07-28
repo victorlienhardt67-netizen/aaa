@@ -51,23 +51,24 @@ export async function generateSceneVideo(params: {
   const { scene, prompt, style, engine, lang, motionIntensity, mandatoryVideoRules, characterNames, voiceDescription, learningEntries, apiKey, audioCalibrated, currentProject, brand, elevenLabsApiKey, updateScene, recalcTotalCost } = params;
   updateScene(scene.id, { videoStatus: "video_generating", videoError: undefined });
 
-  // Kling AI Avatar (test) : anime un personnage qui parle à l'écran à partir
-  // d'un audio réel (ElevenLabs) — ne s'applique donc qu'aux scènes en vrai
-  // lipsync (voiceType="lipsync"). Une scène en voix off (voiceType=
-  // "voiceover", personne ne parle visiblement à l'écran) n'est pas un cas
-  // que ce moteur sait gérer proprement : mieux vaut le signaler clairement
-  // que de forcer une animation de bouche sur un plan qui n'en a pas besoin.
-  if (engine === "kling_ai_avatar") {
+  // Moteurs avatar (Kling AI Avatar, OmniHuman — test) : animent un personnage
+  // qui parle à l'écran à partir d'un audio réel (ElevenLabs) — ne s'appliquent
+  // donc qu'aux scènes en vrai lipsync (voiceType="lipsync"). Une scène en
+  // voix off (voiceType="voiceover", personne ne parle visiblement à l'écran)
+  // n'est pas un cas que ces moteurs savent gérer proprement : mieux vaut le
+  // signaler clairement que de forcer une animation de bouche sur un plan qui
+  // n'en a pas besoin.
+  if (engine === "kling_ai_avatar" || engine === "omnihuman") {
     try {
       if (scene.voiceType !== "lipsync") {
         throw new Error(
-          "Kling AI Avatar (test) est fait pour un personnage qui parle à l'écran (lipsync) — cette scène est en voix off ou sans voix, utilise Grok Video/Kling 3.0 pour elle."
+          "Ce moteur avatar (test) est fait pour un personnage qui parle à l'écran (lipsync) — cette scène est en voix off ou sans voix, utilise Grok Video/Kling 3.0 pour elle."
         );
       }
       const text = scene.voiceOver?.text?.trim();
       if (!text) {
         throw new Error(
-          "Kling AI Avatar (test) nécessite un texte de voix off/dialogue sur cette scène — aucune voix détectée ici."
+          "Ce moteur avatar (test) nécessite un texte de voix off/dialogue sur cette scène — aucune voix détectée ici."
         );
       }
       const sceneWithPrompt = { ...scene, videoPrompt: prompt };
@@ -101,7 +102,7 @@ export async function generateSceneVideo(params: {
   }
 
   const relevantLearning = buildLearningContext(learningEntries.filter((e) => e.engine === engine));
-  const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType, voiceDescription);
+  const voiceDirective = buildVoiceDirective(scene.voiceOver, lang, scene.voiceType, voiceDescription, audioCalibrated);
   const sceneWithPrompt = { ...scene, videoPrompt: prompt };
 
   // Grok Video (reference-to-video) accepte jusqu'à 7 images de référence en
@@ -127,7 +128,7 @@ export async function generateSceneVideo(params: {
       : engine === "kling_3_0"
       ? buildKlingVideoPrompt(sceneWithPrompt, style, motionIntensity, voiceDirective, characterNames)
       : [buildScenePositivePrompt(sceneWithPrompt, style, motionIntensity), voiceDirective].join(" ");
-  const rulesBlock = `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules)}`;
+  const rulesBlock = `\n\nRègles obligatoires :\n${buildMandatoryVideoRules(motionIntensity, lang, mandatoryVideoRules, scene.voiceType)}`;
   const learningBlock = relevantLearning ? `\n\n${relevantLearning}` : "";
   // Garde-fou longueur : le contenu créatif/voix (engineBody) ne doit jamais
   // être coupé — on retire d'abord le contexte d'apprentissage (le moins

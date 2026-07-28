@@ -915,11 +915,15 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
       if (voTranscriptWords && voTranscriptWords.length > 0) {
         const aligned = alignScenesToTranscriptWords(producedPlan.scenes, voTranscriptWords);
         aligned.forEach(({ sceneId, startSeconds, endSeconds }) => {
-          const durationSeconds = Math.max(1, Math.round((endSeconds - startSeconds) * 10) / 10);
+          // Durée ENTIÈRE (les moteurs vidéo n'acceptent que des secondes
+          // entières) arrondie au-dessus : le clip couvre toujours au moins
+          // son créneau exact dans l'audio (phrase + silences attribués),
+          // l'excédent se coupe au montage — jamais l'inverse (un clip trop
+          // court laisserait un trou impossible à combler).
+          const durationSeconds = Math.min(10, Math.max(1, Math.ceil(endSeconds - startSeconds)));
           updateScene(sceneId, {
             durationSeconds,
-            durationJustification:
-              "Calé sur la transcription ElevenLabs exacte du fichier audio (timestamps réels, alignement séquentiel mot à mot).",
+            durationJustification: `Calé sur la transcription ElevenLabs exacte du fichier audio : créneau ${startSeconds.toFixed(1)}s → ${endSeconds.toFixed(1)}s (silences inclus), arrondi à la seconde entière supérieure.`,
           });
         });
       } else if (voAudioDuration) {
@@ -929,11 +933,11 @@ function ScriptBlock({ offset, active, onDragStart, measureRef }: DragHandleProp
           const totalWords = wordCounts.reduce((a, b) => a + b, 0);
           linesWithVo.forEach((s, i) => {
             const share = wordCounts[i] / totalWords;
-            const durationSeconds = Math.max(1, Math.round(share * voAudioDuration * 10) / 10);
+            const durationSeconds = Math.min(10, Math.max(1, Math.ceil(share * voAudioDuration)));
             updateScene(s.id, {
               durationSeconds,
               durationJustification:
-                "Calé automatiquement sur la durée réelle du fichier audio voix off fourni au brief (estimation proportionnelle au nombre de mots).",
+                "Calé automatiquement sur la durée réelle du fichier audio voix off fourni au brief (estimation proportionnelle au nombre de mots, arrondie à la seconde entière supérieure).",
             });
           });
         }

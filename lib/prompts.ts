@@ -33,7 +33,16 @@ export function buildVoiceDirective(
    * indépendamment par le modèle vidéo, celui-ci réinvente une voix
    * différente à chaque fois faute de référence audio persistante.
    */
-  voiceDescription?: string
+  voiceDescription?: string,
+  /**
+   * true quand le projet fournit son propre audio final (fichier voix
+   * off/chanson calé dans VoiceOverBlock) — le clip doit alors être
+   * totalement muet et SANS le texte de la réplique dans le prompt : donner
+   * la phrase (surtout à la première personne) pousse le modèle à faire
+   * "parler" le personnage à l'écran même en voix off, exactement le défaut
+   * signalé sur les vidéos chanson.
+   */
+  hasExternalAudio?: boolean
 ): string {
   const hasText = !!voiceOver?.enabled && !!voiceOver.text.trim();
   const voiceHint = voiceDescription?.trim()
@@ -48,15 +57,23 @@ export function buildVoiceDirective(
     return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. Clear English voice. Speak this exact sentence, word for word, with no rewording: "${text}".${voiceHint}`;
   }
 
-  if ((voiceType === "voiceover" || voiceType === undefined) && lang === "fr" && hasText) {
-    const vo = voiceOver!.text.trim();
-    return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural French voice, calm conversational pace. Speak this exact sentence, word for word, with no rewording: "${vo}".${voiceHint} No music, no background sounds, voiceover only.`;
+  if (voiceType === "voiceover" && hasExternalAudio) {
+    // L'audio final (voix off, chanson) est ajouté au montage : le clip doit
+    // être muet et personne à l'écran ne doit articuler quoi que ce soit.
+    // Formulation POSITIVE d'abord (lèvres fermées, expression posée) — la
+    // négation seule est mal gérée par les modèles vidéo — et surtout AUCUNE
+    // phrase citée dans le prompt.
+    return `The final soundtrack is added later in editing — generate this clip fully silent. Every visible character keeps their lips gently closed the entire clip, calm relaxed face, breathing naturally, absorbed in the action — nobody talks, nobody mouths or mimes words, no singing.`;
   }
 
   if (voiceType === "voiceover" && hasText) {
-    return `Voiceover only, NO lip sync, NO mouth movement, mouths stay closed at all times. Clear natural ${
+    return `Off-screen narration only: an invisible narrator who is never seen speaks over the footage. Every visible character keeps their lips gently closed the whole clip, listening or absorbed in the action — they never mouth or mime the narrated words. Clear natural ${
       lang === "fr" ? "French" : "English"
-    } voice, calm conversational pace. Speak this exact sentence, word for word, with no rewording: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, voiceover only.`;
+    } voice, calm conversational pace. The narrator speaks this exact sentence, word for word, with no rewording: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, narration only.`;
+  }
+
+  if (voiceType === undefined && lang === "fr" && hasText) {
+    return `Off-screen narration only: an invisible narrator who is never seen speaks over the footage. Every visible character keeps their lips gently closed the whole clip — they never mouth or mime the narrated words. Clear natural French voice, calm conversational pace. The narrator speaks this exact sentence, word for word, with no rewording: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, narration only.`;
   }
 
   return "No sound, no voiceover, no music, no lip sync, mouths do not move.";
@@ -276,7 +293,9 @@ export const DEFAULT_MAX_SCENE_DURATION = 8;
 export function buildMandatoryVideoRules(
   motionIntensity: MotionIntensity,
   lang: "fr" | "en",
-  customRules?: string
+  customRules?: string,
+  /** Type de voix de la scène — la règle "bouche fermée" ne s'applique JAMAIS à une scène lipsync (elle contredirait la directive de dialogue). */
+  voiceType?: "voiceover" | "lipsync" | "none"
 ): string {
   const intensityLabel = MOTION_INTENSITY_LABELS[motionIntensity];
   const baseRules = (customRules?.trim() ? customRules : DEFAULT_MANDATORY_VIDEO_RULES)
@@ -285,9 +304,15 @@ export function buildMandatoryVideoRules(
     .filter(Boolean);
   const rules = [
     ...baseRules,
-    lang === "fr"
-      ? "Voiceover only, NO lip sync, NO mouth movement — mouths stay closed at all times"
-      : "No sound, no voiceover, no music, no lip sync — mouths do not move",
+    // Jamais sur une scène lipsync : dire "mouths stay closed" ici annulerait
+    // la directive de dialogue de buildVoiceDirective pour la même scène.
+    ...(voiceType === "lipsync"
+      ? []
+      : [
+          lang === "fr"
+            ? "Voiceover only, NO lip sync, NO mouth movement — mouths stay closed at all times"
+            : "No sound, no voiceover, no music, no lip sync — mouths do not move",
+        ]),
     `Intensité du mouvement : ${intensityLabel}`,
   ];
   return rules.map((r) => `- ${r}`).join("\n");

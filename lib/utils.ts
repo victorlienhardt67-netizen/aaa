@@ -97,7 +97,9 @@ export function alignScenesToTranscriptWords<T extends { id: string; voiceOver?:
   scenes: T[],
   words: { text: string; startSeconds: number; endSeconds: number }[]
 ): { sceneId: string; startSeconds: number; endSeconds: number }[] {
-  const results: { sceneId: string; startSeconds: number; endSeconds: number }[] = [];
+  // Étape 1 — bornes brutes : premier/dernier mot réellement prononcé de
+  // chaque scène (alignement séquentiel par nombre de mots).
+  const raw: { sceneId: string; firstWordStart: number; lastWordEnd: number }[] = [];
   let cursor = 0;
   for (const scene of scenes) {
     const voText = scene.voiceOver?.text?.trim();
@@ -105,14 +107,25 @@ export function alignScenesToTranscriptWords<T extends { id: string; voiceOver?:
     const sceneWordCount = voText.split(/\s+/).filter(Boolean).length;
     const consumed = words.slice(cursor, cursor + sceneWordCount);
     if (consumed.length === 0) continue;
-    results.push({
+    raw.push({
       sceneId: scene.id,
-      startSeconds: consumed[0].startSeconds,
-      endSeconds: consumed[consumed.length - 1].endSeconds,
+      firstWordStart: consumed[0].startSeconds,
+      lastWordEnd: consumed[consumed.length - 1].endSeconds,
     });
     cursor += sceneWordCount;
   }
-  return results;
+
+  // Étape 2 — couverture continue de la timeline : les silences/respirations
+  // entre deux phrases sont attribués à la scène EN COURS (le plan reste à
+  // l'écran pendant le blanc, jusqu'au début de la phrase suivante), et le
+  // silence d'intro est attribué à la première scène. Sans ça, les blancs
+  // n'appartenaient à personne : la somme des durées était inférieure à la
+  // durée réelle de l'audio et tout se décalait progressivement au montage.
+  return raw.map((r, i) => ({
+    sceneId: r.sceneId,
+    startSeconds: i === 0 ? 0 : r.firstWordStart,
+    endSeconds: i < raw.length - 1 ? raw[i + 1].firstWordStart : r.lastWordEnd,
+  }));
 }
 
 /**
