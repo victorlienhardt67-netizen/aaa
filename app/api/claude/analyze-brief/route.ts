@@ -198,7 +198,13 @@ ${learningContext ? `\nRetours qualité des générations précédentes à prend
   // 8192 tokens par défaut et Claude est coupé en plein milieu sans erreur
   // visible. On dimensionne le budget sur le nombre de scènes visé, avec une
   // marge de sécurité, plafonné très en dessous de la limite du modèle (128k).
-  const maxTokens = Math.min(64000, Math.max(8192, 2500 + frameTarget.max * 700));
+  // Le script peut expliciter un nombre de scènes largement supérieur à la
+  // fourchette calculée depuis la durée cible (ex: 25 clips détaillés pour une
+  // durée cible pensée pour ~12) — sous-dimensionner le budget sur la seule
+  // fourchette couperait la réponse en plein milieu, ce qui reviendrait de
+  // facto à imposer une réduction silencieuse du nombre de frames.
+  const tokenBudgetScenes = Math.max(frameTarget.max, 40);
+  const maxTokens = Math.min(64000, Math.max(8192, 2500 + tokenBudgetScenes * 700));
 
   const userMessage = `Script à analyser :
 """
@@ -211,9 +217,9 @@ Notes de génération permanentes de la marque : ${brandNotes ?? ""}
 Style visuel : ${styleName ?? ""} — ${stylePositivePrompt ?? ""}
 Langue cible du projet : ${lang}
 Durée cible totale : ${targetDuration} secondes
-Nombre total de frames visé : entre ${frameTarget.min} et ${frameTarget.max}
+Nombre total de frames visé (INDICATIF, seulement si le script ne précise rien lui-même) : entre ${frameTarget.min} et ${frameTarget.max}
 
-Découpe ce script en frames cohérentes qui respectent la durée cible totale (somme des durationSeconds proche de ${targetDuration}s) et le nombre total de frames visé ci-dessus, en respectant les règles de durée par frame, l'alternance de cadrage et le regroupement en blocs narratifs (beatLabel).`;
+Découpe ce script en frames cohérentes. Si le script précise lui-même un nombre exact de scènes/clips/plans, respecte ce nombre à l'identique (voir règle prioritaire à ce sujet). Sinon, vise le nombre de frames indiqué ci-dessus et une durée cible totale proche de ${targetDuration}s (somme des durationSeconds), en respectant les règles de durée par frame, l'alternance de cadrage et le regroupement en blocs narratifs (beatLabel).`;
 
   try {
     const result = await callClaudeTool({ apiKey, system, userMessage, tool: PRODUCTION_PLAN_TOOL, maxTokens });
