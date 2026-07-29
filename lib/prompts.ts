@@ -42,15 +42,24 @@ export function buildVoiceDirective(
    * "parler" le personnage à l'écran même en voix off, exactement le défaut
    * signalé sur les vidéos chanson.
    */
-  hasExternalAudio?: boolean
+  hasExternalAudio?: boolean,
+  /**
+   * Dictionnaire de prononciation (Réglages > Prompts avancés) — appliqué
+   * UNIQUEMENT ici, à la copie du texte destinée au moteur audio, pour
+   * corriger un mot mal prononcé (ex: `lymphe => limfe`). Le texte d'origine
+   * (voiceOver.text) reste intact : affichage, script, SRT ne sont jamais
+   * touchés.
+   */
+  pronunciationDictionary?: string
 ): string {
   const hasText = !!voiceOver?.enabled && !!voiceOver.text.trim();
+  const spoken = (raw: string) => applyPronunciationDictionary(raw, pronunciationDictionary);
   const voiceHint = voiceDescription?.trim()
     ? ` Voice must sound exactly like this: ${voiceDescription.trim()} — this exact same voice (pitch, timbre, pace, tone) must be used identically in every scene featuring this character, never a different-sounding voice from one scene to the next.`
     : "";
 
   if (voiceType === "lipsync" && hasText) {
-    const text = voiceOver!.text.trim();
+    const text = spoken(voiceOver!.text.trim());
     if (lang === "fr") {
       return `Character speaks directly to camera, natural accurate lip sync matching the dialogue, mouth movements synchronized to the words. The character must speak in correct, natural, fluent Parisian French — proper French pronunciation and intonation, not an approximate or accented reading. Speak this exact sentence, word for word, with no rewording: "${text}".${voiceHint}`;
     }
@@ -69,11 +78,11 @@ export function buildVoiceDirective(
   if (voiceType === "voiceover" && hasText) {
     return `Off-screen narration only: an invisible narrator who is never seen speaks over the footage. Every visible character keeps their lips gently closed the whole clip, listening or absorbed in the action — they never mouth or mime the narrated words. Clear natural ${
       lang === "fr" ? "French" : "English"
-    } voice, calm conversational pace. The narrator speaks this exact sentence, word for word, with no rewording: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, narration only.`;
+    } voice, calm conversational pace. The narrator speaks this exact sentence, word for word, with no rewording: "${spoken(voiceOver!.text.trim())}".${voiceHint} No music, no background sounds, narration only.`;
   }
 
   if (voiceType === undefined && lang === "fr" && hasText) {
-    return `Off-screen narration only: an invisible narrator who is never seen speaks over the footage. Every visible character keeps their lips gently closed the whole clip — they never mouth or mime the narrated words. Clear natural French voice, calm conversational pace. The narrator speaks this exact sentence, word for word, with no rewording: "${voiceOver!.text.trim()}".${voiceHint} No music, no background sounds, narration only.`;
+    return `Off-screen narration only: an invisible narrator who is never seen speaks over the footage. Every visible character keeps their lips gently closed the whole clip — they never mouth or mime the narrated words. Clear natural French voice, calm conversational pace. The narrator speaks this exact sentence, word for word, with no rewording: "${spoken(voiceOver!.text.trim())}".${voiceHint} No music, no background sounds, narration only.`;
   }
 
   return "No sound, no voiceover, no music, no lip sync, mouths do not move.";
@@ -284,6 +293,62 @@ FORMAT DE SORTIE (à chaque tour) :
 
 export const DEFAULT_MIN_SCENE_DURATION = 3;
 export const DEFAULT_MAX_SCENE_DURATION = 8;
+
+/**
+ * Dictionnaire de prononciation par défaut — pré-rempli avec les mots du
+ * domaine (compléments) que les moteurs audio prononcent souvent mal, comme
+ * exemples de départ modifiables/supprimables par l'utilisateur. Chaque ligne
+ * `mot => graphie phonétique` corrige la prononciation d'un mot dans l'audio
+ * SANS toucher au texte affiché/script/SRT. Voir
+ * AdvancedPromptSettings.pronunciationDictionary.
+ */
+export const DEFAULT_PRONUNCIATION_DICTIONARY = [
+  // Vocabulaire domaine (compléments) souvent mal prononcé
+  "lymphe => linfe",
+  "lymphatique => linfatique",
+  "lymphatiques => linfatiques",
+  "thyroïde => tiroïde",
+  // Marque
+  "lynae => lynaé",
+  // "plus" NÉGATION (s muet, "il n'y en a plus") → "plu". On ne met QUE les
+  // tournures non ambiguës (toujours muettes) ; le "plus" addition ("de plus
+  // en plus", "en plus") garde son s et n'est pas touché. Ajoute tes propres
+  // tournures si une phrase précise sonne mal.
+  "plus rien => plu rien",
+  "plus jamais => plu jamais",
+  "plus personne => plu personne",
+  "plus aucun => plu aucun",
+  "plus aucune => plu aucune",
+  "n'en peux plus => n'en peux plu",
+  "ne peux plus => ne peux plu",
+].join("\n");
+
+/**
+ * Applique le dictionnaire de prononciation au SEUL texte parlé (jamais au
+ * texte affiché / script / SRT). Chaque ligne `mot => remplacement` remplace
+ * les occurrences du mot (bordures de mot, insensible à la casse) par sa
+ * graphie phonétique — le texte d'origine n'est pas modifié à la source, on
+ * ne transforme qu'une copie destinée au moteur audio. Une entrée sans `=>`
+ * ou vide est ignorée.
+ */
+export function applyPronunciationDictionary(text: string, dictionary?: string): string {
+  const dict = dictionary?.trim();
+  if (!dict) return text;
+  let out = text;
+  for (const line of dict.split("\n")) {
+    const [rawFrom, ...rest] = line.split("=>");
+    const from = rawFrom.trim();
+    const to = rest.join("=>").trim();
+    if (!from || !rest.length) continue;
+    // \b ne marche pas avec les lettres accentuées côté gauche/droite : on
+    // borne manuellement par des non-lettres (ou début/fin), en gardant la
+    // casse d'origine hors de portée (remplacement insensible à la casse).
+    const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`(^|[^\\p{L}])(${escaped})(?=[^\\p{L}]|$)`, "giu");
+    out = out.replace(re, (_m, pre) => `${pre}${to}`);
+  }
+  return out;
+}
 
 /**
  * Règles de génération injectées automatiquement dans TOUT prompt vidéo.
