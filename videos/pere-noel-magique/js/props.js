@@ -169,7 +169,7 @@ export function coffeeTable(o = {}) {
 export function phone(o = {}) {
   const g = group(o);
   rbox(0.34, 0.68, 0.045, 0.05, mat("#1d1f2a", { roughness: 0.3, metalness: 0.4 }), { parent: g });
-  const screen = mesh(new THREE.PlaneGeometry(0.31, 0.64), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), { p: [0, 0, 0.024], parent: g, cast: false });
+  const screen = mesh(new THREE.PlaneGeometry(0.31, 0.64), new THREE.MeshBasicMaterial({ color: 0xe6e6e6 }), { p: [0, 0, 0.024], parent: g, cast: false });
   g.userData.screen = screen;
   return g;
 }

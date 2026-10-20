@@ -1,7 +1,8 @@
 // The order screen drawn into the phone's screen texture, as a pure function of time.
 import { clamp, seg, easeOutBack, easeOutCubic, smooth } from "./util.js";
+import { T } from "./timeline.js";
 
-export const UI = { typeA: 2.35, typeB: 3.15, chip: 3.75, chip2: 4.25, press: 4.95, sent: 5.2 };
+export const UI = { appear: T.uiAppear, typeA: T.typeA, typeB: T.typeB, chip: T.chip, chip2: T.chip2, press: T.press, sent: T.sent };
 
 function rr(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
 
@@ -41,7 +42,7 @@ export function drawPhoneUI(c, W, H, t) {
   c.fillStyle = "#7a6458"; c.font = "600 22px Montserrat"; c.fillText("rien que pour votre enfant", W / 2, 314);
   c.textAlign = "left";
   // name card
-  const appear = (k) => easeOutCubic(seg(t, 1.6 + k * 0.12, 2.1 + k * 0.12));
+  const appear = (k) => easeOutCubic(seg(t, UI.appear + k * 0.15, UI.appear + 0.5 + k * 0.15));
   const card = (y, h, k) => { const a = appear(k); c.globalAlpha = a; c.save(); c.translate(0, (1 - a) * 40); c.fillStyle = "#ffffff"; c.shadowColor = "rgba(120,60,30,0.15)"; c.shadowBlur = 24; c.shadowOffsetY = 8; rr(c, 34, y, W - 68, h, 28); c.fill(); c.restore(); };
   card(356, 190, 0);
   c.save(); c.translate(0, (1 - appear(0)) * 40);
@@ -71,7 +72,7 @@ export function drawPhoneUI(c, W, H, t) {
   });
   c.restore(); c.globalAlpha = 1;
   // send button
-  const ba = easeOutCubic(seg(t, 2.0, 2.5));
+  const ba = easeOutCubic(seg(t, UI.appear + 0.4, UI.appear + 0.9));
   const press = Math.sin(seg(t, UI.press, UI.press + 0.25) * Math.PI);
   c.save(); c.globalAlpha = ba; const by = 990, bh = 112; c.translate(W / 2, by + bh / 2); c.scale(1 - press * 0.06, 1 - press * 0.06); c.translate(-W / 2, -(by + bh / 2));
   const bg = c.createLinearGradient(0, by, 0, by + bh); bg.addColorStop(0, "#e0453f"); bg.addColorStop(1, "#a51d24");
@@ -79,7 +80,7 @@ export function drawPhoneUI(c, W, H, t) {
   c.fillStyle = "#fff"; c.font = "800 34px Montserrat"; c.textAlign = "center"; c.fillText("Envoyer au Père Noël", W / 2 - 18, by + 69);
   starIcon(c, W / 2 + 196, by + 57, 1.1, "#ffd35a", true); c.textAlign = "left";
   // shimmer sweep on the button
-  const sw = seg(t, 4.2, 4.9); if (sw > 0 && sw < 1) { c.save(); rr(c, 50, by, W - 100, bh, 56); c.clip(); const x = 50 + sw * (W + 100) - 100; const sg = c.createLinearGradient(x - 80, 0, x + 80, 0); sg.addColorStop(0, "rgba(255,255,255,0)"); sg.addColorStop(0.5, "rgba(255,255,255,0.45)"); sg.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = sg; c.fillRect(0, by, W, bh); c.restore(); }
+  const sw = seg(t, UI.press - 0.8, UI.press - 0.1); if (sw > 0 && sw < 1) { c.save(); rr(c, 50, by, W - 100, bh, 56); c.clip(); const x = 50 + sw * (W + 100) - 100; const sg = c.createLinearGradient(x - 80, 0, x + 80, 0); sg.addColorStop(0, "rgba(255,255,255,0)"); sg.addColorStop(0.5, "rgba(255,255,255,0.45)"); sg.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = sg; c.fillRect(0, by, W, bh); c.restore(); }
   c.restore();
   // tap ripples
   const tap = (at, x, y) => { const k = seg(t, at - 0.05, at + 0.5); if (k <= 0 || k >= 1) return; c.fillStyle = `rgba(255,255,255,${0.55 * (1 - k)})`; c.strokeStyle = `rgba(192,38,44,${0.5 * (1 - k)})`; c.lineWidth = 4; c.beginPath(); c.arc(x, y, 26 + k * 70, 0, 7); c.fill(); c.stroke(); };

@@ -4,6 +4,7 @@ import { mat, felt, glow, mesh, sph, cap, cyl, cone, rbox, group, rng, canvasTex
 import * as P from "./props.js";
 import { makeHuman, makeElf, makeSanta } from "./characters.js";
 
+const lerpN = (a, b, k) => a + (b - a) * k;
 export const VIL = new THREE.Vector3(0, 0, 0);
 export const POLE = new THREE.Vector3(-52, 0, -52);
 export const WS = POLE.clone().add(new THREE.Vector3(-4.6, 0, 0)); // workshop room centre
@@ -238,6 +239,18 @@ export function buildWorld(scene) {
   P.softbox({ p: [2.4, 0, 1.6], r: [0, Math.PI - 0.9, 0], parent: santaSpot });
   const clap = P.clapper({ parent: scene }); refs.clapper = clap;
   refs.scroll = P.scroll({ parent: scene });
+
+  // ---------- clouds + tiny islands along the flight path ----------
+  const cloudM = mat("#c9cfee", { roughness: 1, emissive: "#3a4680", emissiveIntensity: 0.25 });
+  for (let i = 0; i < 46; i++) {
+    const k = r(), x = lerpN(6, POLE.x - 6, k) + (r() - 0.5) * 40, z = lerpN(6, POLE.z - 6, k) + (r() - 0.5) * 40, y = -7 - r() * 6;
+    const cl = group({ p: [x, y, z], parent: scene });
+    for (let j = 0; j < 5; j++) sph(1.2 + r() * 1.6, cloudM, { p: [(r() - 0.5) * 4, r() * 0.8, (r() - 0.5) * 3], s: [1, 0.55, 1], parent: cl, cast: false }, 7, 5);
+  }
+  for (const [x, z, s] of [[-16, -24, 7], [-28, -12, 6], [-24, -34, 5], [-38, -22, 6]]) {
+    island({ w: s, d: s, p: [x, -2.5 + (x % 3), z], parent: scene, seed: Math.abs(x) });
+    for (let j = 0; j < 3; j++) pine({ p: [x + (r() - 0.5) * s * 0.6, -2.5 + (x % 3), z + (r() - 0.5) * s * 0.6], parent: scene }).scale.setScalar(0.7 + r() * 0.5);
+  }
 
   // ---------- magic props ----------
   refs.envelope = P.envelope({ parent: scene });

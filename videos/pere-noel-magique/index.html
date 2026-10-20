@@ -1,35 +1,218 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=1080, height=1920" />
-<script type="importmap">{"imports":{"three":"./assets/vendor/three/build/three.module.js","three/addons/":"./assets/vendor/three/examples/jsm/"}}</script>
-<style>html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:#0b1530}#root{position:relative;width:100%;height:100%}#gl{position:absolute;inset:0;width:100%;height:100%;display:block}</style>
-</head>
-<body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="3" data-width="1080" data-height="1920">
-<canvas id="gl" class="clip" data-start="0" data-duration="3"></canvas>
-</div>
-<script type="module">
-import * as THREE from "three";
-import { makeSanta, makeHuman, makeElf, santaMouth } from "./js/characters.js";
-const r = new THREE.WebGLRenderer({canvas:document.getElementById("gl"),antialias:true});
-r.setSize(1080,1920,false); r.setPixelRatio(1); r.shadowMap.enabled=true; r.shadowMap.type=THREE.PCFSoftShadowMap; r.toneMapping=THREE.ACESFilmicToneMapping;
-const s=new THREE.Scene(); s.background=new THREE.Color(0x2a1a22);
-const c=new THREE.PerspectiveCamera(22,1080/1920,0.1,100);
-const santa=makeSanta(); s.add(santa.root);
-const mom=makeHuman({seated:true,top:"#5b8c6a",hairStyle:"bun"}); mom.root.position.set(-0.9,0.4,0.5); s.add(mom.root);
-const emma=makeHuman({child:true,top:"#d9484a",bottom:"#f2e6d8",hairStyle:"pigtails",hair:"#7a4a2a"}); emma.root.position.set(0.3,0,0.8); s.add(emma.root);
-const elf=makeElf(); elf.root.position.set(1.2,0,0.2); s.add(elf.root);
-const dad=makeHuman({top:"#2f4a7a",hair:"#4a3020",beard:true,glasses:true}); dad.root.position.set(-0.2,0,-0.6); s.add(dad.root);
-const l=new THREE.DirectionalLight(0xffd9b0,2.5);l.position.set(3,6,5);l.castShadow=true;l.shadow.mapSize.set(2048,2048);s.add(l);
-s.add(new THREE.HemisphereLight(0x9fb4ff,0x4a2a20,1.2));
-const pl=new THREE.PointLight(0xff9a4a,8,10);pl.position.set(-2,2,2);s.add(pl);
-const fl=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.MeshStandardMaterial({color:0x8a5a3a}));fl.rotation.x=-Math.PI/2;fl.position.y=-0.6;fl.receiveShadow=true;s.add(fl);
-function renderAt(t){
-  if(t<1){c.fov=22;c.position.set(0,3.5,14);c.lookAt(0,1.6,0);} else if(t<1.5){c.fov=26;c.position.set(0,1.6,7);c.lookAt(0,0.7,0);santa.root.visible=false;}
-  else {santa.root.visible=true;c.fov=24;c.position.set(0,2.6,5.2);c.lookAt(0,2.35,0);santaMouth(santa,0.7,0.2,0.3);}
-  c.updateProjectionMatrix(); r.render(s,c);}
-window.addEventListener("hf-seek",e=>renderAt(e.detail.time));renderAt(window.__hfThreeTime||0);
-</script>
-</body></html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>Un message du Père Noël</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./assets/vendor/three/build/three.module.js",
+          "three/addons/": "./assets/vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      @font-face { font-family: "Bricolage"; src: url("assets/fonts/bricolage-800.ttf"); font-weight: 800; }
+      @font-face { font-family: "Bricolage"; src: url("assets/fonts/bricolage-600.ttf"); font-weight: 600; }
+      @font-face { font-family: "FrauncesItalic"; src: url("assets/fonts/fraunces-500i.ttf"); font-weight: 500; font-style: italic; }
+      @font-face { font-family: "Montserrat"; src: url("assets/fonts/montserrat-600.ttf"); font-weight: 600; }
+      @font-face { font-family: "Montserrat"; src: url("assets/fonts/montserrat-800.ttf"); font-weight: 800; }
+      :root { --navy: rgba(22, 27, 58, 0.86); --yellow: #ffd84a; --cream: #fff6e6; --red: #c8232c; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0d1233; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; font-family: "Bricolage", sans-serif; color: var(--cream); }
+      #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .layer { position: absolute; inset: 0; pointer-events: none; }
+      .center { display: flex; flex-direction: column; align-items: center; text-align: center; }
+      .shadow { text-shadow: 0 6px 30px rgba(8, 10, 30, 0.55), 0 2px 6px rgba(8, 10, 30, 0.5); }
+      .kicker { font-family: "Montserrat"; font-weight: 800; font-size: 30px; letter-spacing: 0.22em; color: var(--yellow); text-transform: uppercase; }
+      .big { font-weight: 800; font-size: 92px; line-height: 0.98; letter-spacing: -0.035em; }
+      .ital { font-family: "FrauncesItalic"; font-style: italic; font-weight: 500; }
+      .y { color: var(--yellow); }
+      /* hook */
+      #hook { top: 250px; padding: 0 70px; gap: 22px; }
+      #hook .l2 { font-size: 104px; }
+      /* scene captions */
+      .cap { top: 210px; padding: 0 80px; gap: 18px; }
+      .cap .t { font-weight: 800; font-size: 74px; line-height: 1.02; letter-spacing: -0.03em; }
+      .cap .s { font-size: 54px; line-height: 1.1; }
+      .step { display: flex; align-items: center; gap: 22px; background: var(--navy); border: 2px solid rgba(255, 216, 74, 0.35); border-radius: 30px; padding: 22px 34px 22px 22px; backdrop-filter: blur(6px); box-shadow: 0 20px 50px rgba(5, 8, 25, 0.45); }
+      .step .n { width: 74px; height: 74px; border-radius: 50%; background: var(--yellow); color: #1a1d3a; font-weight: 800; font-size: 44px; display: grid; place-items: center; flex: none; }
+      .step .t { font-weight: 800; font-size: 50px; line-height: 1.05; letter-spacing: -0.02em; text-align: left; }
+      .step .t .ital { font-size: 48px; }
+      /* location label (bottom-left like the reference) */
+      .loc { position: absolute; left: 60px; bottom: 420px; background: var(--navy); border-radius: 22px; padding: 18px 28px 18px 24px; display: flex; gap: 16px; align-items: center; }
+      .loc .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 14px var(--yellow); }
+      .loc b { display: block; font-weight: 800; font-size: 36px; }
+      .loc span { display: block; font-family: "Montserrat"; font-weight: 600; font-size: 22px; opacity: 0.8; margin-top: 2px; }
+      /* elves checklist */
+      #check { position: absolute; right: 56px; top: 520px; width: 520px; background: var(--navy); border-radius: 30px; padding: 30px 32px; box-shadow: 0 24px 60px rgba(5, 8, 25, 0.5); }
+      #check h4 { font-family: "Montserrat"; font-weight: 800; font-size: 22px; letter-spacing: 0.2em; color: var(--yellow); margin-bottom: 18px; }
+      .row { display: flex; align-items: center; gap: 16px; font-weight: 600; font-size: 34px; padding: 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+      .row:first-of-type { border-top: 0; }
+      .box { width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.35); flex: none; position: relative; }
+      .box i { position: absolute; inset: -3px; border-radius: 50%; background: var(--yellow); display: grid; place-items: center; color: #1a1d3a; font-style: normal; font-weight: 800; font-size: 24px; }
+      .row b { color: var(--yellow); font-weight: 800; }
+      /* rec badge */
+      #rec { position: absolute; top: 150px; left: 60px; display: flex; align-items: center; gap: 14px; font-family: "Montserrat"; font-weight: 800; font-size: 30px; letter-spacing: 0.12em; background: rgba(10, 10, 20, 0.55); border-radius: 18px; padding: 14px 22px; }
+      #rec .d { width: 20px; height: 20px; border-radius: 50%; background: #ff3b3b; box-shadow: 0 0 16px #ff3b3b; }
+      .frame { position: absolute; inset: 120px 50px 330px 50px; border: 3px solid rgba(255, 255, 255, 0.28); border-radius: 26px; }
+      /* subtitles */
+      #subs { position: absolute; left: 70px; right: 70px; bottom: 380px; height: 260px; }
+      .sub { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; text-align: center; font-weight: 800; font-size: 66px; line-height: 1.08; letter-spacing: -0.02em; }
+      .sub span.y { color: var(--yellow); }
+      /* notification */
+      #notif { position: absolute; top: 150px; left: 60px; right: 60px; background: rgba(250, 246, 238, 0.97); color: #1b1d33; border-radius: 34px; padding: 30px 34px; box-shadow: 0 30px 70px rgba(5, 8, 25, 0.5); display: flex; gap: 24px; align-items: center; }
+      #notif .ic { width: 92px; height: 92px; border-radius: 24px; background: var(--red); flex: none; display: grid; place-items: center; }
+      #notif .app { font-family: "Montserrat"; font-weight: 800; font-size: 22px; letter-spacing: 0.16em; color: #8a7b70; display: flex; justify-content: space-between; }
+      #notif .ttl { font-weight: 800; font-size: 44px; letter-spacing: -0.02em; margin-top: 6px; }
+      #notif .msg { font-family: "Montserrat"; font-weight: 600; font-size: 28px; color: #4a4558; margin-top: 4px; }
+      /* call to action tag */
+      #tagwrap { position: absolute; left: 0; right: 0; top: 0; height: 1920px; }
+      #string { position: absolute; left: 538px; top: -40px; width: 4px; height: 560px; background: linear-gradient(#b81e27, #8f1720); }
+      #tag { position: absolute; left: 60px; right: 60px; top: 500px; background: #fbf3e4; color: #1c1d36; border-radius: 40px; padding: 76px 56px 56px; text-align: center; box-shadow: 0 40px 90px rgba(30, 10, 20, 0.45); }
+      #tag::before { content: ""; position: absolute; inset: 18px; border: 3px dashed rgba(200, 35, 44, 0.35); border-radius: 28px; }
+      #tag .hole { position: absolute; left: 50%; top: 26px; width: 34px; height: 34px; margin-left: -17px; border-radius: 50%; background: #d9cbb4; box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.25); }
+      #tag .k { font-family: "Montserrat"; font-weight: 800; font-size: 26px; letter-spacing: 0.24em; color: var(--red); }
+      #tag .nw { white-space: nowrap; }
+      #tag .h { font-weight: 800; font-size: 74px; line-height: 0.98; letter-spacing: -0.035em; color: var(--red); margin-top: 22px; }
+      #tag .i { font-family: "FrauncesItalic"; font-style: italic; font-weight: 500; font-size: 70px; color: #b0822f; margin-top: 14px; }
+      #cta { position: absolute; left: 50%; top: 1290px; transform: translateX(-50%); }
+      #cta .btn { display: flex; align-items: center; gap: 18px; background: var(--yellow); color: #1a1d3a; font-weight: 800; font-size: 50px; letter-spacing: -0.01em; padding: 32px 58px; border-radius: 80px; box-shadow: 0 20px 50px rgba(255, 190, 40, 0.45); white-space: nowrap; }
+      #dim { opacity: 0; background: radial-gradient(ellipse 70% 45% at 50% 50%, rgba(5, 8, 25, 0) 40%, rgba(5, 8, 25, 0.65) 100%); }
+      #fadeout { background: #0d1233; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="58" data-width="1080" data-height="1920">
+      <canvas id="gl" class="clip" data-start="0" data-duration="58" data-track-index="0"></canvas>
+      <div id="dim" class="layer clip" data-start="8.5" data-duration="5.2" data-track-index="1"></div>
+
+      <!-- 0–3 s : hook -->
+      <div id="hook" class="layer center shadow clip" data-start="0" data-duration="5.5" data-track-index="2">
+        <div class="big l1">Et si le Père Noël appelait votre enfant…</div>
+        <div class="big l2">…par son <span class="y ital">prénom</span> ?</div>
+      </div>
+      <!-- 3–7 s -->
+      <div id="cap2" class="layer center cap shadow clip" data-start="5.4" data-duration="3.3" data-track-index="2">
+        <div class="kicker">Cette année</div>
+        <div class="t">offrez-lui un vrai moment <span class="ital y">de magie.</span></div>
+      </div>
+      <!-- steps -->
+      <div id="step1" class="layer center cap clip" data-start="9.1" data-duration="4.2" data-track-index="2">
+        <div class="step"><div class="n">1</div><div class="t">Son prénom &amp; ses <span class="ital y">petites victoires.</span></div></div>
+      </div>
+      <div id="step2" class="layer center cap clip" data-start="14.5" data-duration="5.3" data-track-index="2">
+        <div class="step"><div class="n">2</div><div class="t">Direction le <span class="ital y">Pôle Nord…</span></div></div>
+      </div>
+      <div id="step3" class="layer center cap clip" data-start="20.6" data-duration="7.2" data-track-index="2">
+        <div class="step"><div class="n">3</div><div class="t">Les lutins préparent <span class="ital y">son message.</span></div></div>
+      </div>
+      <div id="loc1" class="clip" data-start="20.8" data-duration="7.0" data-track-index="3" style="position:absolute;inset:0">
+        <div class="loc"><div class="dot"></div><div><b>Pôle Nord</b><span>90° 00′ 00″ N · Atelier n°1</span></div></div>
+      </div>
+      <div id="check" class="clip" data-start="21.2" data-duration="6.4" data-track-index="4">
+        <h4>CONTRÔLE LUTINS</h4>
+        <div class="row"><div class="box"><i id="c1">✓</i></div><div>Prénom : <b>Emma</b></div></div>
+        <div class="row"><div class="box"><i id="c2">✓</i></div><div>Exploit : <b>le vélo</b></div></div>
+        <div class="row"><div class="box"><i id="c3">✓</i></div><div>Message <b>100 % unique</b></div></div>
+      </div>
+      <!-- studio -->
+      <div id="action" class="layer center cap shadow clip" data-start="30.9" data-duration="1.8" data-track-index="2">
+        <div class="kicker">Studio du Père Noël</div>
+        <div class="t">Silence… <span class="ital y">on tourne !</span></div>
+      </div>
+      <div id="recwrap" class="layer clip" data-start="30.8" data-duration="10.8" data-track-index="3">
+        <div class="frame"></div>
+        <div id="rec"><div class="d"></div><span>REC</span><span id="tc">00:00:00</span></div>
+      </div>
+      <div id="subs" class="clip" data-start="32.7" data-duration="8.7" data-track-index="4">
+        <div class="sub shadow" id="s1"><div>Bonjour <span class="y">Emma</span> !</div></div>
+        <div class="sub shadow" id="s2"><div>Mes petits lutins m'ont raconté…</div></div>
+        <div class="sub shadow" id="s3"><div>…que tu avais appris à faire du <span class="y">vélo</span> cette année.</div></div>
+        <div class="sub shadow" id="s4"><div>Je suis très <span class="y">fier</span> de toi !</div></div>
+      </div>
+      <!-- delivery -->
+      <div id="cap8" class="layer center cap shadow clip" data-start="42.0" data-duration="3.3" data-track-index="2">
+        <div class="kicker">Livraison express</div>
+        <div class="t">Directement sur <span class="ital y">votre téléphone.</span></div>
+      </div>
+      <div id="notif" class="clip" data-start="45.5" data-duration="2.9" data-track-index="3">
+        <div class="ic">
+          <svg width="60" height="60" viewBox="-20 -24 40 40"><path d="M-16 6 Q-6 -22 14 -14 Q6 -6 16 6 Z" fill="#fff" opacity=".95"/><rect x="-19" y="3" width="38" height="9" rx="4.5" fill="#fff"/><circle cx="15" cy="-14" r="5" fill="#fff"/></svg>
+        </div>
+        <div style="flex:1">
+          <div class="app"><span>PÈRE NOËL</span><span>maintenant</span></div>
+          <div class="ttl">Une vidéo pour Emma ✦</div>
+          <div class="msg">Le Père Noël a un message rien que pour elle.</div>
+        </div>
+      </div>
+      <div id="cap9" class="layer center cap shadow clip" data-start="48.6" data-duration="2.8" data-track-index="2">
+        <div class="t">Et ce regard-là…</div>
+        <div class="s ital y">n'a pas de prix.</div>
+      </div>
+      <!-- call to action -->
+      <div id="tagwrap" class="clip" data-start="51.6" data-duration="6.4" data-track-index="5">
+        <div id="swing">
+          <div id="string"></div>
+          <div id="tag">
+            <div class="hole"></div>
+            <div class="k">CE NOËL</div>
+            <div class="h"><span class="nw">Offrez-lui un message</span> <span class="nw">du Père Noël,</span></div>
+            <div class="i">créé rien que pour lui.</div>
+          </div>
+        </div>
+      </div>
+      <div id="cta" class="clip" data-start="54.0" data-duration="4.0" data-track-index="6">
+        <div class="btn" id="btn">Je crée sa vidéo <span>→</span></div>
+      </div>
+      <div id="fadeout" class="layer clip" data-start="57.4" data-duration="0.6" data-track-index="7"></div>
+
+      <audio id="mix" src="assets/audio/mix.wav" data-start="0" data-duration="58" data-track-index="10" data-volume="1"></audio>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      const pop = (sel, at, out, y = 40) => {
+        tl.fromTo(sel, { opacity: 0, y }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, at);
+        if (out !== undefined) tl.to(sel, { opacity: 0, y: -20, duration: 0.3, ease: "power2.in" }, out);
+      };
+      // hook: two beats, on the voice ("…par son prénom ?" lands at 4.2 s)
+      tl.fromTo("#hook .l1", { opacity: 0, y: 50, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }, 0.1);
+      tl.fromTo("#hook .l2", { opacity: 0, y: 60, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: "back.out(2)" }, 4.1);
+      tl.to("#hook", { opacity: 0, y: -30, duration: 0.3, ease: "power2.in" }, 5.15);
+      pop("#cap2 .kicker", 5.45); pop("#cap2 .t", 5.6); tl.to("#cap2", { opacity: 0, duration: 0.3 }, 8.35);
+      pop("#step1 .step", 9.15, 12.95);
+      tl.fromTo("#dim", { opacity: 0 }, { opacity: 1, duration: 0.8 }, 8.55); tl.to("#dim", { opacity: 0, duration: 0.5 }, 13.15);
+      pop("#step2 .step", 14.55, 19.45);
+      pop("#step3 .step", 20.65, 27.5);
+      tl.fromTo("#loc1 .loc", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, 20.85);
+      tl.to("#loc1 .loc", { opacity: 0, duration: 0.3 }, 27.5);
+      tl.fromTo("#check", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 21.25);
+      [["#c1", 21.8], ["#c2", 23.75], ["#c3", 26.25]].forEach(([s, at]) => tl.fromTo(s, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(3)" }, at));
+      tl.to("#check", { opacity: 0, x: 40, duration: 0.3 }, 27.3);
+      pop("#action .kicker", 30.95); pop("#action .t", 31.1); tl.to("#action", { opacity: 0, duration: 0.25 }, 32.45);
+      tl.fromTo("#recwrap", { opacity: 0 }, { opacity: 1, duration: 0.25 }, 30.85); tl.to("#recwrap", { opacity: 0, duration: 0.3 }, 41.3);
+      tl.fromTo("#rec .d", { opacity: 1 }, { opacity: 0.2, duration: 0.5, repeat: 20, yoyo: true, ease: "steps(1)" }, 30.9);
+      tl.to("#tc", { duration: 10.7, ease: "none", onUpdate() { const s = Math.max(0, tl.time() - 30.8); const f = Math.floor((s % 1) * 25); document.getElementById("tc").textContent = `00:${String(Math.floor(s)).padStart(2, "0")}:${String(f).padStart(2, "0")}`; } }, 30.8);
+      // subtitles, phrase by phrase on the voice's own pauses (voice starts at 32.7 s)
+      const subs = [["#s1", 32.7, 34.05], ["#s2", 34.45, 36.1], ["#s3", 36.1, 38.7], ["#s4", 39.35, 41.2]];
+      subs.forEach(([s, a, b]) => { tl.fromTo(s, { opacity: 0, y: 24, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.25, ease: "power3.out" }, a); tl.to(s, { opacity: 0, duration: 0.18 }, b - 0.18); });
+      tl.fromTo("#s1 .y", { scale: 0.6 }, { scale: 1, duration: 0.4, ease: "back.out(3)" }, 33.05);
+      pop("#cap8 .kicker", 42.05); pop("#cap8 .t", 42.2); tl.to("#cap8", { opacity: 0, duration: 0.3 }, 45.0);
+      tl.fromTo("#notif", { opacity: 0, y: -160 }, { opacity: 1, y: 0, duration: 0.55, ease: "back.out(1.6)" }, 45.5);
+      tl.to("#notif", { opacity: 0, y: -120, duration: 0.4, ease: "power2.in" }, 48.0);
+      pop("#cap9 .t", 48.65); pop("#cap9 .s", 49.5); tl.to("#cap9", { opacity: 0, duration: 0.35 }, 51.05);
+      // the gift tag drops on its ribbon and swings to rest
+      tl.fromTo("#swing", { y: -1500 }, { y: 0, duration: 1.0, ease: "bounce.out" }, 51.65);
+      tl.fromTo("#swing", { rotation: -6 }, { rotation: 0, duration: 2.6, ease: "elastic.out(1, 0.35)", transformOrigin: "540px -40px" }, 52.1);
+      tl.fromTo("#btn", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2.4)" }, 54.05);
+      tl.to("#btn", { scale: 1.06, duration: 0.45, repeat: 5, yoyo: true, ease: "sine.inOut" }, 54.7);
+      tl.fromTo("#fadeout", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 57.4);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

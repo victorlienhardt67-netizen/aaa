@@ -4,7 +4,7 @@ import { mat, felt, glow, mesh, sph, cap, cyl, cone, torus, rbox, group, bentCon
 
 const SKIN = "#f3c6a5";
 const EYE = mat("#2a1a14", { roughness: 0.25 });
-const SPARK = glow("#ffffff", 1.4);
+const SPARK = mat("#ffffff", { emissive: "#ffffff", emissiveIntensity: 0.35 });
 
 function eye(parent, x, y, z, r) {
   const g = group({ p: [x, y, z], parent });
@@ -130,7 +130,6 @@ export function makeSanta() {
   cyl(0.97, 0.97, 0.2, felt("#2a1a16"), { p: [0, 1.0, 0], s: [1.05, 1, 0.87], parent: body }, 40);
   rbox(0.34, 0.26, 0.08, 0.04, mat("#e9b949", { metalness: 0.8, roughness: 0.25 }), { p: [0, 1.0, 0.84], parent: body });
   rbox(0.2, 0.14, 0.09, 0.03, mat("#2a1a16"), { p: [0, 1.0, 0.86], parent: body });
-  rbox(0.26, 0.75, 0.1, 0.05, FUR, { p: [0, 1.22, 0.83], r: [-0.12, 0, 0], parent: body });
   // legs
   for (const s of [-1, 1]) {
     cap(0.24, 0.55, R, { p: [s * 0.42, 0.62, 0.55], r: [Math.PI / 2 - 0.15, 0, 0], parent: body });
@@ -139,9 +138,10 @@ export function makeSanta() {
     rbox(0.34, 0.24, 0.55, 0.1, mat("#1d1412", { roughness: 0.35 }), { p: [s * 0.45, -0.2, 1.08], parent: body });
   }
   // arms
-  const armO = { shX: 0.85, shY: 1.8, r: 0.2, upper: 0.42, fore: 0.36, sleeve: R, cuff: FUR, hand: 0.17, handMat: W };
+  const armO = { shX: 1.2, shY: 1.72, r: 0.23, upper: 0.42, fore: 0.36, sleeve: R, cuff: FUR, hand: 0.17, handMat: W };
   const torso = group({ parent: body });
   const armL = arm(torso, -1, armO), armR = arm(torso, 1, armO);
+  for (const a of [armL, armR]) { a.sh.position.z = 0.18; sph(0.3, R, { p: [0, -0.05, 0], parent: a.sh }); }
   for (const a of [armL, armR]) sph(0.07, W, { p: [0.12, 0.05, 0.05], parent: a.hand });
 
   // head rig
