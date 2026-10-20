@@ -35,7 +35,7 @@ const hemi = new THREE.HemisphereLight("#9fb2ff", "#3a3050", 1.25);
 scene.add(hemi);
 const moon = new THREE.DirectionalLight("#c3cfff", 1.5);
 moon.castShadow = true;
-moon.shadow.mapSize.set(2048, 2048);
+moon.shadow.mapSize.set(1536, 1536);
 Object.assign(moon.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 1, far: 80 });
 moon.shadow.bias = -0.0005;
 moon.shadow.normalBias = 0.03;
@@ -256,7 +256,7 @@ const blurShader = (dir) => ({
       float r = clamp(d * 3.2, 0.0, 1.0) * amount;
       vec2 step = dir * r * 2.6 + motion;
       vec4 c = vec4(0.0); float wsum = 0.0;
-      for (int i = -6; i <= 6; i++) { float w = exp(-float(i*i) / 18.0); c += texture2D(tDiffuse, vUv + step * float(i)) * w; wsum += w; }
+      for (int i = -4; i <= 4; i++) { float w = exp(-float(i*i) / 8.0); c += texture2D(tDiffuse, vUv + step * float(i)) * w; wsum += w; }
       gl_FragColor = c / wsum;
     }`,
 });
@@ -316,7 +316,7 @@ function camAt(t) {
     return mix(mix(wsC, ride, smooth(seg(t, T.convStart, T.convStart + 0.5))), stWide, smooth(seg(t, T.convEnd - 0.3, T.santaTake + 0.4)));
   }
   // 27.6 – 31 : studio, then push in to Santa
-  const close = santaClose(t);
+  const close = lensClose(t);
   if (t < T.voice) return mix(stWide, close, easeInOut(seg(t, T.pushIn, T.voice - 0.05)));
   if (t < T.pullOut) return close;
   // 39.9 – 43.5 : pull out, the video flies home
@@ -338,6 +338,16 @@ function camAt(t) {
   return mix(reaction, end, easeInOut(seg(t, T.cta, T.cta + 3.4)));
 }
 
+// dive into the film camera's lens: the recording itself is the real video
+function lensClose(t) {
+  const lens = R.filmCam.userData.lens.getWorldPosition(V3(0, 0, 0));
+  const toSanta = santaFace().sub(lens).setY(0).normalize();
+  const kIn = smooth(seg(t, T.pushIn, T.voice));
+  const kOut = smooth(seg(t, T.voiceEnd - 0.2, T.pullOut + 0.6));
+  const d = lerp(lerp(3.0, 1.25, kIn), 3.2, kOut);
+  const side = V3(-toSanta.z, 0, toSanta.x);
+  return { pos: lens.clone().addScaledVector(toSanta, d).addScaledVector(side, 0.35 * d).add(V3(0, 0.2 + 0.15 * d, 0)), look: lens.clone().add(V3(0, 0.05, 0)), fov: 30 };
+}
 function santaFace() { santa.head.updateWorldMatrix(true, false); return santa.head.getWorldPosition(V3(0, 0, 0)); }
 const SANTA_FWD = V3(Math.sin(AZ), 0, Math.cos(AZ));
 function santaClose(t) {
@@ -425,8 +435,9 @@ function frame(t) {
   E.E.root.position.copy(R.santaSpot.localToWorld(V3(lerp(2.6, 0.2, clapIn), 0.15, 2.3)));
   E.E.root.rotation.y = AZ + Math.PI; poseElf(E.E, t, 5, 0);
   E.E.armR.sh.rotation.set(-1.6, 0, 0.2); E.E.armL.sh.rotation.set(-1.6, 0, -0.2);
-  const hideStudioCrew = t > T.voice - 0.6 && t < T.pullOut + 0.3;
-  E.D.root.visible = E.E.root.visible = R.filmCam.visible = !hideStudioCrew;
+  const hideStudioCrew = false;
+  E.D.root.visible = R.filmCam.visible = !hideStudioCrew;
+  E.E.root.visible = t < T.clap + 0.55 || t > T.pullOut + 1.0;
   scene.updateMatrixWorld(true);
   // clapper in the elf's hands
   E.E.armR.hand.updateWorldMatrix(true, false);
@@ -572,7 +583,8 @@ function frame(t) {
   bloom.strength = closeUp ? 0.3 : phoneHero ? 0.2 : 0.8;
   grade.uniforms.time.value = Math.floor(t * 30);
   grade.uniforms.warm.value = dusk * 0.6 + (closeUp ? 0.2 : 0);
-  composer.render();
+  // the real video covers the frame between the two light bursts: skip the 3D render there
+  if (!(t > 31.2 && t < 38.85)) composer.render();
 }
 
 // ------------------------------------------------------------------ wiring

@@ -60,7 +60,12 @@
       #rec .d { width: 20px; height: 20px; border-radius: 50%; background: #ff3b3b; box-shadow: 0 0 16px #ff3b3b; }
       .frame { position: absolute; inset: 120px 50px 330px 50px; border: 3px solid rgba(255, 255, 255, 0.28); border-radius: 26px; }
       /* subtitles */
-      #subs { position: absolute; left: 70px; right: 70px; bottom: 380px; height: 260px; }
+      #ugcwrap { overflow: hidden; }
+      #ugc { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      #realtag { position: absolute; left: 0; right: 0; bottom: 400px; display: flex; justify-content: center; }
+      #realtag .pill { display: flex; align-items: center; gap: 16px; background: var(--navy); color: var(--cream); font-weight: 800; font-size: 44px; letter-spacing: -0.01em; padding: 22px 36px; border-radius: 60px; border: 2px solid rgba(255, 216, 74, 0.45); box-shadow: 0 20px 50px rgba(5, 8, 25, 0.45); }
+      #realtag .pdot { width: 22px; height: 22px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 16px var(--yellow); }
+      #iris { opacity: 0; background: #fff6e0; }
       .sub { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; text-align: center; font-weight: 800; font-size: 66px; line-height: 1.08; letter-spacing: -0.02em; }
       .sub span.y { color: var(--yellow); }
       /* notification */
@@ -124,16 +129,18 @@
         <div class="kicker">Studio du Père Noël</div>
         <div class="t">Silence… <span class="ital y">on tourne !</span></div>
       </div>
+      <!-- the real product: an excerpt of a delivered video, with its own sound (mixed into mix.wav) -->
+      <div id="ugcwrap" class="layer">
+        <video id="ugc" class="clip" src="assets/ugc/ugc_portrait.mp4" muted playsinline data-start="32.6" data-duration="8.0" data-track-index="4"></video>
+      </div>
       <div id="recwrap" class="layer clip" data-start="30.8" data-duration="10.8" data-track-index="3">
         <div class="frame"></div>
         <div id="rec"><div class="d"></div><span>REC</span><span id="tc">00:00:00</span></div>
       </div>
-      <div id="subs" class="clip" data-start="32.7" data-duration="8.7" data-track-index="4">
-        <div class="sub shadow" id="s1"><div>Bonjour <span class="y">Emma</span> !</div></div>
-        <div class="sub shadow" id="s2"><div>Mes petits lutins m'ont raconté…</div></div>
-        <div class="sub shadow" id="s3"><div>…que tu avais appris à faire du <span class="y">vélo</span> cette année.</div></div>
-        <div class="sub shadow" id="s4"><div>Je suis très <span class="y">fier</span> de toi !</div></div>
+      <div id="realtag" class="clip" data-start="32.9" data-duration="7.6" data-track-index="5">
+        <div class="pill"><span class="pdot"></span>Exemple de vidéo reçue</div>
       </div>
+      <div id="iris" class="layer clip" data-start="32.2" data-duration="9.0" data-track-index="6"></div>
       <!-- delivery -->
       <div id="cap8" class="layer center cap shadow clip" data-start="42.0" data-duration="3.3" data-track-index="2">
         <div class="kicker">Livraison express</div>
@@ -198,10 +205,14 @@
       tl.fromTo("#recwrap", { opacity: 0 }, { opacity: 1, duration: 0.25 }, 30.85); tl.to("#recwrap", { opacity: 0, duration: 0.3 }, 41.3);
       tl.fromTo("#rec .d", { opacity: 1 }, { opacity: 0.2, duration: 0.5, repeat: 20, yoyo: true, ease: "steps(1)" }, 30.9);
       tl.to("#tc", { duration: 10.7, ease: "none", onUpdate() { const s = Math.max(0, tl.time() - 30.8); const f = Math.floor((s % 1) * 25); document.getElementById("tc").textContent = `00:${String(Math.floor(s)).padStart(2, "0")}:${String(f).padStart(2, "0")}`; } }, 30.8);
-      // subtitles, phrase by phrase on the voice's own pauses (voice starts at 32.7 s)
-      const subs = [["#s1", 32.7, 34.05], ["#s2", 34.45, 36.1], ["#s3", 36.1, 38.7], ["#s4", 39.35, 41.2]];
-      subs.forEach(([s, a, b]) => { tl.fromTo(s, { opacity: 0, y: 24, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.25, ease: "power3.out" }, a); tl.to(s, { opacity: 0, duration: 0.18 }, b - 0.18); });
-      tl.fromTo("#s1 .y", { scale: 0.6 }, { scale: 1, duration: 0.4, ease: "back.out(3)" }, 33.05);
+      // a burst of light carries us from the 3D studio into the real video, and back out
+      tl.fromTo("#iris", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.in" }, 32.25);
+      tl.to("#iris", { opacity: 0, duration: 0.45, ease: "power2.out" }, 32.6);
+      tl.to("#iris", { opacity: 1, duration: 0.3, ease: "power2.in" }, 40.35);
+      tl.to("#iris", { opacity: 0, duration: 0.45, ease: "power2.out" }, 40.65);
+      tl.fromTo("#ugcwrap", { scale: 1.12 }, { scale: 1.0, duration: 8.0, ease: "power1.out" }, 32.6);
+      tl.fromTo("#realtag .pill", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "back.out(2)" }, 33.0);
+      tl.to("#realtag .pill", { opacity: 0, duration: 0.25 }, 40.2);
       pop("#cap8 .kicker", 42.05); pop("#cap8 .t", 42.2); tl.to("#cap8", { opacity: 0, duration: 0.3 }, 45.0);
       tl.fromTo("#notif", { opacity: 0, y: -160 }, { opacity: 1, y: 0, duration: 0.55, ease: "back.out(1.6)" }, 45.5);
       tl.to("#notif", { opacity: 0, y: -120, duration: 0.4, ease: "power2.in" }, 48.0);

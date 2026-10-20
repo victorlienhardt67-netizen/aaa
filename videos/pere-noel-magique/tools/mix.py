@@ -35,9 +35,8 @@ db = lambda d: 10 ** (d / 20)
 VO = [("vo1.mp3", 0.15), ("vo2.mp3", 5.5), ("vo3.mp3", 9.3), ("vo4.mp3", 13.9), ("vo5.mp3", 21.4), ("vo6.mp3", 28.2), ("vo8.mp3", 42.1), ("vo9.mp3", 48.7), ("vo10.mp3", 53.4)]
 for f, at in VO:
     place("vo", f, at, db(0))
-SANTA = [("design_C.mp3", 32.7, 1.0), ("santa_hohoho.mp3", 51.55, 0.9)]
-for f, at, g in SANTA:
-    place("vo", f, at, g)
+# the real product: the delivered video keeps its own sound
+place("vo", "../ugc/ugc_8s.wav", 32.6, db(0), fade_in=0.15, fade_out=0.3)
 
 # ambiences
 place("amb", "sfx_night.mp3", 0.0, db(-8), length=6.0, fade_in=0.3, fade_out=1.2)
@@ -74,8 +73,7 @@ def window(a, b, depth, att=0.25, rel=0.45):
 for f, at in VO:
     L = len(load(f)) / SR
     duck = np.maximum(duck, window(at, at + L, 7.5))
-duck = np.maximum(duck, window(32.7, 41.0, 15.0, att=0.6, rel=1.0))
-duck = np.maximum(duck, window(51.55, 54.5, 6.0))
+duck = np.maximum(duck, window(32.6, 40.6, 16.0, att=0.5, rel=0.8))
 music_gain = db(-6) * 10 ** (-duck / 20)
 bus["music"] *= music_gain[:, None]
 bus["amb"] *= (10 ** (-np.maximum(duck - 4, 0) / 20))[:, None]
