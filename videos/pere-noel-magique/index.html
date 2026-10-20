@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<script type="importmap">{"imports":{"three":"./assets/vendor/three/build/three.module.js","three/addons/":"./assets/vendor/three/examples/jsm/"}}</script>
+<style>html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:#0b1530}#root{position:relative;width:100%;height:100%}#gl{position:absolute;inset:0;width:100%;height:100%;display:block}</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="3" data-width="1080" data-height="1920">
+<canvas id="gl" class="clip" data-start="0" data-duration="3"></canvas>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { makeSanta, makeHuman, makeElf, santaMouth } from "./js/characters.js";
+const r = new THREE.WebGLRenderer({canvas:document.getElementById("gl"),antialias:true});
+r.setSize(1080,1920,false); r.setPixelRatio(1); r.shadowMap.enabled=true; r.shadowMap.type=THREE.PCFSoftShadowMap; r.toneMapping=THREE.ACESFilmicToneMapping;
+const s=new THREE.Scene(); s.background=new THREE.Color(0x2a1a22);
+const c=new THREE.PerspectiveCamera(22,1080/1920,0.1,100);
+const santa=makeSanta(); s.add(santa.root);
+const mom=makeHuman({seated:true,top:"#5b8c6a",hairStyle:"bun"}); mom.root.position.set(-0.9,0.4,0.5); s.add(mom.root);
+const emma=makeHuman({child:true,top:"#d9484a",bottom:"#f2e6d8",hairStyle:"pigtails",hair:"#7a4a2a"}); emma.root.position.set(0.3,0,0.8); s.add(emma.root);
+const elf=makeElf(); elf.root.position.set(1.2,0,0.2); s.add(elf.root);
+const dad=makeHuman({top:"#2f4a7a",hair:"#4a3020",beard:true,glasses:true}); dad.root.position.set(-0.2,0,-0.6); s.add(dad.root);
+const l=new THREE.DirectionalLight(0xffd9b0,2.5);l.position.set(3,6,5);l.castShadow=true;l.shadow.mapSize.set(2048,2048);s.add(l);
+s.add(new THREE.HemisphereLight(0x9fb4ff,0x4a2a20,1.2));
+const pl=new THREE.PointLight(0xff9a4a,8,10);pl.position.set(-2,2,2);s.add(pl);
+const fl=new THREE.Mesh(new THREE.PlaneGeometry(20,20),new THREE.MeshStandardMaterial({color:0x8a5a3a}));fl.rotation.x=-Math.PI/2;fl.position.y=-0.6;fl.receiveShadow=true;s.add(fl);
+function renderAt(t){
+  if(t<1){c.fov=22;c.position.set(0,3.5,14);c.lookAt(0,1.6,0);} else if(t<1.5){c.fov=26;c.position.set(0,1.6,7);c.lookAt(0,0.7,0);santa.root.visible=false;}
+  else {santa.root.visible=true;c.fov=24;c.position.set(0,2.6,5.2);c.lookAt(0,2.35,0);santaMouth(santa,0.7,0.2,0.3);}
+  c.updateProjectionMatrix(); r.render(s,c);}
+window.addEventListener("hf-seek",e=>renderAt(e.detail.time));renderAt(window.__hfThreeTime||0);
+</script>
+</body></html>
