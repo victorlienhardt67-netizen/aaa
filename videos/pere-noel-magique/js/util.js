@@ -29,7 +29,7 @@ export function mat(color, o = {}) {
   const key = color + JSON.stringify(o);
   if (matCache.has(key) && !o.unique) return matCache.get(key);
   const { unique, ...rest } = o;
-  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.78, metalness: 0, ...rest });
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.78, metalness: 0, flatShading: true, ...rest });
   if (!unique) matCache.set(key, m);
   return m;
 }
@@ -47,12 +47,12 @@ function place(m, o = {}) {
   return m;
 }
 export const mesh = (geo, m, o) => place(new THREE.Mesh(geo, m), o);
-export const rbox = (w, h, d, r, m, o) => mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001)), m, o);
-export const sph = (r, m, o, ws = 28, hs = 20) => mesh(new THREE.SphereGeometry(r, ws, hs), m, o);
-export const cap = (r, len, m, o) => mesh(new THREE.CapsuleGeometry(r, len, 8, 20), m, o);
-export const cyl = (rt, rb, h, m, o, seg = 28) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m, o);
-export const cone = (r, h, m, o, seg = 28) => mesh(new THREE.ConeGeometry(r, h, seg), m, o);
-export const torus = (r, tube, m, o, arc = Math.PI * 2) => mesh(new THREE.TorusGeometry(r, tube, 14, 40, arc), m, o);
+export const rbox = (w, h, d, r, m, o) => mesh(new RoundedBoxGeometry(w, h, d, 1, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001)), m, o);
+export const sph = (r, m, o, ws = 14, hs = 10) => mesh(new THREE.SphereGeometry(r, ws, hs), m, o);
+export const cap = (r, len, m, o) => mesh(new THREE.CapsuleGeometry(r, len, 3, 10), m, o);
+export const cyl = (rt, rb, h, m, o, seg = 12) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m, o);
+export const cone = (r, h, m, o, seg = 8) => mesh(new THREE.ConeGeometry(r, h, seg), m, o);
+export const torus = (r, tube, m, o, arc = Math.PI * 2) => mesh(new THREE.TorusGeometry(r, tube, 6, 20, arc), m, o);
 export function group(o = {}) { const g = new THREE.Group(); if (o.p) g.position.set(...o.p); if (o.r) g.rotation.set(...o.r); if (o.s !== undefined) Array.isArray(o.s) ? g.scale.set(...o.s) : g.scale.setScalar(o.s); if (o.parent) o.parent.add(g); return g; }
 
 // ---------- canvas textures ----------
