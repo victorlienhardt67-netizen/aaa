@@ -56,3 +56,9 @@ Aucun chiffre, aucune statistique et aucune preuve n'ont été ajoutés. Les puc
 - Hésitations retirées : « euh », « J'avais rendu, » (faux départ), « de, », « J'avais— ».
 - Visuels générés par IA (ElevenLabs, Seedream 5 Pro + détourage BiRefNet v2) : `keys.png`, `skydiver.png`, `burj.png`, `palm.jpg` (vue aérienne de la Palm Jumeirah). Ce ne sont pas des photos réelles.
 - Éléments graphiques construits en code : tableau des départs (BALI · PRÉVU → FERMÉ), conversation « Les potes », calendrier (21 jours = « trois semaines »), plan de rues avec épingle « Airbnb ».
+
+## Robin 04 (podcast « le pays »)
+
+- Source 16:9 avec sous-titres incrustés mot à mot : retirés par `tools/clean_subs.py` (inpainting sur la bande centrale), puis recadrés en 9:16 par `tools/reframe.py` + `src/edit/robin04.shots.json`. De légères traces restent par endroits sous nos sous-titres.
+- Coupes : « et qui se trouve » (phrase reprise), « Tu sens que la France a… » (faux départ).
+- Visuels générés par IA (ElevenLabs Seedream 5 Pro), dans la règle « tons neutres + touche de vert » : `eiffel.png` (tour graphite, fanion vert, détourage local), `bust_lime.png` (buste en marbre au cerveau vert, détourage BiRefNet v2).

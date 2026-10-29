@@ -48,13 +48,21 @@ Tous les temps sont en **secondes SOURCE**. Un `Scene` démarre à `from` et dur
 | `MdTower` | objet qui descend du ciel dans un faisceau et se pose | arrivée, révélation, « posé » |
 | `MdSwap` | valeur barrée remplacée par une autre | chute, retournement final |
 
+## Motion design : `src/scenes/Rant.tsx` (Robin 04, coup de gueule)
+
+| Scène | Procédé | Pour dire… |
+|---|---|---|
+| `MdChain` | étiquettes reliées en chaîne verticale + durée + mot final en pavé vert | « mis bout à bout », accumulation |
+| `MdNews` | téléphone qui monte, notification d'alerte sur l'écran de verrouillage | actualité, « en ce moment » |
+| `MdRoots` | point central + branches vers des étiquettes + objet détouré, fondu au noir final | attaches, ce qui compte, fin |
+
 ## Texte seul (Poppins SemiBold)
 
 | Composant | Procédé (référence) |
 |---|---|
 | `WordFlash` | un mot par temps fort, le fond bascule clair / vert / noir, poussières (2a9c) |
 | `GhostWords` | ligne centrée + mot fantôme géant qui dérive (0b99) |
-| `StackList` | liste qui s'empile, les termes précédents s'atténuent |
+| `StackList` | liste qui s'empile, les termes précédents s'atténuent (`size` pour les termes longs) |
 | `Stamps` | voir plus haut |
 
 ## Briques

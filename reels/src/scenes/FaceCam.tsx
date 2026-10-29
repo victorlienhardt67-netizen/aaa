@@ -34,7 +34,7 @@ export const TopShade: React.FC = () => (
 );
 
 /** Variation — cutout popping beside the head (s1 cutaway idea, kept on top of the face-cam). */
-export const PopCutout: React.FC<{ src: string; at: number; out: number; x: number; y: number; width: number; id: string }> = ({
+export const PopCutout: React.FC<{ src: string; at: number; out: number; x: number; y: number; width: number; id: string; duotone?: boolean }> = ({
   src,
   at: atSrc,
   out,
@@ -42,13 +42,14 @@ export const PopCutout: React.FC<{ src: string; at: number; out: number; x: numb
   y,
   width,
   id,
+  duotone,
 }) => {
   const at = useAt();
   const f = useCurrentFrame();
   const o = prog(f, at(out), at(out) + 6);
   return (
     <div style={{ position: "absolute", inset: 0, opacity: 1 - o, filter: o ? `blur(${o * 12}px)` : undefined }}>
-      <DuoCutout src={src} at={at(atSrc)} width={width} id={id} style={{ left: x, top: y, rotate: `${interpolate(f, [at(atSrc), at(atSrc) + 60], [-6, -2], clamp)}deg` }} />
+      <DuoCutout src={src} at={at(atSrc)} width={width} id={id} duotone={duotone} style={{ left: x, top: y, rotate: `${interpolate(f, [at(atSrc), at(atSrc) + 60], [-6, -2], clamp)}deg` }} />
     </div>
   );
 };

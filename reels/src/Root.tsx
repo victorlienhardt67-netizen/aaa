@@ -5,6 +5,7 @@ import { FPS, H, W } from "./lib/tokens";
 import { makeReel } from "./Reel";
 import { REEL01 } from "./edit/reel01";
 import { ROBIN02 } from "./edit/robin02";
+import { ROBIN04 } from "./edit/robin04";
 
 const handle = delayRender("fonts");
 fontsReady.then(() => continueRender(handle));
@@ -12,6 +13,7 @@ fontsReady.then(() => continueRender(handle));
 const reels = [
   { id: "Reel01", ...makeReel(REEL01) },
   { id: "Robin02", ...makeReel(ROBIN02) },
+  { id: "Robin04", ...makeReel(ROBIN04) },
 ];
 
 export const Root: React.FC = () => (
