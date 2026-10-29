@@ -64,7 +64,10 @@ Première fois : `cd template && bash tools/setup.sh`.
    - chaque visuel doit **se comprendre sans le son** (voir `references/LESSONS.md`) ;
    - au moins ~0,6 s de lecture par texte, aucun visuel qui clignote une fraction de seconde, aucune scène qui s'ouvre sur un écran vide ;
    - textes calés sur le mot prononcé : `at(tempsSource)`, avec un léger décalage de -1 frame ;
-   - le premier visuel doit accrocher (motion design ou phrase forte), car c'est le hook.
+   - le premier visuel doit accrocher (motion design ou phrase forte), car c'est le hook ;
+   - **aucun objet détouré sur la face caméra** : les variations de face caméra restent des zooms, cadres, cartes, changements d'angle ; les visuels générés vont dans les scènes de motion ;
+   - **chaque scène de motion est bâtie autour d'au moins un visuel réaliste** (tons neutres + touche de vert) animé : entrée, chute, rotation, impact, halo, etc. ;
+   - **ne pas reprendre les procédés des Reels précédents** (voir `references/CATALOGUE.md` : chaque scène y est rattachée à son Reel). Créer de nouvelles scènes dès que le catalogue n'offre que du déjà-vu.
 6. **Visuels.**
    - D'abord ceux de l'utilisateur.
    - Sinon, génération ElevenLabs (`bytedance-seedream-5-pro`, prompt « neutral black/white/silver tones, with one small neon lime-green (#D5FF38) detail as the only colour accent, isolated on a pure flat white background ») puis détourage `birefnet-v2-bg-removal` (épingler la variante choisie avec `creative_add_flow_asset_node`).

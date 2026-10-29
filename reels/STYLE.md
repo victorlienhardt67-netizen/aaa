@@ -61,4 +61,5 @@ Aucun chiffre, aucune statistique et aucune preuve n'ont été ajoutés. Les puc
 
 - Source 16:9 avec sous-titres incrustés mot à mot : retirés par `tools/clean_subs.py` (inpainting sur la bande centrale), puis recadrés en 9:16 par `tools/reframe.py` + `src/edit/robin04.shots.json`. De légères traces restent par endroits sous nos sous-titres.
 - Coupes : « et qui se trouve » (phrase reprise), « Tu sens que la France a… » (faux départ).
-- Visuels générés par IA (ElevenLabs Seedream 5 Pro), dans la règle « tons neutres + touche de vert » : `eiffel.png` (tour graphite, fanion vert, détourage local), `bust_lime.png` (buste en marbre au cerveau vert, détourage BiRefNet v2).
+- Visuels générés par IA (ElevenLabs Seedream 5 Pro), dans la règle « tons neutres + touche de vert » : `eiffel.png` (tour graphite, fanion vert, détourage local), `bust_lime.png` (buste en marbre au cerveau vert), `tv.png` (TV vintage, bouton vert), `padlock.png` (cadenas, étiquette verte), `vest.png` (gilet haute visibilité) — détourage BiRefNet v2.
+- v2 (après retour) : plus aucun objet sur la face caméra ; les cinq scènes de motion sont reconstruites autour de ces visuels (`src/scenes/Objects.tsx`).

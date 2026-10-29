@@ -48,7 +48,19 @@ Tous les temps sont en **secondes SOURCE**. Un `Scene` démarre à `from` et dur
 | `MdTower` | objet qui descend du ciel dans un faisceau et se pose | arrivée, révélation, « posé » |
 | `MdSwap` | valeur barrée remplacée par une autre | chute, retournement final |
 
-## Motion design : `src/scenes/Rant.tsx` (Robin 04, coup de gueule)
+## Motion design : `src/scenes/Objects.tsx` (Robin 04 v2, scènes bâties autour d'un visuel)
+
+| Scène | Procédé (référence) | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdEurope` | collage éditorial sur papier, découpe à bord blanc, titre en bloc noir rayé d'un scotch vert, dézoom + cercle d'étoiles (6177) | `eiffel.png` | pas X mais Y, élargir |
+| `MdBust` | objet qui monte du flou dans un halo, flèche pointillée, le détail vert s'allume + onde (96c1) | `bust_lime.png` | tête, idée imposée, conditionnement |
+| `MdDomino` | dominos étiquetés qui tombent l'un après l'autre, compteur qui roule, objet qui tombe avec secousse et poussière (082a) | `vest.png` | enchaînement, accumulation, durée |
+| `MdTV` | TV vintage qui s'allume (trait CRT), bandeau d'info défilant, vibration de chaleur (082a) | `tv.png` | actualité, « en ce moment », c'est chaud |
+| `MdLock` | objet suspendu à une chaîne qui se balance sous un projecteur, étiquettes qui pendent, monument qui monte derrière, fondu final | `padlock.png`, `eiffel.png` | attache, ce qui compte, fin |
+
+Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `BlockTitle` (titre en bloc de couleur).
+
+## Motion design : `src/scenes/Rant.tsx` (Robin 04 v1, remplacé — procédés jugés trop proches de Robin 02)
 
 | Scène | Procédé | Pour dire… |
 |---|---|---|

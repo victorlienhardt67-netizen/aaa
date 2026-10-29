@@ -8,10 +8,10 @@ import words from "./robin04.words.json";
 import { computeKeeps, dropWords, Word } from "./cut";
 import type { Scene } from "./scene";
 import type { ReelConfig } from "../Reel";
-import { PopCutout, RecFrame } from "../scenes/FaceCam";
-import { MdSwap, Stamps } from "../scenes/Story";
+import { RecFrame } from "../scenes/FaceCam";
+import { Stamps } from "../scenes/Story";
 import { GhostWords, StackList } from "../scenes/TypeScenes";
-import { MdChain, MdNews, MdRoots } from "../scenes/Rant";
+import { MdBust, MdDomino, MdEurope, MdLock, MdTV } from "../scenes/Objects";
 import { WordFlash } from "../components/WordFlash";
 
 // fillers and false starts removed from the edit (source ranges)
@@ -19,6 +19,9 @@ const DROP: [number, number][] = [
   [35.06, 35.6], // "et qui se trouve" (sentence restarted)
   [38.12, 39.3], // "Tu sens que la France a..." (false start)
 ];
+
+// screen rect of img/tv.png (fractions of the image width)
+const SCREEN = { x: 0.095, y: 0.172, w: 0.642, h: 0.534 };
 
 const ALL = words as Word[];
 const WORDS = dropWords(ALL, DROP);
@@ -29,11 +32,11 @@ const SCENES: Scene[] = [
     kind: "md",
     from: 0.08,
     node: (
-      <MdSwap
-        from={{ at: 0.16, small: "le pays, ce n'est pas que", big: "la France", bigAt: 1.18 }}
+      <MdEurope
+        lead={{ at: 0.16, text: "le pays, ce n'est pas que" }}
+        france={{ at: 1.18, text: "la France" }}
         strikeAt={1.74}
-        to={{ at: 1.74, small: "c'est", big: "l'Europe", bigAt: 2.12 }}
-        toSize={200}
+        europe={{ at: 2.12, text: "l'Europe" }}
       />
     ),
   },
@@ -88,12 +91,19 @@ const SCENES: Scene[] = [
   {
     kind: "fc",
     from: 19.78,
-    zooms: [{ at: 19.78, scale: 1.0 }, { at: 21.3, scale: 1.0 }, { at: 22.62, scale: 1.1, push: 20 }],
-    caps: [
-      { from: 19.8, small: "justement de cette", big: "réalité de merde" },
-      { from: 21.3, small: "qu'on a essayé de", big: "te mettre dans la tête," },
-    ],
-    extra: <PopCutout src="img/bust_lime.png" duotone={false} at={22.62} out={24.0} x={770} y={230} width={290} id="bust4" />,
+    zooms: [{ at: 19.78, scale: 1.0 }, { at: 20.58, scale: 1.12 }],
+    caps: [{ from: 19.8, small: "justement de cette", big: "réalité de merde" }],
+  },
+  {
+    kind: "md",
+    from: 21.28,
+    node: (
+      <MdBust
+        head={{ at: 21.3, small: "qu'on a essayé de", big: "te mettre", bigAt: 22.62 }}
+        accent={{ at: 22.84, text: "dans la tête," }}
+        glowAt={23.06}
+      />
+    ),
   },
   {
     kind: "tx",
@@ -136,15 +146,13 @@ const SCENES: Scene[] = [
     kind: "md",
     from: 33.08,
     node: (
-      <MdChain
+      <MdDomino
         head={{ at: 33.12, small: "et en fait, tu mets ça", big: "bout à bout", bigAt: 34.22 }}
-        links={[
-          { at: 34.3, text: "connard" },
-          { at: 34.5, text: "volé" },
-          { at: 34.7, text: "scammeur" },
-        ]}
-        since={{ at: 35.64, small: "depuis un peu, genre", big: "dix, quinze ans,", bigAt: 36.38 }}
-        last={{ at: 37.02, text: "gilets jaunes" }}
+        tiles={["connard", "volé", "scammeur", "ci, ça"]}
+        fallAt={34.3}
+        since={{ at: 35.64, text: "depuis un peu, genre" }}
+        count={{ at: 36.38, from: 10, toAt: 36.58, to: 15, unit: "ans" }}
+        vest={{ at: 37.02, text: "gilets jaunes" }}
       />
     ),
   },
@@ -152,10 +160,11 @@ const SCENES: Scene[] = [
     kind: "md",
     from: 39.5,
     node: (
-      <MdNews
+      <MdTV
         head={{ at: 39.56, small: "même là,", big: "en ce moment", bigAt: 39.86 }}
-        phoneAt={40.76}
-        alert={{ at: 41.56, title: "Émeutes au lycée", sub: { at: 42.92, text: "en France" } }}
+        onAt={39.86}
+        screen={SCREEN}
+        news={{ at: 41.56, title: "Émeutes au lycée", band: { at: 42.92, text: "EN FRANCE" } }}
         punch={{ at: 43.62, small: "j'ai vu,", big: "c'est chaud.", bigAt: 43.88 }}
       />
     ),
@@ -183,11 +192,12 @@ const SCENES: Scene[] = [
     kind: "md",
     from: 51.44,
     node: (
-      <MdRoots
+      <MdLock
         head={{ at: 51.5, small: "moi, j'ai une", big: "attache énorme", bigAt: 51.82 }}
+        lockAt={51.5}
         left={{ at: 53.22, text: "mes amis," }}
         right={{ at: 53.66, text: "ma famille" }}
-        city={{ at: 54.94, text: "Paris,", img: "img/eiffel.png", sub: { at: 55.18, text: "pour cette ville." } }}
+        city={{ at: 54.94, text: "Paris,", sub: { at: 55.18, text: "pour cette ville." } }}
         end={55.7}
       />
     ),

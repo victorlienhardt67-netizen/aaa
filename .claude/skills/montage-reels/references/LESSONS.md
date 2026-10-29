@@ -9,4 +9,7 @@ Ajouter une ligne datée à chaque nouveau retour.
 - **29/10, après Reel 01** : « franchement, c'était parfait » → process sauvegardé tel quel.
 - **29/10, Robin 02 (podcast)** : en attente de retour.
 - **29/10, images du motion** : les visuels (objets détourés) restent réalistes et neutres (noir, blanc, gris, argent) avec **une petite touche de vert `#D5FF38`** sur un détail de l'objet (sangle de sac, étiquette de valise…), pas une bichromie verte intégrale. Le vert est demandé dans le prompt de génération, et l'image est affichée en couleurs naturelles (`duotone={false}`).
-- **29/10, Robin 04 (podcast « le pays »)** : en attente de retour.
+- **29/10, Robin 04 (podcast « le pays »)**, retour sur les motions :
+  - pas d'objet détouré qui surgit sur la face caméra (le buste à côté de la tête ne plaît pas). **Tous les visuels générés servent dans les scènes de motion design**, pas en incrustation sur la face caméra ;
+  - les scènes de motion doivent être **construites autour de vrais visuels** (objets réalistes neutres + touche de vert) qui bougent, et non de mises en page texte + UI ;
+  - trop proche du Reel précédent (téléphone, chaîne, branches reviennent). **Varier d'un Reel à l'autre**, pas seulement à l'intérieur d'un Reel : avant d'écrire le plan, lister les scènes des Reels précédents et éviter leurs procédés (téléphone, chat, chaîne verticale, branches, tableau de départs). Puiser dans toutes les références (collage éditorial 6177, halos 96c1, objets sur fonds texturés 082a, cartes empilées 7014, verre strié 467e), pas seulement dans a8d5.
