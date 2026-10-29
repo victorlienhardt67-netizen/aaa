@@ -49,3 +49,10 @@ Les banques d'images (Pexels, Unsplash, Wikimedia, Pixabay) sont bloquées par l
 | `img/tile01–18.jpg` | GPT Image 2 (deux grilles découpées) | photos du fil dans le téléphone |
 
 Aucun chiffre, aucune statistique et aucune preuve n'ont été ajoutés. Les puces « +1 like / nouveau message / +1 abonné » illustrent des notifications génériques ; ce ne sont pas des données.
+
+## Robin 02 (podcast Bali → Dubaï)
+
+- Source 16:9 multi-caméra recadrée en 9:16 par `tools/reframe.py` + `src/edit/robin02.shots.json` (un cadrage par plan ; les plans en écran partagé sont empilés invité en haut / Robin en bas, filet vert). L'agrandissement 720p → 1920 rend l'image un peu plus douce que la source.
+- Hésitations retirées : « euh », « J'avais rendu, » (faux départ), « de, », « J'avais— ».
+- Visuels générés par IA (ElevenLabs, Seedream 5 Pro + détourage BiRefNet v2) : `keys.png`, `skydiver.png`, `burj.png`, `palm.jpg` (vue aérienne de la Palm Jumeirah). Ce ne sont pas des photos réelles.
+- Éléments graphiques construits en code : tableau des départs (BALI · PRÉVU → FERMÉ), conversation « Les potes », calendrier (21 jours = « trois semaines »), plan de rues avec épingle « Airbnb ».

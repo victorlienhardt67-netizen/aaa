@@ -3,16 +3,20 @@ import { FPS } from "../lib/tokens";
 export type Word = { t: string; s: number; e: number };
 export type Keep = { srcIn: number; srcOut: number; outFrom: number; len: number; srcInFrame: number };
 
+/** Remove fillers / false starts (source ranges). The hole they leave becomes a normal cut. */
+export const dropWords = (words: Word[], drop: [number, number][]) =>
+  words.filter((w) => !drop.some(([a, b]) => w.s >= a - 0.01 && w.e <= b + 0.01));
+
 /**
  * Tighten silences between words. Long pauses are cut down to a natural breath
  * (longer after punctuation) — the words themselves are never trimmed.
  */
 export const computeKeeps = (
   words: Word[],
-  opts: { start: number; end: number; maxGap?: number; breath?: number; sentenceBreath?: number },
+  opts: { start: number; end: number; maxGap?: number; breath?: number; sentenceBreath?: number; drop?: [number, number][] },
 ): Keep[] => {
-  const { start, end, maxGap = 0.3, breath = 0.18, sentenceBreath = 0.26 } = opts;
-  const ws = words.filter((w) => w.s >= start && w.e <= end + 0.01);
+  const { start, end, maxGap = 0.3, breath = 0.18, sentenceBreath = 0.26, drop = [] } = opts;
+  const ws = dropWords(words, drop).filter((w) => w.s >= start && w.e <= end + 0.01);
   const ranges: [number, number][] = [];
   let open = start;
   for (let i = 0; i < ws.length - 1; i++) {

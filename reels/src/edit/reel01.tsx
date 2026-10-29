@@ -5,9 +5,9 @@
 import React from "react";
 import words from "./words.json";
 import { computeKeeps, Word } from "./cut";
-import type { CapSpec } from "../components/Captions";
 import type { Beat } from "../components/WordFlash";
-import type { Zoom } from "../scenes/FaceCam";
+import type { Scene } from "./scene";
+import type { ReelConfig } from "../Reel";
 import { Chips, MorningPhone, Moon, PopCutout, RecFrame } from "../scenes/FaceCam";
 import { MdHook, MdHormones, MdHypno, MdInsta, MdRat, MdRules, MdSleep } from "../scenes/Motion";
 import { GhostWords, StackList } from "../scenes/TypeScenes";
@@ -18,10 +18,6 @@ export const SRC = "media/facecam_clean.mp4";
 export const END = 65.7; // file stops in the middle of "motivation" → we end on "dopamine."
 
 export const KEEPS = computeKeeps(WORDS, { start: 0.62, end: END });
-
-export type Scene =
-  | { kind: "fc"; from: number; caps: CapSpec[]; zooms?: Zoom[]; extra?: React.ReactNode; card?: { at: number; out: number } }
-  | { kind: "md" | "tx"; from: number; node: React.ReactNode };
 
 export const SCENES: Scene[] = [
   { kind: "md", from: 0.62, node: <MdHook /> },
@@ -173,3 +169,5 @@ export const SCENES: Scene[] = [
     ],
   },
 ];
+
+export const REEL01: ReelConfig = { src: SRC, words: WORDS, keeps: KEEPS, scenes: SCENES, face: { x: 540, y: 640 }, topShade: true };
