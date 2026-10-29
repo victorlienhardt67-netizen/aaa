@@ -4,6 +4,7 @@ import { clamp, easeInOut, easeOut, prog } from "../lib/anim";
 import { C, H, SF, W } from "../lib/tokens";
 import { useAt } from "../edit/clock";
 import { DuoCutout } from "../components/Graphics";
+import { Phone } from "../components/Phone";
 
 /** Face position in the cleaned 1080×1920 face-cam (measured on the rush). */
 export const FACE = { x: 540, y: 640 };
@@ -197,3 +198,59 @@ export const Moon: React.FC<{ at: number }> = ({ at: atSrc }) => {
   );
 };
 
+
+/**
+ * Variation — "dès le matin au réveil": a phone rises beside the speaker, lock screen lit
+ * with a morning alarm, so the idea reads without the voice.
+ */
+export const MorningPhone: React.FC<{ at: number; alarm: number }> = ({ at: atSrc, alarm }) => {
+  const at = useAt();
+  const f = useCurrentFrame();
+  const a = at(atSrc);
+  const p = prog(f, a, a + 12, easeOut);
+  const n = prog(f, at(alarm), at(alarm) + 9, easeOut);
+  const ring = Math.sin((f - at(alarm)) / 1.6) * 3 * n * (1 - prog(f, at(alarm) + 12, at(alarm) + 30));
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 790,
+        top: 700,
+        translate: `${(1 - p) * 120}px ${(1 - p) * 520}px`,
+        rotate: `${5 + (1 - p) * 10 + ring}deg`,
+        opacity: Math.min(1, p * 1.5),
+        filter: p < 1 ? `blur(${(1 - p) * 14}px)` : undefined,
+      }}
+    >
+      <Phone width={290} screenOff>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(120% 70% at 50% 0%, #3a3f22 0%, #0c0c0c 70%)" }} />
+        <div style={{ position: "absolute", top: 92, width: "100%", textAlign: "center", fontFamily: SF, fontWeight: 400, fontSize: 92, letterSpacing: "-0.04em", color: "#fff" }}>7:00</div>
+        <div
+          style={{
+            position: "absolute",
+            left: 18,
+            right: 18,
+            top: 240,
+            padding: "14px 14px",
+            borderRadius: 24,
+            background: C.lime,
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            opacity: n,
+            translate: `0 ${(1 - n) * -30}px`,
+            scale: String(0.9 + 0.1 * n),
+          }}
+        >
+          <svg width={46} height={46} viewBox="0 0 100 100">
+            <circle cx={50} cy={50} r={20} fill="#0A0A0A" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <rect key={i} x={47} y={6} width={6} height={16} rx={3} fill="#0A0A0A" transform={`rotate(${i * 45} 50 50)`} />
+            ))}
+          </svg>
+          <div style={{ fontFamily: SF, fontWeight: 600, fontSize: 34, color: "#0A0A0A", letterSpacing: "-0.02em" }}>Réveil</div>
+        </div>
+      </Phone>
+    </div>
+  );
+};

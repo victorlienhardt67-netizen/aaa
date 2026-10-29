@@ -8,7 +8,7 @@ import { computeKeeps, Word } from "./cut";
 import type { CapSpec } from "../components/Captions";
 import type { Beat } from "../components/WordFlash";
 import type { Zoom } from "../scenes/FaceCam";
-import { Chips, FaceRing, Moon, PopCutout, RecFrame } from "../scenes/FaceCam";
+import { Chips, MorningPhone, Moon, PopCutout, RecFrame } from "../scenes/FaceCam";
 import { MdHook, MdHormones, MdHypno, MdInsta, MdRat, MdRules, MdSleep } from "../scenes/Motion";
 import { GhostWords, StackList } from "../scenes/TypeScenes";
 import { WordFlash } from "../components/WordFlash";
@@ -41,7 +41,7 @@ export const SCENES: Scene[] = [
     extra: (
       <>
         <PopCutout src="img/brain.png" at={5.9} out={6.45} x={600} y={200} width={400} id="popBrain" />
-        <FaceRing at={7.95} out={8.86} label="au réveil" />
+        <MorningPhone at={7.34} alarm={8.48} />
       </>
     ),
   },
