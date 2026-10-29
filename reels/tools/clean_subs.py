@@ -10,6 +10,8 @@ def text_mask(band):
     big = cv2.morphologyEx(white, cv2.MORPH_OPEN, np.ones((17, 17), np.uint8))
     big = cv2.dilate(big, np.ones((5, 5), np.uint8))
     m = cv2.subtract(white, big)
+    # text over a white shirt fuses with it: the letters are near-pure white (~250), fabric stays below ~230
+    m = cv2.bitwise_or(m, (band.min(axis=2) > 238).astype(np.uint8) * 255)
     n, lab, st, _ = cv2.connectedComponentsWithStats(m)
     keep = np.zeros_like(m)
     for k in range(1, n):

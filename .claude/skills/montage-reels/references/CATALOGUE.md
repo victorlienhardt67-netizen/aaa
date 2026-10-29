@@ -60,6 +60,16 @@ Tous les temps sont en **secondes SOURCE**. Un `Scene` démarre à `from` et dur
 
 Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `BlockTitle` (titre en bloc de couleur).
 
+## Motion design : `src/scenes/Growth.tsx` (Robin 05, business / croissance)
+
+| Scène | Procédé | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdGauge` | fond studio clair, compteur qui tombe, aiguille verte qui grimpe pendant que le chiffre défile, pastille durée | `gauge.png` | chiffre qui monte, croissance, vitesse |
+| `MdJar` | sol noir brillant avec reflet, pluie de gélules qui s'entassent, gélules-étiquettes qui jaillissent du pot | `jar.png` | produit, ce qu'il rapporte |
+| `ZoomWord` | texte seul : le mot grossit jusqu'à remplir l'écran, fond qui bascule au vert | — | énorme, choc |
+| `MdVitrine` | objet rare sous cloche de musée, cartel qui pivote (A → B), écho de l'autre intervenant | `unicorn.png` | rare, inhabituel, comparaison de pays |
+| `MdCart` | piste en perspective qui défile, objet qui déboule et freine, colis qui tombent dedans | `cart.png` | e-commerce, achat, vente |
+
 ## Motion design : `src/scenes/Rant.tsx` (Robin 04 v1, remplacé — procédés jugés trop proches de Robin 02)
 
 | Scène | Procédé | Pour dire… |

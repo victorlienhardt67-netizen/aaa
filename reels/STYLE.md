@@ -63,3 +63,9 @@ Aucun chiffre, aucune statistique et aucune preuve n'ont été ajoutés. Les puc
 - Coupes : « et qui se trouve » (phrase reprise), « Tu sens que la France a… » (faux départ).
 - Visuels générés par IA (ElevenLabs Seedream 5 Pro), dans la règle « tons neutres + touche de vert » : `eiffel.png` (tour graphite, fanion vert, détourage local), `bust_lime.png` (buste en marbre au cerveau vert), `tv.png` (TV vintage, bouton vert), `padlock.png` (cadenas, étiquette verte), `vest.png` (gilet haute visibilité) — détourage BiRefNet v2.
 - v2 (après retour) : plus aucun objet sur la face caméra ; les cinq scènes de motion sont reconstruites autour de ces visuels (`src/scenes/Objects.tsx`).
+
+## Robin 05 (podcast « 2,5 millions par mois »)
+
+- Source 16:9 720p avec sous-titres incrustés : `tools/clean_subs.py` (bande 395–478) — la détection prend maintenant aussi les lettres blanc pur posées sur une chemise blanche. Légère trace sur le haut du micro. Recadrage 9:16 par plan (`robin05.shots.json`) ; l'agrandissement 720p → 1920 rend l'image plus douce.
+- Coupes : « euh », « Ouais, ouais » (relance de Robin).
+- Visuels IA (Seedream 5 Pro + BiRefNet v2) : `gauge.png` (compteur sans aiguille, aiguille animée en code), `jar.png`, `unicorn.png`, `cart.png`. Gélules et colis dessinés en code.
