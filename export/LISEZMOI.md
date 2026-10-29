@@ -4,7 +4,7 @@
 
 | Fichier | Contenu | Indispensable ? |
 |---|---|---|
-| `montage-reels.zip` | **La skill** : `SKILL.md` (le process pas à pas), `references/` (style, catalogue des scènes, leçons tirées de vos retours, analyse des références) et `template/` (le moteur Remotion complet : code, polices, visuels, outils de recadrage, de nettoyage, de transcription et de contrôle) | **Oui** |
+| `montage-reels.zip` | **Deux dossiers de skills** : `montage/` (la commande **/montage**) et `montage-reels/` : `SKILL.md` (le process pas à pas), `references/` (style, catalogue des scènes, leçons tirées de vos retours, analyse des références) et `template/` (le moteur Remotion complet : code, polices, visuels, outils de recadrage, de nettoyage, de transcription et de contrôle) | **Oui** |
 | `references-videos.zip` | Les 9 vidéos de référence, renommées par famille (`motion_a8d5.mp4`…) | Non. Le style est déjà codé dans le moteur. Utile seulement pour réanalyser un procédé ou en ajouter un. |
 
 À côté du paquet, l'autre Claude a besoin de :
@@ -21,20 +21,21 @@
    - `~/.claude/skills/` : la skill est disponible dans tous vos projets ;
    - `<votre-projet>/.claude/skills/` : la skill est limitée à ce projet.
 
-   Résultat attendu : `…/.claude/skills/montage-reels/SKILL.md`.
-2. Démarrer Claude Code. La skill apparaît sous le nom `montage-reels`.
+   Résultat attendu : `…/.claude/skills/montage/SKILL.md` **et** `…/.claude/skills/montage-reels/SKILL.md` (les deux dossiers côte à côte).
+2. Démarrer Claude Code, puis taper `/montage` en joignant la vidéo (ou `/montage chemin/vers/video.mp4`).
 3. À la première utilisation, Claude copie `template/` dans un dossier de travail et lance `tools/setup.sh`.
 
-Encore plus simple : la skill est déjà dans votre repo GitHub (`.claude/skills/montage-reels/` + `reels/`, branche `claude/zealous-wozniak-elpbh1`). Toute session Claude Code ouverte sur ce repo l'a automatiquement.
+Encore plus simple : les skills sont déjà dans votre repo GitHub (`.claude/skills/montage/`, `.claude/skills/montage-reels/` et `reels/`, branche `claude/zealous-wozniak-elpbh1`). Toute session Claude Code ouverte sur ce repo a donc `/montage` automatiquement.
 
 ### Option B : claude.ai (chat)
 
-Importez `montage-reels.zip` dans les paramètres du compte, rubrique des skills (l'exécution de code doit être activée). Le process et le style seront respectés. En revanche, le rendu vidéo (Remotion + Chromium) est lourd : le bac à sable du chat peut ne pas avoir le réseau ou le temps nécessaires. Pour produire les mp4, privilégiez l'option A.
+Dézippez `montage-reels.zip`, rezippez **chaque** dossier (`montage/` et `montage-reels/`) séparément, puis importez les deux zips dans les paramètres du compte, rubrique des skills (l'exécution de code doit être activée). Le process et le style seront respectés. En revanche, le rendu vidéo (Remotion + Chromium) est lourd : le bac à sable du chat peut ne pas avoir le réseau ou le temps nécessaires. Pour produire les mp4, privilégiez l'option A.
 
 ## Le message à envoyer à l'autre Claude
 
-> Utilise la skill montage-reels pour monter cette vidéo en Reel 9:16. [joindre la vidéo]
-> (optionnel) Voici aussi references-videos.zip si tu dois réanalyser un procédé.
+> /montage [joindre la vidéo]
+
+Ou, là où les commandes slash ne sont pas disponibles : « Utilise la skill montage pour monter cette vidéo en Reel 9:16 ».
 
 Claude suit alors les 10 étapes de `SKILL.md` :
 

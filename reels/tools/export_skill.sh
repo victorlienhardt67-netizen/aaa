@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 # Build a self-contained, portable copy of the "montage-reels" skill:
-#   export/montage-reels.zip      → skill folder (SKILL.md + references/ + template/ = the engine)
+#   export/montage-reels.zip      → skills/montage (the /montage command) + skills/montage-reels
+#                                   (SKILL.md + references/ + template/ = the engine)
 #   export/references-videos.zip  → the reference reels, renamed by family (optional, needs REFS_DIR)
 # Usage: tools/export_skill.sh [REFS_DIR]
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=$ROOT/export
 STAGE=$(mktemp -d)
-SK=$STAGE/montage-reels
-mkdir -p "$SK" "$OUT"
+SK=$STAGE/skills/montage-reels
+mkdir -p "$SK" "$OUT" "$STAGE/skills/montage"
 cp -r "$ROOT/.claude/skills/montage-reels/." "$SK/"
+cp -r "$ROOT/.claude/skills/montage/." "$STAGE/skills/montage/"
 cp "$ROOT/reels/STYLE.md" "$SK/references/STYLE.md"
 mkdir -p "$SK/template"
 ( cd "$ROOT/reels" && tar cf - --exclude=node_modules --exclude=out --exclude=public/media . ) | ( cd "$SK/template" && tar xf - )
 mkdir -p "$SK/template/public/media"
 rm -f "$OUT/montage-reels.zip"
-( cd "$STAGE" && zip -qr "$OUT/montage-reels.zip" montage-reels )
+( cd "$STAGE/skills" && zip -qr "$OUT/montage-reels.zip" montage montage-reels )
 
 REFS_DIR=${1:-}
 if [ -n "$REFS_DIR" ]; then
