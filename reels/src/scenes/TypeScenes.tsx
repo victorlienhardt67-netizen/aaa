@@ -30,7 +30,7 @@ export const GhostWords: React.FC<{ beats: { at: number; text: string; ghost: st
           translate: "0 -50%",
           fontFamily: POP,
           fontWeight: 600,
-          fontSize: 760,
+          fontSize: Math.min(760, 3400 / b.ghost.length),
           letterSpacing: "-0.06em",
           lineHeight: 0.8,
           whiteSpace: "nowrap",

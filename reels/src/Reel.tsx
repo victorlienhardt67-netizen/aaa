@@ -1,7 +1,8 @@
 import React from "react";
 import { AbsoluteFill, interpolate, Sequence, staticFile, useCurrentFrame } from "remotion";
 import { Audio, Video } from "@remotion/media";
-import { clamp, easeOut } from "./lib/anim";
+import { clamp, easeOut, prog } from "./lib/anim";
+import { C } from "./lib/tokens";
 import { Keep, makeClock } from "./edit/cut";
 import { ClockProvider, useAt } from "./edit/clock";
 import { Captions, buildCaptions } from "./components/Captions";
@@ -50,6 +51,8 @@ export const makeReel = (cfg: ReelConfig) => {
     const zoom = useFaceTransform(s.zooms ?? []);
     // raccord: every return to the face lands with a short focus pull
     const land = interpolate(f, [0, 6], [1, 0], { ...clamp, easing: easeOut });
+    // "séparation": the frame splits in two halves that drift apart around a lime crack
+    const split = { k: s.split ? prog(f, at(s.split.at), at(s.split.at) + 10, easeOut) * (1 - prog(f, at(s.split.out), at(s.split.out) + 8)) : 0 };
     const card = s.card ? shrinkCard(f, at(s.card.at), at(s.card.out)) : { k: 0, scale: 1, radius: 0, y: 0 };
     // the scene's last caption group stays until the scene cuts away
     const groups = buildCaptions(WORDS, s.caps, Infinity);
@@ -73,7 +76,21 @@ export const makeReel = (cfg: ReelConfig) => {
               filter: land > 0.02 ? `blur(${land * 10}px)` : undefined,
             }}
           >
-            <FacePieces a={a} b={b} extendLast={isLast} />
+            {split.k > 0 ? (
+              <>
+                {[-1, 1].map((side) => (
+                  <AbsoluteFill
+                    key={side}
+                    style={{ clipPath: side < 0 ? "inset(0 50% 0 0)" : "inset(0 0 0 50%)", translate: `${side * 46 * split.k}px ${side * 10 * split.k}px`, rotate: `${side * 1.2 * split.k}deg` }}
+                  >
+                    <FacePieces a={a} b={b} extendLast={isLast} />
+                  </AbsoluteFill>
+                ))}
+                <AbsoluteFill style={{ left: "50%", width: 6, translate: "-3px 0", background: C.lime, opacity: split.k, boxShadow: "0 0 24px rgba(213,255,56,.8)" }} />
+              </>
+            ) : (
+              <FacePieces a={a} b={b} extendLast={isLast} />
+            )}
           </AbsoluteFill>
           {cfg.topShade ? <TopShade /> : null}
         </AbsoluteFill>

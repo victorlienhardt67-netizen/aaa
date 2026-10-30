@@ -303,8 +303,8 @@ export const MdCalendar: React.FC<{ head: { at: number; small: string; big: stri
 export const MdMap: React.FC<{
   head: { at: number; small: string; big: string; bigAt: number };
   pin: { at: number; label: string; sub: { at: number; text: string } };
-  landmark: { at: number; small: string; big: string; bigAt: number };
-}> = ({ head, pin, landmark }) => {
+  landmark?: { at: number; small: string; big: string; bigAt: number };
+}> = ({ head, pin, landmark = { at: 1e6, small: "", big: "", bigAt: 1e6 } }) => {
   const at = useAt();
   const f = useCurrentFrame();
   const a0 = at(head.at);
@@ -413,6 +413,121 @@ export const MdSwap: React.FC<{ from: { at: number; small: string; big: string; 
       <Txt text={to.small} role="sec" size={62} x={540} y={1150} align="center" at={at(to.at) - 1} rate={0.7} />
       <div style={{ position: "absolute", left: 0, right: 0, top: 1230, textAlign: "center", opacity: prog(f, at(to.bigAt) - 1, at(to.bigAt) + 4), scale: String(1.35 - 0.35 * prog(f, at(to.bigAt) - 1, at(to.bigAt) + 8, easeOut)), filter: `blur(${(1 - prog(f, at(to.bigAt) - 1, at(to.bigAt) + 6)) * 14}px)` }}>
         <span style={{ ...font.strong, ...fill.lime, fontSize: 300 }}>{to.big}</span>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+/* ---------------- a year split in two halves ---------------- */
+
+export const MdHalves: React.FC<{
+  head: { at: number; small: string; big: string; bigAt: number };
+  a: { at: number; small: string; big: string; bigAt: number; fill: [number, number] };
+  b: { at: number; small: string; big: string; bigAt: number; fill: [number, number] };
+}> = ({ head, a, b }) => {
+  const at = useAt();
+  const f = useCurrentFrame();
+  const cw = 64;
+  const gap = 10;
+  const total = cw * 12 + gap * 11;
+  const x0 = (W - total) / 2;
+  const nA = interpolate(f, [at(a.fill[0]), at(a.fill[1])], [0, 6], clamp);
+  const nB = interpolate(f, [at(b.fill[0]), at(b.fill[1])], [0, 6], clamp);
+  const half = (k: number) => x0 + (k === 0 ? total / 4 : (3 * total) / 4);
+  return (
+    <AbsoluteFill>
+      <DarkGridBg id="halves" />
+      <Txt text={head.small} role="sec" size={64} x={80} y={200} at={at(head.at)} />
+      <Txt text={head.big} role="strong" size={160} x={70} y={264} at={at(head.bigAt) - 1} />
+      <div style={{ position: "absolute", left: x0 - 30, top: 820, width: total + 60, height: 220, borderRadius: 36, background: "#0B0B0B", border: "2px solid #2a2a2a", ...blurIn(f, at(head.at), 10) }} />
+      {Array.from({ length: 12 }).map((_, i) => {
+        const inA = i < 6;
+        const fillK = inA ? Math.min(1, Math.max(0, nA - i)) : Math.min(1, Math.max(0, nB - (i - 6)));
+        return (
+          <div key={i} style={{ position: "absolute", left: x0 + i * (cw + gap), top: 850, width: cw, height: 160, borderRadius: 16, background: "#1c1c1c", overflow: "hidden" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${fillK * 100}%`, background: inA ? C.lime : "#F2F2F2" }} />
+          </div>
+        );
+      })}
+      <div style={{ position: "absolute", left: W / 2 - 3, top: 800, width: 6, height: 260, borderRadius: 3, background: "#555", opacity: prog(f, at(a.at), at(a.at) + 8) }} />
+      <Txt text={a.small} role="sec" size={58} x={half(0)} y={1100} align="center" at={at(a.at) - 1} />
+      <Txt text={a.big} role="capsLime" size={118} x={half(0)} y={1162} align="center" at={at(a.bigAt) - 1} />
+      <Txt text={b.small} role="sec" size={58} x={half(1)} y={1100} align="center" at={at(b.at) - 1} />
+      <Txt text={b.big} role="caps" size={118} x={half(1)} y={1162} align="center" at={at(b.bigAt) - 1} />
+    </AbsoluteFill>
+  );
+};
+
+/* ---------------- two identical towers ---------------- */
+
+const Building: React.FC<{ lit: number; pulse?: number }> = ({ lit, pulse = 0 }) => {
+  const cols = 4;
+  const rows = 13;
+  return (
+    <div style={{ width: 300, height: 940, borderRadius: "18px 18px 0 0", background: "linear-gradient(90deg,#1f1f1f,#141414)", border: `3px solid ${pulse ? C.lime : "#333"}`, boxShadow: pulse ? `0 0 ${40 * pulse}px rgba(213,255,56,${0.6 * pulse})` : "0 30px 60px rgba(0,0,0,.6)", padding: 24, display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: 46, gap: 18 }}>
+      {Array.from({ length: cols * rows }).map((_, i) => {
+        const top = i < cols;
+        return <div key={i} style={{ borderRadius: 6, background: top ? `rgba(213,255,56,${0.12 + 0.88 * lit})` : "#2a2a2a", boxShadow: top && lit ? `0 0 ${18 * lit}px rgba(213,255,56,.7)` : undefined }} />;
+      })}
+    </div>
+  );
+};
+
+export const MdTwins: React.FC<{
+  head: { at: number; small: string; big: string; bigAt: number };
+  a: { at: number; litAt: number; small: string; big: string; bigAt: number };
+  b: { at: number; litAt: number; small: string; big: string; bigAt: number; pulseAt: number };
+  same: { at: number; text: string };
+}> = ({ head, a, b, same }) => {
+  const at = useAt();
+  const f = useCurrentFrame();
+  const inA = blurIn(f, at(a.at), 12);
+  const slide = moveBlurX(f, at(b.at), at(b.at) + 14);
+  const pulse = interpolate(f, [at(b.pulseAt), at(b.pulseAt) + 6, at(b.pulseAt) + 26], [0, 1, 0.35], clamp);
+  const br = prog(f, at(same.at), at(same.at) + 14, easeInOut);
+  return (
+    <AbsoluteFill>
+      <DarkGridBg id="twins" />
+      <Txt text={head.small} role="sec" size={60} x={80} y={150} at={at(head.at)} rate={0.8} />
+      <Txt text={head.big} role="strong" size={128} x={70} y={210} at={at(head.bigAt) - 1} />
+      <div style={{ position: "absolute", left: 160, top: 470, ...inA }}>
+        <Building lit={prog(f, at(a.litAt), at(a.litAt) + 10)} />
+      </div>
+      <div style={{ position: "absolute", left: 620, top: 470, translate: `${slide.v}px 0`, filter: slide.blur ? `blur(${slide.blur}px)` : undefined, opacity: f >= at(b.at) ? 1 : 0 }}>
+        <Building lit={prog(f, at(b.litAt), at(b.litAt) + 10)} pulse={pulse} />
+      </div>
+      <Txt text={a.small} role="sec" size={56} x={310} y={1430} align="center" at={at(a.bigAt) - 9} />
+      <Txt text={a.big} role="strong" size={104} x={310} y={1490} align="center" at={at(a.bigAt) - 1} />
+      <Txt text={b.small} role="sec" size={56} x={770} y={1430} align="center" at={at(b.bigAt) - 9} />
+      <Txt text={b.big} role="strongLime" size={92} x={770} y={1494} align="center" at={at(b.bigAt) - 1} />
+      <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
+        <path d="M 160 1640 L 160 1670 L 920 1670 L 920 1640" fill="none" stroke={C.lime} strokeWidth={6} pathLength={1} strokeDasharray="1 1" strokeDashoffset={1 - br} strokeLinejoin="round" />
+      </svg>
+      <Txt text={same.text} role="sec" size={60} x={540} y={1700} align="center" at={at(same.at) + 4} />
+    </AbsoluteFill>
+  );
+};
+
+const moveBlurX = (f: number, a: number, b: number) => {
+  const v = interpolate(f, [a, b], [700, 0], { ...clamp, easing: easeOut });
+  const v2 = interpolate(f + 1, [a, b], [700, 0], { ...clamp, easing: easeOut });
+  return { v, blur: Math.min(20, Math.abs(v2 - v) * 0.3) };
+};
+
+/* ---------------- closing line built word by word ---------------- */
+
+export const MdFinal: React.FC<{ lines: { at: number; text: string; role: "sec" | "strong" | "strongLime"; size: number; y: number; rate?: number }[]; punch: { at: number; text: string } }> = ({ lines, punch }) => {
+  const at = useAt();
+  const f = useCurrentFrame();
+  const p = prog(f, at(punch.at) - 1, at(punch.at) + 7, easeOut);
+  return (
+    <AbsoluteFill>
+      <DarkGridBg circles={{ x: 540, y: 1200 }} id="final" />
+      {lines.map((l, i) => (
+        <Txt key={i} text={l.text} role={l.role} size={l.size} x={540} y={l.y} align="center" at={at(l.at) - 1} rate={l.rate} />
+      ))}
+      <div style={{ position: "absolute", left: 0, right: 0, top: 1160, textAlign: "center", opacity: p, scale: String(1.4 - 0.4 * p), filter: p < 1 ? `blur(${(1 - p) * 14}px)` : undefined }}>
+        <span style={{ ...font.strong, ...fill.lime, fontSize: 320 }}>{punch.text}</span>
       </div>
     </AbsoluteFill>
   );

@@ -8,3 +8,4 @@ Ajouter une ligne datée à chaque nouveau retour.
 - **29/10, Reel 01** : « vraiment très bien ». Seul défaut : le cercle autour du visage sur « dès le matin au réveil » ne se comprenait pas. → Remplacé par un téléphone écran de verrouillage 7:00 + alarme « Réveil ». **Règle : chaque visuel doit se comprendre sans le son.**
 - **29/10, après Reel 01** : « franchement, c'était parfait » → process sauvegardé tel quel.
 - **29/10, Robin 02 (podcast)** : en attente de retour.
+- **30/10, Robin 07 (podcast « Marina, 5 ans plus tard »)** : en attente de retour.

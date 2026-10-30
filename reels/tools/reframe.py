@@ -1,5 +1,7 @@
 # Reframe a 16:9 multi-cam podcast into a 1080x1920 face-cam master.
-# Usage: python3 -I reframe.py src.mp4 shots.json out.mp4
+# Usage: python3 -I reframe.py src.mp4 shots.json out.mp4 [subs_band]
+#   subs_band = "0.54,0.67": vertical band (fraction of height) holding burned-in white subtitles;
+#   they are detected per frame (thin near-white strokes + their shadow) and inpainted before cropping.
 # shots.json: [{"from": s, "to": s, "x": 0.53}  -> single 9:16 crop centred on x (fraction of width)
 #              {"from": s, "to": s, "stack": [0.33, 0.79]} -> split-screen source: left/right halves
 #                                                              stacked top/bottom, each centred on x]
@@ -7,6 +9,7 @@ import cv2, json, sys, subprocess
 import numpy as np
 
 src, shots_path, dst = sys.argv[1:4]
+band = [float(v) for v in sys.argv[4].split(",")] if len(sys.argv) > 4 else None
 shots = json.load(open(shots_path))
 cap = cv2.VideoCapture(src)
 fps = cap.get(cv2.CAP_PROP_FPS)
@@ -19,6 +22,23 @@ def shot_at(t):
         if s["from"] <= t < s["to"]:
             return s
     return shots[-1]
+
+def remove_subs(f):
+    y0, y1 = int(band[0] * H), int(band[1] * H)
+    roi = f[y0:y1]
+    white = (roi.min(axis=2) > 215).astype(np.uint8)
+    # keep only text-sized blobs (subtitle strokes), not shirts or windows
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(white, 8)
+    keep = np.zeros_like(white)
+    for i in range(1, n):
+        x, y, w, h, a = stats[i]
+        if a < 2500 and h < (y1 - y0) * 0.9 and w < W * 0.2:
+            keep[lab == i] = 1
+    if keep.sum() < 40:
+        return f
+    mask = np.zeros(f.shape[:2], np.uint8)
+    mask[y0:y1] = cv2.dilate(keep, np.ones((9, 9), np.uint8)) * 255
+    return cv2.inpaint(f, mask, 5, cv2.INPAINT_TELEA)
 
 def single(f, x):
     cw = int(round(H * 9 / 16))
@@ -50,6 +70,8 @@ while True:
     if not ok:
         break
     s = shot_at(i / fps)
+    if band:
+        f = remove_subs(f)
     img = stacked(f, s["stack"]) if "stack" in s else single(f, s["x"])
     ff.stdin.write(img.tobytes())
     i += 1

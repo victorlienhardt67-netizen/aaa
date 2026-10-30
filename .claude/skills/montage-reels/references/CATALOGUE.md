@@ -21,6 +21,7 @@ Tous les temps sont en **secondes SOURCE**. Un `Scene` démarre à `from` et dur
 | `FaceRing` | cercle + étiquette autour du visage. **À éviter seul : peu lisible sans le son** | — |
 | `card: {at, out}` | la face caméra se réduit en carte sur fond grille | respiration avant un texte |
 | `Moon` | petite lune verte | nuit, dormir |
+| `split: {at, out}` | l'image se fend en deux moitiés qui s'écartent autour d'une fissure verte | séparation, rupture |
 
 ## Motion design : `src/scenes/Motion.tsx` (Reel 01)
 
@@ -47,6 +48,9 @@ Tous les temps sont en **secondes SOURCE**. Un `Scene` démarre à `from` et dur
 | `MdMap` | plan de rues, épingle, lien vers un lieu | lieu, adresse |
 | `MdTower` | objet qui descend du ciel dans un faisceau et se pose | arrivée, révélation, « posé » |
 | `MdSwap` | valeur barrée remplacée par une autre | chute, retournement final |
+| `MdHalves` | barre de 12 cases remplie en deux moitiés (vert / blanc) | partage d'une durée, plan « 6 mois / 6 mois » |
+| `MdTwins` | deux tours identiques, dernier étage allumé, accolade commune | « le même… mais un autre », comparaison |
+| `MdFinal` | phrase construite ligne par ligne + mot final géant en vert | chute / dernière phrase |
 
 ## Texte seul (Poppins SemiBold)
 
