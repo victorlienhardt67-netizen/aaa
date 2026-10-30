@@ -48,9 +48,7 @@ Tous les temps sont en **secondes SOURCE**. Un `Scene` démarre à `from` et dur
 | `MdMap` | plan de rues, épingle, lien vers un lieu | lieu, adresse |
 | `MdTower` | objet qui descend du ciel dans un faisceau et se pose | arrivée, révélation, « posé » |
 | `MdSwap` | valeur barrée remplacée par une autre | chute, retournement final |
-| `MdHalves` | barre de 12 cases remplie en deux moitiés (vert / blanc) | partage d'une durée, plan « 6 mois / 6 mois » |
-| `MdTwins` | deux tours identiques, dernier étage allumé, accolade commune | « le même… mais un autre », comparaison |
-| `MdFinal` | phrase construite ligne par ligne + mot final géant en vert | chute / dernière phrase |
+| `MdHalves`, `MdTwins`, `MdFinal` | *(brouillon Robin 07, texte + UI : ne plus utiliser, remplacés par Marina.tsx)* | — |
 
 ## Motion design : `src/scenes/Objects.tsx` (Robin 04 v2, scènes bâties autour d'un visuel)
 
@@ -94,6 +92,15 @@ Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `Bloc
 | `MdNews` | téléphone qui monte, notification d'alerte sur l'écran de verrouillage | actualité, « en ce moment » |
 | `MdRoots` | point central + branches vers des étiquettes + objet détouré, fondu au noir final | attaches, ce qui compte, fin |
 
+## Motion design : `src/scenes/Marina.tsx` (Robin 07, « Marina, cinq ans plus tard »)
+
+| Scène | Procédé | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdTiltUp` | travelling vertical le long d'une tour jusqu'au dernier étage qui s'allume, ciel de crépuscule, étiquette en bloc | `tower_marina.png` | un lieu, « en haut », arriver quelque part |
+| `MdHourglass` | sablier qui tombe, rebondit puis se retourne ; deux étiquettes en bloc (la première s'éteint) | `hourglass.png` | partage du temps, alternance, « 6 mois / 6 mois » |
+| `MdLoupe` | deux tirages photo sur béton, une loupe grossit le détail de l'un puis de l'autre, ellipse verte qui les réunit | `loupe.png`, `tower_marina.png` | comparer deux choses presque identiques |
+| `MdLightsOut` | tour de nuit, recul de caméra, la lumière du dernier étage vacille et s'éteint sur le mot final | `tower_marina.png` | malaise, fin d'un chapitre, chute |
+
 ## Texte seul (Poppins SemiBold)
 
 | Composant | Procédé (référence) |
@@ -102,6 +109,8 @@ Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `Bloc
 | `GhostWords` | ligne centrée + mot fantôme géant qui dérive (0b99) |
 | `StackList` | liste qui s'empile, les termes précédents s'atténuent (`size` pour les termes longs) |
 | `Stamps` | voir plus haut |
+| `TxMarker` | phrase posée, les mots clés passent sous un trait de surligneur vert (Marina.tsx) |
+| `TxSqueeze` | deux mâchoires vertes compriment les mots (Marina.tsx) |
 
 ## Briques
 

@@ -1,15 +1,14 @@
 /**
  * Robin 07 — podcast extract "Marina, cinq ans plus tard" (16:9 multi-cam with burned-in
  * subtitles, removed by tools/reframe.py band 0.55–0.66). Plan in SOURCE seconds.
+ * Motion scenes are built around real cut-outs (tower, hourglass, loupe) — see Marina.tsx.
  */
 import React from "react";
 import words from "./robin07.words.json";
 import { computeKeeps, dropWords, Word } from "./cut";
 import type { Scene } from "./scene";
 import type { ReelConfig } from "../Reel";
-import { MdFinal, MdHalves, MdMap, MdTwins } from "../scenes/Story";
-import { GhostWords } from "../scenes/TypeScenes";
-import { WordFlash } from "../components/WordFlash";
+import { MdHourglass, MdLightsOut, MdLoupe, MdTiltUp, TxMarker, TxSqueeze } from "../scenes/Marina";
 
 const DROP: [number, number][] = [
   [5.8, 6.3], // "Et du coup, en fait,"
@@ -26,21 +25,18 @@ const SCENES: Scene[] = [
   {
     kind: "md",
     from: 0.06,
-    node: (
-      <MdMap
-        head={{ at: 0.14, small: "je prends un", big: "penthouse", bigAt: 1.14 }}
-        pin={{ at: 1.66, label: "Dubaï Marina", sub: { at: 2.9, text: "pour 6 mois" } }}
-      />
-    ),
+    node: <MdTiltUp head={{ at: 0.14, small: "je prends un", big: "penthouse", bigAt: 1.14 }} place={{ at: 1.66, text: "Dubaï Marina" }} tag={{ at: 2.9, text: "6 mois" }} />,
   },
   {
     kind: "md",
     from: 3.44,
     node: (
-      <MdHalves
+      <MdHourglass
         head={{ at: 3.46, small: "et là,", big: "mon plan", bigAt: 3.74 }}
-        a={{ at: 4.56, small: "6 mois", big: "Dubaï", bigAt: 4.82, fill: [4.56, 5.08] }}
-        b={{ at: 5.22, small: "6 mois", big: "Bali", bigAt: 5.44, fill: [5.22, 5.68] }}
+        label="6 mois"
+        a={{ at: 4.56, text: "Dubaï" }}
+        flipAt={5.12}
+        b={{ at: 5.44, text: "Bali" }}
       />
     ),
   },
@@ -57,11 +53,11 @@ const SCENES: Scene[] = [
     kind: "md",
     from: 8.58,
     node: (
-      <MdTwins
+      <MdLoupe
         head={{ at: 8.6, small: "et j'ai repris quasiment", big: "le même appart", bigAt: 9.86 }}
-        a={{ at: 9.0, litAt: 10.16, small: "il y a", big: "5 ans", bigAt: 11.84 }}
-        b={{ at: 12.62, litAt: 14.14, small: "une", big: "autre tour", bigAt: 14.0, pulseAt: 15.42 }}
-        same={{ at: 14.52, text: "la même résidence" }}
+        a={{ at: 9.0, small: "il y a", big: "5 ans", bigAt: 11.84 }}
+        b={{ at: 12.62, small: "une", big: "autre tour", bigAt: 14.0, lookAt: 13.72 }}
+        same={{ at: 14.52, text: "même résidence" }}
       />
     ),
   },
@@ -74,14 +70,7 @@ const SCENES: Scene[] = [
   {
     kind: "tx",
     from: 17.12,
-    node: (
-      <WordFlash
-        beats={[
-          { at: 17.14, small: "donc là, j'avais vraiment", big: "l'impression", bg: "light" },
-          { at: 18.94, small: "de", big: "manger ma merde.", bg: "dark", accent: true },
-        ]}
-      />
-    ),
+    node: <TxMarker lead={{ at: 17.14, text: "donc là, j'avais vraiment l'impression de" }} words={{ at: 18.98, text: "manger ma merde." }} />,
   },
   {
     kind: "fc",
@@ -97,7 +86,7 @@ const SCENES: Scene[] = [
   {
     kind: "tx",
     from: 23.4,
-    node: <GhostWords beats={[{ at: 23.66, text: "relation très prenante", ghost: "prenante", bg: "lime" }]} />,
+    node: <TxSqueeze small={{ at: 23.66, text: "relation" }} big={{ at: 24.0, text: "très prenante" }} squeezeAt={24.38} />,
   },
   {
     kind: "fc",
@@ -113,13 +102,14 @@ const SCENES: Scene[] = [
     kind: "md",
     from: 29.12,
     node: (
-      <MdFinal
+      <MdLightsOut
         lines={[
-          { at: 29.14, text: "j'ai commencé à ressentir", role: "sec", size: 60, y: 520, rate: 0.7 },
-          { at: 30.02, text: "un truc", role: "strongLime", size: 160, y: 590 },
-          { at: 30.24, text: "où je me suis dit", role: "sec", size: 58, y: 880 },
-          { at: 30.94, text: "je me sens pas bien", role: "strong", size: 112, y: 950, rate: 0.8 },
+          { at: 29.14, text: "j'ai commencé à ressentir", role: "sec", size: 60, y: 150, rate: 0.7 },
+          { at: 30.02, text: "un truc", role: "strong", size: 140, y: 214 },
+          { at: 30.24, text: "où je me suis dit", role: "sec", size: 56, y: 420 },
+          { at: 30.94, text: "je me sens pas bien", role: "strong", size: 100, y: 482, rate: 0.8 },
         ]}
+        outAt={31.5}
         punch={{ at: 31.5, text: "ici." }}
       />
     ),
