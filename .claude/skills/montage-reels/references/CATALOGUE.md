@@ -70,6 +70,18 @@ Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `Bloc
 | `MdVitrine` | objet rare sous cloche de musée, cartel qui pivote (A → B), écho de l'autre intervenant | `unicorn.png` | rare, inhabituel, comparaison de pays |
 | `MdCart` | piste en perspective qui défile, objet qui déboule et freine, colis qui tombent dedans | `cart.png` | e-commerce, achat, vente |
 
+## Motion design : `src/scenes/Simple.tsx` (Robin 06, simplicité)
+
+| Scène | Procédé | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdOverload` | objet surchargé, cotes techniques qui envahissent l'écran, étiquettes reliées à l'objet par des repères verts | `remote_complex.png` | complexité, trop de choses |
+| `MdReceipt` | ticket de caisse qui sort d'une imprimante, lignes « + … » | — | liste de bénéfices attendus |
+| `TxFlip` | texte seul : la phrase se retourne à 180°, le fond bascule | — | « tout le contraire » |
+| `TxQuote` | texte seul : fond vert, grands guillemets, citation mot à mot | — | citation |
+| `MdStrip` | l'objet complexe tremble, ses boutons volent en éclats, son jumeau simple apparaît, onde sur le bouton | `remote_complex.png`, `remote_simple.png` | simplifier, avant / après |
+| `MdMaze` | curseur qui erre dans un labyrinthe, qui devient une ligne droite verte | `cursor.png` | parcours, UX, simplifier un chemin |
+| `MdPress` | final : l'objet monte, on appuie sur le bouton, ondes vertes, fondu | `remote_simple.png` | conclusion, l'essentiel |
+
 ## Motion design : `src/scenes/Rant.tsx` (Robin 04 v1, remplacé — procédés jugés trop proches de Robin 02)
 
 | Scène | Procédé | Pour dire… |

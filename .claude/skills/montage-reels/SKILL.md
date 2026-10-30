@@ -18,7 +18,7 @@ Tu montes des Reels qui alternent **face caméra sous-titrée**, **séquences de
 | `references/` (ce dossier) | skill | STYLE, catalogue des scènes, leçons, analyse des références |
 | (optionnel) les vidéos de référence | `refs/` fourni à part | réanalyser un procédé si besoin |
 
-Sans ElevenLabs : transcrire avec `faster-whisper` (modèle `small`, `word_timestamps=True`, langue `fr`), puis convertir au format `[{t,s,e}]`. Sans génération d'images : utiliser des photos fournies par l'utilisateur ou des banques libres, détourées.
+Si l'envoi de fichiers vers ElevenLabs est indisponible, attendre la reconnexion du connecteur (Hugging Face, d'où `faster-whisper` télécharge ses modèles, peut être bloqué par le réseau du conteneur). Sinon : transcrire avec `faster-whisper` (modèle `small`, `word_timestamps=True`, langue `fr`), puis convertir au format `[{t,s,e}]`. Sans génération d'images : utiliser des photos fournies par l'utilisateur ou des banques libres, détourées.
 
 Première fois : `cd template && bash tools/setup.sh`.
 

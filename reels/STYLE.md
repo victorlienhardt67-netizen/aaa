@@ -69,3 +69,9 @@ Aucun chiffre, aucune statistique et aucune preuve n'ont été ajoutés. Les puc
 - Source 16:9 720p avec sous-titres incrustés : `tools/clean_subs.py` (bande 395–478) — la détection prend maintenant aussi les lettres blanc pur posées sur une chemise blanche. Légère trace sur le haut du micro. Recadrage 9:16 par plan (`robin05.shots.json`) ; l'agrandissement 720p → 1920 rend l'image plus douce.
 - Coupes : « euh », « Ouais, ouais » (relance de Robin).
 - Visuels IA (Seedream 5 Pro + BiRefNet v2) : `gauge.png` (compteur sans aiguille, aiguille animée en code), `jar.png`, `unicorn.png`, `cart.png`. Gélules et colis dessinés en code.
+
+## Robin 06 (« la simplicité ultime »)
+
+- Source 16:9 720p, face caméra seul, sous-titres incrustés retirés par `tools/clean_subs.py` (légère trace sur la poitrine, couverte par nos sous-titres). Agrandissement 720p → 1920 : image un peu douce.
+- Aucune coupe de mot (pas d'hésitation) ; blancs resserrés.
+- Visuels IA (Seedream 5 Pro + BiRefNet v2) : `remote_complex.png`, `remote_simple.png`, `cursor.png`. Ticket, labyrinthe, cotes et éclats de boutons dessinés en code. Aucun logo ni portrait réel (Apple et Steve Jobs sont seulement cités en texte).
