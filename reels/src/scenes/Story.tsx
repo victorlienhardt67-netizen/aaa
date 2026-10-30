@@ -397,7 +397,7 @@ export const MdTower: React.FC<{
 
 /* ---------------- ending: one value replaced by another ---------------- */
 
-export const MdSwap: React.FC<{ from: { at: number; small: string; big: string; bigAt: number }; strikeAt: number; to: { at: number; small: string; big: string; bigAt: number } }> = ({ from, strikeAt, to }) => {
+export const MdSwap: React.FC<{ from: { at: number; small: string; big: string; bigAt: number }; strikeAt: number; to: { at: number; small: string; big: string; bigAt: number }; toSize?: number }> = ({ from, strikeAt, to, toSize = 300 }) => {
   const at = useAt();
   const f = useCurrentFrame();
   const st = prog(f, at(strikeAt), at(strikeAt) + 8);
@@ -412,7 +412,7 @@ export const MdSwap: React.FC<{ from: { at: number; small: string; big: string; 
       </div>
       <Txt text={to.small} role="sec" size={62} x={540} y={1150} align="center" at={at(to.at) - 1} rate={0.7} />
       <div style={{ position: "absolute", left: 0, right: 0, top: 1230, textAlign: "center", opacity: prog(f, at(to.bigAt) - 1, at(to.bigAt) + 4), scale: String(1.35 - 0.35 * prog(f, at(to.bigAt) - 1, at(to.bigAt) + 8, easeOut)), filter: `blur(${(1 - prog(f, at(to.bigAt) - 1, at(to.bigAt) + 6)) * 14}px)` }}>
-        <span style={{ ...font.strong, ...fill.lime, fontSize: 300 }}>{to.big}</span>
+        <span style={{ ...font.strong, ...fill.lime, fontSize: toSize }}>{to.big}</span>
       </div>
     </AbsoluteFill>
   );

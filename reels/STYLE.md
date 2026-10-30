@@ -56,3 +56,22 @@ Aucun chiffre, aucune statistique et aucune preuve n'ont été ajoutés. Les puc
 - Hésitations retirées : « euh », « J'avais rendu, » (faux départ), « de, », « J'avais— ».
 - Visuels générés par IA (ElevenLabs, Seedream 5 Pro + détourage BiRefNet v2) : `keys.png`, `skydiver.png`, `burj.png`, `palm.jpg` (vue aérienne de la Palm Jumeirah). Ce ne sont pas des photos réelles.
 - Éléments graphiques construits en code : tableau des départs (BALI · PRÉVU → FERMÉ), conversation « Les potes », calendrier (21 jours = « trois semaines »), plan de rues avec épingle « Airbnb ».
+
+## Robin 04 (podcast « le pays »)
+
+- Source 16:9 avec sous-titres incrustés mot à mot : retirés par `tools/clean_subs.py` (inpainting sur la bande centrale), puis recadrés en 9:16 par `tools/reframe.py` + `src/edit/robin04.shots.json`. De légères traces restent par endroits sous nos sous-titres.
+- Coupes : « et qui se trouve » (phrase reprise), « Tu sens que la France a… » (faux départ).
+- Visuels générés par IA (ElevenLabs Seedream 5 Pro), dans la règle « tons neutres + touche de vert » : `eiffel.png` (tour graphite, fanion vert, détourage local), `bust_lime.png` (buste en marbre au cerveau vert), `tv.png` (TV vintage, bouton vert), `padlock.png` (cadenas, étiquette verte), `vest.png` (gilet haute visibilité) — détourage BiRefNet v2.
+- v2 (après retour) : plus aucun objet sur la face caméra ; les cinq scènes de motion sont reconstruites autour de ces visuels (`src/scenes/Objects.tsx`).
+
+## Robin 05 (podcast « 2,5 millions par mois »)
+
+- Source 16:9 720p avec sous-titres incrustés : `tools/clean_subs.py` (bande 395–478) — la détection prend maintenant aussi les lettres blanc pur posées sur une chemise blanche. Légère trace sur le haut du micro. Recadrage 9:16 par plan (`robin05.shots.json`) ; l'agrandissement 720p → 1920 rend l'image plus douce.
+- Coupes : « euh », « Ouais, ouais » (relance de Robin).
+- Visuels IA (Seedream 5 Pro + BiRefNet v2) : `gauge.png` (compteur sans aiguille, aiguille animée en code), `jar.png`, `unicorn.png`, `cart.png`. Gélules et colis dessinés en code.
+
+## Robin 06 (« la simplicité ultime »)
+
+- Source 16:9 720p, face caméra seul, sous-titres incrustés retirés par `tools/clean_subs.py` (légère trace sur la poitrine, couverte par nos sous-titres). Agrandissement 720p → 1920 : image un peu douce.
+- Aucune coupe de mot (pas d'hésitation) ; blancs resserrés.
+- Visuels IA (Seedream 5 Pro + BiRefNet v2) : `remote_complex.png`, `remote_simple.png`, `cursor.png`. Ticket, labyrinthe, cotes et éclats de boutons dessinés en code. Aucun logo ni portrait réel (Apple et Steve Jobs sont seulement cités en texte).

@@ -52,13 +52,55 @@ Tous les temps sont en **secondes SOURCE**. Un `Scene` démarre à `from` et dur
 | `MdTwins` | deux tours identiques, dernier étage allumé, accolade commune | « le même… mais un autre », comparaison |
 | `MdFinal` | phrase construite ligne par ligne + mot final géant en vert | chute / dernière phrase |
 
+## Motion design : `src/scenes/Objects.tsx` (Robin 04 v2, scènes bâties autour d'un visuel)
+
+| Scène | Procédé (référence) | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdEurope` | collage éditorial sur papier, découpe à bord blanc, titre en bloc noir rayé d'un scotch vert, dézoom + cercle d'étoiles (6177) | `eiffel.png` | pas X mais Y, élargir |
+| `MdBust` | objet qui monte du flou dans un halo, flèche pointillée, le détail vert s'allume + onde (96c1) | `bust_lime.png` | tête, idée imposée, conditionnement |
+| `MdDomino` | dominos étiquetés qui tombent l'un après l'autre, compteur qui roule, objet qui tombe avec secousse et poussière (082a) | `vest.png` | enchaînement, accumulation, durée |
+| `MdTV` | TV vintage qui s'allume (trait CRT), bandeau d'info défilant, vibration de chaleur (082a) | `tv.png` | actualité, « en ce moment », c'est chaud |
+| `MdLock` | objet suspendu à une chaîne qui se balance sous un projecteur, étiquettes qui pendent, monument qui monte derrière, fondu final | `padlock.png`, `eiffel.png` | attache, ce qui compte, fin |
+
+Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `BlockTitle` (titre en bloc de couleur).
+
+## Motion design : `src/scenes/Growth.tsx` (Robin 05, business / croissance)
+
+| Scène | Procédé | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdGauge` | fond studio clair, compteur qui tombe, aiguille verte qui grimpe pendant que le chiffre défile, pastille durée | `gauge.png` | chiffre qui monte, croissance, vitesse |
+| `MdJar` | sol noir brillant avec reflet, pluie de gélules qui s'entassent, gélules-étiquettes qui jaillissent du pot | `jar.png` | produit, ce qu'il rapporte |
+| `ZoomWord` | texte seul : le mot grossit jusqu'à remplir l'écran, fond qui bascule au vert | — | énorme, choc |
+| `MdVitrine` | objet rare sous cloche de musée, cartel qui pivote (A → B), écho de l'autre intervenant | `unicorn.png` | rare, inhabituel, comparaison de pays |
+| `MdCart` | piste en perspective qui défile, objet qui déboule et freine, colis qui tombent dedans | `cart.png` | e-commerce, achat, vente |
+
+## Motion design : `src/scenes/Simple.tsx` (Robin 06, simplicité)
+
+| Scène | Procédé | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdOverload` | objet surchargé, cotes techniques qui envahissent l'écran, étiquettes reliées à l'objet par des repères verts | `remote_complex.png` | complexité, trop de choses |
+| `MdReceipt` | ticket de caisse qui sort d'une imprimante, lignes « + … » | — | liste de bénéfices attendus |
+| `TxFlip` | texte seul : la phrase se retourne à 180°, le fond bascule | — | « tout le contraire » |
+| `TxQuote` | texte seul : fond vert, grands guillemets, citation mot à mot | — | citation |
+| `MdStrip` | l'objet complexe tremble, ses boutons volent en éclats, son jumeau simple apparaît, onde sur le bouton | `remote_complex.png`, `remote_simple.png` | simplifier, avant / après |
+| `MdMaze` | curseur qui erre dans un labyrinthe, qui devient une ligne droite verte | `cursor.png` | parcours, UX, simplifier un chemin |
+| `MdPress` | final : l'objet monte, on appuie sur le bouton, ondes vertes, fondu | `remote_simple.png` | conclusion, l'essentiel |
+
+## Motion design : `src/scenes/Rant.tsx` (Robin 04 v1, remplacé — procédés jugés trop proches de Robin 02)
+
+| Scène | Procédé | Pour dire… |
+|---|---|---|
+| `MdChain` | étiquettes reliées en chaîne verticale + durée + mot final en pavé vert | « mis bout à bout », accumulation |
+| `MdNews` | téléphone qui monte, notification d'alerte sur l'écran de verrouillage | actualité, « en ce moment » |
+| `MdRoots` | point central + branches vers des étiquettes + objet détouré, fondu au noir final | attaches, ce qui compte, fin |
+
 ## Texte seul (Poppins SemiBold)
 
 | Composant | Procédé (référence) |
 |---|---|
 | `WordFlash` | un mot par temps fort, le fond bascule clair / vert / noir, poussières (2a9c) |
 | `GhostWords` | ligne centrée + mot fantôme géant qui dérive (0b99) |
-| `StackList` | liste qui s'empile, les termes précédents s'atténuent |
+| `StackList` | liste qui s'empile, les termes précédents s'atténuent (`size` pour les termes longs) |
 | `Stamps` | voir plus haut |
 
 ## Briques

@@ -50,7 +50,7 @@ export const GhostWords: React.FC<{ beats: { at: number; text: string; ghost: st
 };
 
 /** 43.2–46.2 s — stacked list: each term slides out of a mask, previous ones dim. Poppins SemiBold. */
-export const StackList: React.FC<{ head: { at: number; text: string }; items: { at: number; text: string; accent?: boolean }[] }> = ({ head, items }) => {
+export const StackList: React.FC<{ head: { at: number; text: string }; items: { at: number; text: string; accent?: boolean }[]; size?: number }> = ({ head, items, size = 150 }) => {
   const at = useAt();
   const f = useCurrentFrame();
   const hp = prog(f, at(head.at) - 1, at(head.at) + 7);
@@ -63,12 +63,13 @@ export const StackList: React.FC<{ head: { at: number; text: string }; items: { 
         const p = prog(f, a, a + 9, easeOut);
         const dim = k < lastIdx ? 0.32 : 1;
         return (
-          <div key={k} style={{ overflow: "hidden", height: 170 }}>
+          <div key={k} style={{ overflow: "hidden", height: size * 1.14 }}>
             <div
               style={{
                 fontFamily: POP,
                 fontWeight: 600,
-                fontSize: 150,
+                fontSize: size,
+                whiteSpace: "nowrap",
                 lineHeight: 1.1,
                 letterSpacing: "-0.055em",
                 color: it.accent ? C.lime : "#F4F4F2",
