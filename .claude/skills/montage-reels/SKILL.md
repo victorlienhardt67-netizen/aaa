@@ -47,6 +47,7 @@ Première fois : `cd template && bash tools/setup.sh`.
    - Repérer qui parle.
 2. **Produire le master 1080×1920** dans `public/media/` :
    - face caméra 9:16 avec un bandeau incrusté → `tools/clean_facecam.py` (inpainting + léger recadrage ; régler `Y0`) ;
+   - face caméra 9:16 avec bandeau-titre **et/ou** sous-titres mot à mot au milieu de l'image → `tools/clean_overlays.py src dst --box x0,y0,x1,y1 --band y0,y1` (coordonnées source), puis `lowerShade: true` dans la config pour fondre la zone réparée sous les sous-titres ;
    - podcast 16:9 multi-caméra → `python3 -I tools/shots.py src.mp4 shots/` pour lister les plans et poser une image par plan avec repères de 10 %. Écrire `src/edit/<reel>.shots.json` (centre `x` du visage par plan, `"stack": true` pour les écrans partagés), puis lancer `tools/reframe.py`.
    - Ne jamais abîmer le visage. Signaler tout défaut résiduel.
 3. **Transcrire mot à mot.**
