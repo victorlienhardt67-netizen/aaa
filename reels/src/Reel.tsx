@@ -20,6 +20,7 @@ export type ReelConfig = {
   scenes: Scene[];
   face: { x: number; y: number }; // zoom anchor in the 1080×1920 master
   topShade?: boolean; // darken a repaired top band
+  lowerShade?: boolean; // darken the lower third where a burned-in banner was repaired (captions sit there)
 };
 
 /** Build a reel composition from its config. */
@@ -93,6 +94,7 @@ export const makeReel = (cfg: ReelConfig) => {
             )}
           </AbsoluteFill>
           {cfg.topShade ? <TopShade /> : null}
+          {cfg.lowerShade ? <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 52%, rgba(0,0,0,.72) 66%, rgba(0,0,0,.78) 100%)" }} /> : null}
         </AbsoluteFill>
         {s.extra}
         <AbsoluteFill style={{ opacity: 1 - fadeOut }}>

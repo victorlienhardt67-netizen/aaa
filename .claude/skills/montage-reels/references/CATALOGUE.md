@@ -101,6 +101,13 @@ Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `Bloc
 | `MdLoupe` | deux tirages photo sur béton, une loupe grossit le détail de l'un puis de l'autre, ellipse verte qui les réunit | `loupe.png`, `tower_marina.png` | comparer deux choses presque identiques |
 | `MdLightsOut` | tour de nuit, recul de caméra, la lumière du dernier étage vacille et s'éteint sur le mot final | `tower_marina.png` | malaise, fin d'un chapitre, chute |
 
+## Motion design : `src/scenes/Sales.tsx` (Robin 08, « l'anti-vente »)
+
+| Scène | Procédé | Visuel | Pour dire… |
+|---|---|---|---|
+| `MdTvCta` | une vidéo joue sur une TV jusqu'au bout, un appel à l'action vert s'abat sur l'écran, puis tout chute (gravité, débris, secousse) | `tv.png` | vente forcée, « à la fin », effondrement |
+| `MdFlock` | une foule de curseurs gris dérive dans le même sens ; un seul s'allume en vert et part à contre-courant | `cursor.png` | comme tout le monde / à contre-courant, se démarquer |
+
 ## Texte seul (Poppins SemiBold)
 
 | Composant | Procédé (référence) |
@@ -111,6 +118,8 @@ Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `Bloc
 | `Stamps` | voir plus haut |
 | `TxMarker` | phrase posée, les mots clés passent sous un trait de surligneur vert (Marina.tsx) |
 | `TxSqueeze` | deux mâchoires vertes compriment les mots (Marina.tsx) |
+| `TxCompound` | un mot se répète en grossissant de façon exponentielle, la dernière copie en vert (Sales.tsx) |
+| `TxAnti` | un préfixe en pavé vert s'abat devant le mot et le pousse, puis la phrase de fin (Sales.tsx) |
 
 ## Briques
 

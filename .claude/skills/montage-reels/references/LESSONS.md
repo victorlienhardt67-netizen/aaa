@@ -17,3 +17,4 @@ Ajouter une ligne datée à chaque nouveau retour.
 - **29/10, Robin 05 (podcast « 2,5 millions par mois »)** : en attente de retour.
 - **30/10, Robin 06 (« la simplicité ultime »)** : en attente de retour.
 - **30/10, Robin 07 (podcast « Marina, 5 ans plus tard »)** : en attente de retour.
+- **31/10, Robin 08 (« l'anti-vente »)** : en attente de retour. Aucun visuel généré (crédits ElevenLabs épuisés) : objets de la bibliothèque (tv, cursor) réutilisés avec des procédés nouveaux.
