@@ -5,7 +5,7 @@ import { clamp, easeOut, prog } from "./lib/anim";
 import { C } from "./lib/tokens";
 import { Keep, makeClock } from "./edit/cut";
 import { ClockProvider, useAt } from "./edit/clock";
-import { Captions, buildCaptions } from "./components/Captions";
+import { CapTheme, CapThemeProvider, Captions, DEFAULT_CAP_THEME, buildCaptions } from "./components/Captions";
 import { DarkGridBg } from "./components/Backgrounds";
 import { TopShade, shrinkCard, useFaceTransform } from "./scenes/FaceCam";
 import type { Word } from "./edit/cut";
@@ -20,6 +20,7 @@ export type ReelConfig = {
   scenes: Scene[];
   face: { x: number; y: number }; // zoom anchor in the 1080×1920 master
   topShade?: boolean; // darken a repaired top band
+  capTheme?: CapTheme; // per-reel caption look (default: validated art direction)
   lowerShade?: boolean; // darken the lower third where a burned-in banner was repaired (captions sit there)
 };
 
@@ -98,7 +99,9 @@ export const makeReel = (cfg: ReelConfig) => {
         </AbsoluteFill>
         {s.extra}
         <AbsoluteFill style={{ opacity: 1 - fadeOut }}>
-          <Captions groups={groups} y={card.k > 0.5 ? 1500 : s.capY ?? 1240} />
+          <CapThemeProvider value={cfg.capTheme ?? DEFAULT_CAP_THEME}>
+            <Captions groups={groups} y={card.k > 0.5 ? 1500 : s.capY ?? 1240} />
+          </CapThemeProvider>
         </AbsoluteFill>
         <AbsoluteFill style={{ backgroundColor: "#000", opacity: fadeOut }} />
       </AbsoluteFill>

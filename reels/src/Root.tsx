@@ -10,6 +10,7 @@ import { ROBIN05 } from "./edit/robin05";
 import { ROBIN06 } from "./edit/robin06";
 import { ROBIN07 } from "./edit/robin07";
 import { ROBIN08 } from "./edit/robin08";
+import { RAVITO } from "./edit/ravito";
 
 const handle = delayRender("fonts");
 fontsReady.then(() => continueRender(handle));
@@ -22,6 +23,7 @@ const reels = [
   { id: "Robin06", ...makeReel(ROBIN06) },
   { id: "Robin07", ...makeReel(ROBIN07) },
   { id: "Robin08", ...makeReel(ROBIN08) },
+  { id: "Ravito", ...makeReel(RAVITO) },
 ];
 
 export const Root: React.FC = () => (

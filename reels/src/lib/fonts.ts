@@ -14,6 +14,10 @@ const faces: [string, string, string, string][] = [
   [SF, "fonts/Inter-SemiBold.otf", "600", "normal"],
   [POP, "fonts/Poppins-600.ttf", "600", "normal"],
   [POP, "fonts/Poppins-600i.ttf", "600", "italic"],
+  // per-reel themes (Bistrot Ravito)
+  ["Fraunces", "fonts/Fraunces-900.ttf", "900", "normal"],
+  ["Caveat", "fonts/Caveat-700.ttf", "700", "normal"],
+  ["ArchivoBlack", "fonts/ArchivoBlack.ttf", "400", "normal"],
 ];
 
 export const fontsReady = Promise.all(

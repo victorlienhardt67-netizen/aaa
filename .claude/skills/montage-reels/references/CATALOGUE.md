@@ -108,6 +108,22 @@ Briques : `PaperBg`, `ConcreteBg`, `HaloBg` (fonds texturés sans grille), `Bloc
 | `MdTvCta` | une vidéo joue sur une TV jusqu'au bout, un appel à l'action vert s'abat sur l'écran, puis tout chute (gravité, débris, secousse) | `tv.png` | vente forcée, « à la fin », effondrement |
 | `MdFlock` | une foule de curseurs gris dérive dans le même sens ; un seul s'allume en vert et part à contre-courant | `cursor.png` | comme tout le monde / à contre-courant, se démarquer |
 
+## Motion design : `src/scenes/Bistro.tsx` (Ravito — DA ponctuelle « bistrot », réf. 082a)
+
+Fonds tactiles : `WoodBg`, `VichyBg`, `MatBg` (tapis de découpe vert), `MarbleBg`, `SteelBg`. Titres `Extruded` (Archivo Black extrudé), écriture `Hand` (Caveat), traits de stylo `Pen`.
+
+| Scène | Procédé | Pour dire… |
+|---|---|---|
+| `BcCalendar` | éphéméride qui tombe sur une table, la page de la veille s'arrache | une date |
+| `BcPlate` | carte barrée au stylo sur nappe vichy, puis l'assiette (détourée de son rush) s'abat | « pas ça… mais ça » |
+| `BcDM` | bulles de DM qui s'entassent sur un tapis de découpe, balayées par une pancarte « OUVERT » qui se balance | trop de messages → décision |
+| `BcMenu` | sa carte de menu posée sur la table, la caméra plonge, les plats sont entourés au stylo | menu, liste de produits |
+| `BcDrinks` | carte des boissons bordeaux sur comptoir en marbre + polaroid tiré du rush | boissons, accompagnement |
+| `BcTickets` | tickets de commande qui glissent sur un passe-plat en inox | choix par profil |
+| `BcBill` | l'addition sur une soucoupe, tampon « GRATUIT » | prix, gratuité |
+| `BcReserve` | chevalet « RÉSERVÉ » qui pivote pour révéler l'appel à commenter | CTA final |
+| `Awning` | store rayé de bistrot qui descend sur le haut de la face caméra (cache un bandeau effacé) | ouverture |
+
 ## Texte seul (Poppins SemiBold)
 
 | Composant | Procédé (référence) |
