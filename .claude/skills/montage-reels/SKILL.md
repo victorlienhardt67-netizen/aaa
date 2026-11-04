@@ -54,6 +54,7 @@ Première fois : `cd template && bash tools/setup.sh`.
    - Extraire l'audio en mp3 (`ffmpeg -i rush.mp4 -ac 1 -ar 16000 -b:a 96k a.mp3`).
    - ElevenLabs : `creative_create_asset_upload` → PUT du fichier → `creative_finalize_asset_upload` (avec `flow_id`) → `creative_transcribe_audio` (`eleven_scribe_v1`) → télécharger `words_download_url`.
    - Convertir : `tools/scribe_to_words.py raw.json src/edit/<reel>.words.json`.
+   - **Obligatoire ensuite** : `python3 -I tools/refine_ends.py public/media/<master>.mp4 src/edit/<reel>.words.json`. La transcription marque souvent la fin d'un mot trop tôt ; sans cette étape, le resserrage des silences coupe la dernière syllabe avant une pause (retour du 04/11). Le script prolonge chaque fin de mot tant que le son est présent, et ne coupe pas une pause qui contient un son (rire, mot non transcrit, effet sonore).
    - Relire les mots douteux et les signaler à l'utilisateur (ex. « quarantièsepième » = « quarante-septième »).
 4. **Découper.** Dans `src/edit/<reel>.tsx` :
    - `DROP` = hésitations et faux départs (« euh », phrase reprise) ;
