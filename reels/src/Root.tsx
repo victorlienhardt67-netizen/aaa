@@ -14,6 +14,8 @@ import { RAVITO } from "./edit/ravito";
 import { KuhnReel, KUHN_FRAMES } from "./kuhn/KuhnReel";
 import { KuhnReel2, KUHN2_FRAMES } from "./kuhn/KuhnReel2";
 import { STILLS } from "./kuhn/Slides";
+import { LittleT1, LittleT2, LT1_FRAMES, LT2_FRAMES } from "./littlet/LittleT";
+import { LT_STILLS } from "./littlet/LittleTSlides";
 import { Still } from "remotion";
 
 const handle = delayRender("fonts");
@@ -37,6 +39,9 @@ export const Root: React.FC = () => (
     ))}
     <Composition id="Kuhn02" component={KuhnReel2} durationInFrames={KUHN2_FRAMES} fps={FPS} width={W} height={H} />
     {STILLS.map((s) => <Still key={s.id} id={s.id} component={s.c} width={1080} height={s.h} />)}
+    {LT_STILLS.map((s) => <Still key={s.id} id={s.id} component={s.c} width={1080} height={s.h} />)}
+    <Composition id="LittleT1" component={LittleT1} durationInFrames={LT1_FRAMES} fps={FPS} width={W} height={H} />
+    <Composition id="LittleT2" component={LittleT2} durationInFrames={LT2_FRAMES} fps={FPS} width={W} height={H} />
     <Composition id="Kuhn01" component={KuhnReel} durationInFrames={KUHN_FRAMES} fps={FPS} width={W} height={H} />
   </>
 );
