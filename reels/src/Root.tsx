@@ -11,6 +11,10 @@ import { ROBIN06 } from "./edit/robin06";
 import { ROBIN07 } from "./edit/robin07";
 import { ROBIN08 } from "./edit/robin08";
 import { RAVITO } from "./edit/ravito";
+import { KuhnReel, KUHN_FRAMES } from "./kuhn/KuhnReel";
+import { KuhnReel2, KUHN2_FRAMES } from "./kuhn/KuhnReel2";
+import { STILLS } from "./kuhn/Slides";
+import { Still } from "remotion";
 
 const handle = delayRender("fonts");
 fontsReady.then(() => continueRender(handle));
@@ -31,5 +35,8 @@ export const Root: React.FC = () => (
     {reels.map((r) => (
       <Composition key={r.id} id={r.id} component={r.Reel} durationInFrames={r.frames} fps={FPS} width={W} height={H} />
     ))}
+    <Composition id="Kuhn02" component={KuhnReel2} durationInFrames={KUHN2_FRAMES} fps={FPS} width={W} height={H} />
+    {STILLS.map((s) => <Still key={s.id} id={s.id} component={s.c} width={1080} height={s.h} />)}
+    <Composition id="Kuhn01" component={KuhnReel} durationInFrames={KUHN_FRAMES} fps={FPS} width={W} height={H} />
   </>
 );
