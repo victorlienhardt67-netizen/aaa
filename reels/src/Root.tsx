@@ -1,0 +1,47 @@
+import React from "react";
+import { Composition, continueRender, delayRender } from "remotion";
+import { fontsReady } from "./lib/fonts";
+import { FPS, H, W } from "./lib/tokens";
+import { makeReel } from "./Reel";
+import { REEL01 } from "./edit/reel01";
+import { ROBIN02 } from "./edit/robin02";
+import { ROBIN04 } from "./edit/robin04";
+import { ROBIN05 } from "./edit/robin05";
+import { ROBIN06 } from "./edit/robin06";
+import { ROBIN07 } from "./edit/robin07";
+import { ROBIN08 } from "./edit/robin08";
+import { RAVITO } from "./edit/ravito";
+import { KuhnReel, KUHN_FRAMES } from "./kuhn/KuhnReel";
+import { KuhnReel2, KUHN2_FRAMES } from "./kuhn/KuhnReel2";
+import { STILLS } from "./kuhn/Slides";
+import { LittleT1, LittleT2, LT1_FRAMES, LT2_FRAMES } from "./littlet/LittleT";
+import { LT_STILLS } from "./littlet/LittleTSlides";
+import { Still } from "remotion";
+
+const handle = delayRender("fonts");
+fontsReady.then(() => continueRender(handle));
+
+const reels = [
+  { id: "Reel01", ...makeReel(REEL01) },
+  { id: "Robin02", ...makeReel(ROBIN02) },
+  { id: "Robin04", ...makeReel(ROBIN04) },
+  { id: "Robin05", ...makeReel(ROBIN05) },
+  { id: "Robin06", ...makeReel(ROBIN06) },
+  { id: "Robin07", ...makeReel(ROBIN07) },
+  { id: "Robin08", ...makeReel(ROBIN08) },
+  { id: "Ravito", ...makeReel(RAVITO) },
+];
+
+export const Root: React.FC = () => (
+  <>
+    {reels.map((r) => (
+      <Composition key={r.id} id={r.id} component={r.Reel} durationInFrames={r.frames} fps={FPS} width={W} height={H} />
+    ))}
+    <Composition id="Kuhn02" component={KuhnReel2} durationInFrames={KUHN2_FRAMES} fps={FPS} width={W} height={H} />
+    {STILLS.map((s) => <Still key={s.id} id={s.id} component={s.c} width={1080} height={s.h} />)}
+    {LT_STILLS.map((s) => <Still key={s.id} id={s.id} component={s.c} width={1080} height={s.h} />)}
+    <Composition id="LittleT1" component={LittleT1} durationInFrames={LT1_FRAMES} fps={FPS} width={W} height={H} />
+    <Composition id="LittleT2" component={LittleT2} durationInFrames={LT2_FRAMES} fps={FPS} width={W} height={H} />
+    <Composition id="Kuhn01" component={KuhnReel} durationInFrames={KUHN_FRAMES} fps={FPS} width={W} height={H} />
+  </>
+);
